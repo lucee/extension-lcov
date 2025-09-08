@@ -10,13 +10,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function testAstCanCountSourceLines() {
 		var testCases = [
-			{content: "line1\nline2\nline3", expected: 3, desc: "normal content"},
-			{content: "", expected: 0, desc: "empty content"},
-			{content: "single line", expected: 1, desc: "single line"},
-			{content: "line1\n\nline3", expected: 3, desc: "empty line in middle"},
-			{content: "\nline2\nline3", expected: 3, desc: "empty first line"},
-			{content: "line1\nline2\n", expected: 2, desc: "trailing newline"},
-			{content: "\r\nline2\r\nline3", expected: 3, desc: "windows line endings"}
+			{content: ["line1", "line2", "line3"], expected: 3, desc: "normal content"},
+			{content: [""], expected: 0, desc: "empty content"},
+			{content: ["single line"], expected: 1, desc: "single line"},
+			{content: ["line1", "", "line3"], expected: 2, desc: "empty line in middle"},
+			{content: ["", "line2", "line3"], expected: 2, desc: "empty first line"},
+			{content: ["line1", "line2", ""], expected: 2, desc: "trailing newline"},
+			{content: ["", "line2", "line3"], expected: 2, desc: "windows line endings"},
+			{content: ["", "// line2", "// line3"], expected: 0, desc: "commented lines"}
 		];
 		
 		for (var testCase in testCases) {

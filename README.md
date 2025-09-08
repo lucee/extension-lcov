@@ -10,6 +10,7 @@ This extension provides LCOV code coverage reporting capabilities for Lucee CFML
 - Support for multiple time unit displays (seconds, milliseconds, microseconds, nanoseconds)
 - AST-based source code analysis for accurate line counting
 - Coverage statistics and reporting utilities
+- Can handle processing large logs from a single test suite execution run
 
 ## VS Code 
 
@@ -45,7 +46,7 @@ Install the extension through the Lucee Administrator or deploy the .lex file ma
 
 ## Requirements
 
-- Lucee 7.0.0.211-BETA or higher
+- Lucee 7.0.0.372-SNAPSHOT or higher
 - Java 11+
 
 ## License

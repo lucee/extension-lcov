@@ -2,7 +2,7 @@ cls
 SET JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-11.0.25.9-hotspot
 call mvn package
 set testLabels=lcov
-set testFilter=generatehtml
+set testFilter=
 set LUCEE_LOGGING_FORCE_APPENDER=console
 set LUCEE_LOGGING_FORCE_LEVEL=info
 set LUCEE_BUILD_ENV=

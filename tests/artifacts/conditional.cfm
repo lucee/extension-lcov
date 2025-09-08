@@ -7,6 +7,7 @@
 	} else if (value == "other") {
 		systemOutput("Other branch executed", true);
 	} else {
+		sleep(7); // simulate some processing time
 		systemOutput("Default branch executed", true);
 	}
 	

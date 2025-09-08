@@ -52,7 +52,7 @@ component {
 					<strong>Coverage Summary:</strong> ' & totalLinesHit & ' of ' & totalLinesFound & ' lines covered (' & coveragePercent & '%)
 				</div>
 			</div>
-			<a href="index.html" class="back-link">← Back to Index</a>
+			<a href="index.html" class="back-link">Back to Index</a>
 			<p class="file-links"><strong>Log Files:</strong> <a href="'
 				& encodeForHtmlAttribute(arguments.result.exeLog) & '" target="_blank" class="file-link">'
 				& encodeForHtml(listLast(arguments.result.exeLog, "/\\"))
@@ -137,7 +137,7 @@ component {
 			var execCount = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 ? numberFormat( lineData[ 1 ] ) : "";
 			var rawExecTime = ( len >= 2 && lineData[ 2 ] ?: 0 ) > 0 ? lineData[ 2 ] : 0;
 			var execTime = convertTimeUnit(rawExecTime, "μs", variables.displayUnit);
-			var execTime = execTime.time & " " & execTime.unit;
+			var execTime = (execTime.time == -1) ? "" : ( execTime.time & " " & execTime.unit);
 
 			// Calculate color intensities (0-255) based on relative values
 			var countIntensity = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 && maxCount > 0 ?
@@ -298,13 +298,17 @@ component {
 	* Returns unit information for display
 	*/
 	public function getUnitInfo(string unit) {
-		var units = {
+		var units = getUnits();
+		return structKeyExists(units, arguments.unit) ? units[arguments.unit] : units["micro"];
+	}
+
+	public function getUnits(){
+		return {
 			"seconds": { symbol: "s", name: "seconds" },
 			"milli": { symbol: "ms", name: "milliseconds" },
 			"micro": { symbol: "μs", name: "microseconds" },
 			"nano": { symbol: "ns", name: "nanoseconds" }
 		};
-		return structKeyExists(units, arguments.unit) ? units[arguments.unit] : units["micro"];
 	}
 
 	/**
@@ -332,7 +336,7 @@ component {
 		var targetFactor = structKeyExists(toMicros, arguments.toUnit.symbol) ? toMicros[arguments.toUnit.symbol] : 1;
 
 		return {
-			time: int(numberFormat(micros / targetFactor)),
+			time: numberFormat( int( micros / targetFactor ) ),
 			unit: arguments.toUnit.symbol
 		};
 	}
