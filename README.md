@@ -46,7 +46,7 @@ codeCoverageReporter = new lucee.extension.lcov.exeLogger();
 exeLogger.enableExecutionLog(
   class = "lucee.runtime.engine.ResourceExecutionLog",
   args = {
-    "unit": "micro"
+    "unit": "milli"
     , "min-time": 0
     , "directory": codeCoverageDir
   },
