@@ -10,7 +10,7 @@ component {
 	* Constructor/init function
 	*/
 	public codeCoverageHtmlWriter function init(string displayUnit = "micro") {
-		variables.displayUnit = arguments.displayUnit;
+		variables.displayUnit = getUnitInfo(arguments.displayUnit);
 		return this;
 	}
 
@@ -19,14 +19,12 @@ component {
 	*/
 	public string function generateHtmlContent(struct result) {
 		var scriptName = result.metadata["script-name"];
-		var executionTime = result.metadata["execution-time"] ?: "N/A";
 		var originalUnit = result.metadata["unit"] ?: "μs";
 		
 		// Convert execution time and get display unit info
-		var convertedTime = convertTimeUnit(executionTime, originalUnit, variables.displayUnit);
-		var displayUnitInfo = getUnitInfo(variables.displayUnit);
-		
-		var formattedExecutionTime = numberFormat(convertedTime);
+		var executionTime = result.metadata["execution-time"] ?: "N/A";
+		var executionTime = convertTimeUnit(executionTime, originalUnit, variables.displayUnit);
+
 		var fileCoverageJson = replace(arguments.result.exeLog, ".exl", "-fileCoverage.json");
 		
 		// Calculate total coverage summary
@@ -47,7 +45,8 @@ component {
 			<div class="header-section">
 				<h2 class="report-type">Lucee Code Coverage Report</h2>
 				<h1>' & encodeForHtml(scriptName) & ' <span style="color: ##666; font-size: 0.7em;">('
-					& encodeForHtml(formattedExecutionTime) & ' ' & encodeForHtml(displayUnitInfo.symbol) & ')</span></h1>
+					& encodeForHtml(executionTime.time) 
+					& ' ' & encodeForHtml(executionTime.unit) & ')</span></h1>
 				<div class="timestamp">Generated: ' & lsDateTimeFormat(now()) & '</div>
 				<div class="coverage-summary">
 					<strong>Coverage Summary:</strong> ' & totalLinesHit & ' of ' & totalLinesFound & ' lines covered (' & coveragePercent & '%)
@@ -77,8 +76,6 @@ component {
 	* Generates HTML section for a single file showing covered lines
 	*/
 	private string function generateFileSection( string filePath, struct result ) {
-		// Get display unit info for this function
-		var displayUnitInfo = getUnitInfo(variables.displayUnit);
 		
 		// Create VS Code link for the file
 		var vscodeLink = "vscode://file/" & replace( arguments.filePath, "\", "/", "all" );
@@ -95,28 +92,24 @@ component {
 			</div>
 			<div class="file-content">';
 
-		
 		var totalExecutions = arguments.result.stats.totalExecutions;
-		var totalExecutionTime = arguments.result.stats.totalExecutionTime;
+		var totalExecution = convertTimeUnit(arguments.result.stats.totalExecutionTime, "μs", variables.displayUnit);
 		var stats = arguments.result.stats.files[ arguments.filePath ];
 		
-		// Generate stats with actual execution time when available
-		var convertedTotalTime = convertTimeUnit(totalExecutionTime, "μs", variables.displayUnit);
-		var timeDisplay = totalExecutionTime > 0 ? numberFormat( convertedTotalTime ) & " " & displayUnitInfo.symbol : "N/A " & displayUnitInfo.symbol;
+		var timeDisplay = totalExecution.time & " " & totalExecution.unit;
 		html &= '<div class="stats">
-			<strong>Executions:</strong> ' & numberFormat(totalExecutions) & ' |
+			<strong>Executions:</strong> ' & totalExecutions & ' |
 			<strong>Total Execution Time:</strong> ' & timeDisplay & ' |
 			<strong>Lines Covered:</strong> ' & stats.linesHit & ' of ' & stats.linesFound & '
 		</div>';
 
-		// Create table with headers
 		html &= '<table class="code-table">
 			<thead>
 				<tr>
 					<th class="line-number">Line</th>
 					<th class="code-cell">Code</th>
 					<th class="exec-count">Count</th>
-					<th class="exec-time">Time (' & displayUnitInfo.symbol & ')</th>
+					<th class="exec-time">Time (' & displayUnit.symbol & ')</th>
 				</tr>
 			</thead>
 			<tbody>';
@@ -143,8 +136,8 @@ component {
 			var rowClass = len > 0 ? "executed" : "";
 			var execCount = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 ? numberFormat( lineData[ 1 ] ) : "";
 			var rawExecTime = ( len >= 2 && lineData[ 2 ] ?: 0 ) > 0 ? lineData[ 2 ] : 0;
-			var convertedExecTime = convertTimeUnit(rawExecTime, "μs", variables.displayUnit);
-			var execTime = rawExecTime > 0 ? numberFormat( convertedExecTime ) : "";
+			var execTime = convertTimeUnit(rawExecTime, "μs", variables.displayUnit);
+			var execTime = execTime.time & " " & execTime.unit;
 
 			// Calculate color intensities (0-255) based on relative values
 			var countIntensity = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 && maxCount > 0 ?
@@ -304,7 +297,7 @@ component {
 	/**
 	* Returns unit information for display
 	*/
-	private public function getUnitInfo(string unit) {
+	public function getUnitInfo(string unit) {
 		var units = {
 			"seconds": { symbol: "s", name: "seconds" },
 			"milli": { symbol: "ms", name: "milliseconds" },
@@ -317,9 +310,9 @@ component {
 	/**
 	* Converts time between different units
 	*/
-	public numeric function convertTimeUnit(numeric value, string fromUnit, string toUnit) {
+	public struct function convertTimeUnit(numeric value, string fromUnit, struct toUnit) {
 		if (!isNumeric(arguments.value) || arguments.value == 0) {
-			return 0;
+			return { time: -1, unit: toUnit.symbol };
 		}
 		
 		// Conversion factors to microseconds (base unit)
@@ -336,9 +329,12 @@ component {
 		
 		// Convert to microseconds first, then to target unit
 		var micros = arguments.value * (structKeyExists(toMicros, arguments.fromUnit) ? toMicros[arguments.fromUnit] : 1);
-		var targetFactor = structKeyExists(toMicros, arguments.toUnit) ? toMicros[arguments.toUnit] : 1;
-		
-		return micros / targetFactor;
+		var targetFactor = structKeyExists(toMicros, arguments.toUnit.symbol) ? toMicros[arguments.toUnit.symbol] : 1;
+
+		return {
+			time: int(numberFormat(micros / targetFactor)),
+			unit: arguments.toUnit.symbol
+		};
 	}
 
 }

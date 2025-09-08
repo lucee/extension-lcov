@@ -11,6 +11,11 @@ This extension provides LCOV code coverage reporting capabilities for Lucee CFML
 - AST-based source code analysis for accurate line counting
 - Coverage statistics and reporting utilities
 
+## VS Code 
+
+The LCOV files produced by this extension can be visualised in VSCODE
+https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
+
 ## Components
 
 ### Core Components
