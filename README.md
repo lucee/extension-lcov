@@ -41,6 +41,9 @@ https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gu
 The extension components are automatically available once installed. Use them in your CFML code like:
 
 ```cfml
+
+codeCoverageDir = ""/path/to/resourceExecutionlogs";
+
 // Enable Execution Logging
 codeCoverageReporter = new lucee.extension.lcov.exeLogger();
 exeLogger.enableExecutionLog(
@@ -51,7 +54,7 @@ exeLogger.enableExecutionLog(
     , "directory": codeCoverageDir
   },
   maxlogs = 0
-);
+); // Enables Lucee to produce execution log files, *.exl
 
 // Runs tests or whatever you like
 
@@ -65,8 +68,12 @@ allowList = [];
 // Create a coverage reporter instance
 codeCoverageReporter = new lucee.extension.lcov.codeCoverageReporter();
 // Generate reports from .exl files
-generateCodeCoverage( coverageDir="/path/to/resourceExecutionlogs", outputFile="/path/to/LCOV.info",
-			generateHtml=true, allowList=allowList, blocklist=blocklist, displayUnit="milli" )
+generateCodeCoverage( coverageDir=codeCoverageDir,
+	outputFile="/path/to/LCOV.info",
+	generateHtml=true,
+	allowList=allowList,
+	blocklist=blocklist,
+	displayUnit="milli" );
 ```
 
 [Examples](examples/coverage.cfm)
