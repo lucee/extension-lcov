@@ -20,10 +20,10 @@
 	
 	/* Coverage status colors - light mode */
 	--executed-bg: #c3e6c3;
-	--not-executed-bg: #ffcccc;
+	--not-executed-bg: white;
 	--non-executable-bg: #d0d0d0;
 	--executed-text: #2d5a2d;
-	--not-executed-text: #8b0000;
+	--not-executed-text: black;
 	--non-executable-text: #555;
 	
 	/* Heatmap color variables - light mode */
@@ -35,9 +35,9 @@
 	--heatmap-time-high: #0066cc;
 }
 
-/* Dark mode CSS variables */
+/* Dark mode CSS variables for system preference */
 @media (prefers-color-scheme: dark) {
-	:root {
+	body:not(.dark-mode):not(.light-mode) {
 		/* Base colors - dark mode */
 		--bg-color: #1a1a1a;
 		--text-color: #e0e0e0;
@@ -58,10 +58,10 @@
 		
 		/* Coverage status colors - dark mode */
 		--executed-bg: #2d5a2d;
-		--not-executed-bg: #5a2d2d;
+		--not-executed-bg: #1a1a1a;
 		--non-executable-bg: #404040;
 		--executed-text: #90ee90;
-		--not-executed-text: #ff6666;
+		--not-executed-text: #e0e0e0;
 		--non-executable-text: #ccc;
 		
 		/* Heatmap color variables - dark mode */
@@ -72,6 +72,43 @@
 		--heatmap-time-medium: #3366cc;
 		--heatmap-time-high: #6699ff;
 	}
+}
+
+/* Manual light mode (overrides system preference) */
+body.light-mode {
+	/* Explicitly use light mode colors */
+	--bg-color: white;
+	--text-color: #333;
+	--border-color: #ddd;
+	--link-color: #0066cc;
+	--link-hover-color: #0052a3;
+	--header-bg: #f8f9fa;
+	--header-border: #dee2e6;
+	--table-header-bg: #f8f9fa;
+	--table-header-text: #495057;
+	--table-row-even: #f8f9fa;
+	--table-border: #dee2e6;
+	--button-bg: #007bff;
+	--button-text: white;
+	--button-border: #007bff;
+	--button-hover-bg: #0056b3;
+	--button-hover-border: #004085;
+	
+	/* Coverage status colors - light mode */
+	--executed-bg: #c3e6c3;
+	--not-executed-bg: white;
+	--non-executable-bg: #d0d0d0;
+	--executed-text: #2d5a2d;
+	--not-executed-text: black;
+	--non-executable-text: #555;
+	
+	/* Heatmap color variables - light mode */
+	--heatmap-count-low: #ffcccc;
+	--heatmap-count-medium: #ff9999;
+	--heatmap-count-high: #cc0000;
+	--heatmap-time-low: #e6f3ff;
+	--heatmap-time-medium: #99d6ff;
+	--heatmap-time-high: #0066cc;
 }
 
 /* Manual dark mode toggle */
@@ -96,10 +133,10 @@ body.dark-mode {
 	
 	/* Coverage status colors - dark mode */
 	--executed-bg: #2d5a2d;
-	--not-executed-bg: #5a2d2d;
+	--not-executed-bg: #1a1a1a;
 	--non-executable-bg: #404040;
 	--executed-text: #90ee90;
-	--not-executed-text: #ff6666;
+	--not-executed-text: #e0e0e0;
 	--non-executable-text: #ccc;
 	
 	/* Heatmap color variables - dark mode */
@@ -122,11 +159,17 @@ body {
 	transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+.container {
+	max-width: 1400px;
+	margin: 0 auto;
+}
+
 h1 {
 	color: var(--text-color);
 	border-bottom: 2px solid var(--border-color);
 	padding-bottom: 10px;
 	margin-bottom: 30px;
+	margin-top: 10px;
 }
 
 h2 {
@@ -135,10 +178,24 @@ h2 {
 	margin-bottom: 15px;
 }
 
+.report-type {
+	color: var(--non-executable-text);
+	font-size: 0.9em;
+	margin: 0 0 5px 0;
+	font-weight: normal;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
 h3 {
 	color: var(--text-color);
 	margin-top: 25px;
 	margin-bottom: 10px;
+}
+
+.file-header h3 {
+	margin: 0;
+	padding: 0;
 }
 
 .summary {
@@ -194,14 +251,9 @@ h3 {
 	width: auto;
 }
 
-.legend-color-box {
-	width: 30px;
-	border: 1px solid var(--border-color);
-}
-
 .legend-description {
 	border: none;
-	padding-left: 10px;
+	padding: 8px 12px;
 }
 
 .file-path-subtitle {
@@ -269,12 +321,13 @@ tbody tr:nth-child(even) {
 }
 
 .file-link {
-	color: var(--link-color);
+	color: var(--non-executable-text);
 	text-decoration: none;
+	font-family: monospace;
 }
 
 .file-link:hover {
-	color: var(--link-hover-color);
+	color: var(--link-color);
 	text-decoration: underline;
 }
 
@@ -283,11 +336,26 @@ tbody tr:nth-child(even) {
 }
 
 .file-header {
-	background-color: var(--header-bg);
+	background-color: var(--link-color);
+	color: white;
 	border: 1px solid var(--header-border);
 	border-radius: 5px 5px 0 0;
 	padding: 10px 15px;
 	margin-bottom: 0;
+	cursor: pointer;
+}
+
+.file-header:hover {
+	background-color: var(--link-hover-color);
+}
+
+.file-header a {
+	color: white;
+	text-decoration: none;
+}
+
+.file-header a:hover {
+	text-decoration: underline;
 }
 
 .code-table {
@@ -297,6 +365,22 @@ tbody tr:nth-child(even) {
 	font-size: 14px;
 	margin-top: 0;
 	border-radius: 0 0 5px 5px;
+	line-height: 1.2;
+}
+
+.code-table th {
+	background: var(--table-header-bg);
+	padding: 8px;
+	text-align: left;
+	border-bottom: 2px solid var(--table-border);
+	font-weight: bold;
+}
+
+.code-table td {
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--table-border);
+	white-space: pre-wrap;
+	vertical-align: top;
 }
 
 .code-table .line-number {
@@ -316,6 +400,12 @@ tbody tr:nth-child(even) {
 	color: var(--text-color);
 }
 
+.code-table .code-cell {
+	font-family: 'Courier New', Courier, monospace;
+	white-space: pre;
+	line-height: 1.2;
+}
+
 .code-table .executed {
 	background-color: var(--executed-bg);
 	color: var(--executed-text);
@@ -331,8 +421,9 @@ tbody tr:nth-child(even) {
 	color: var(--non-executable-text);
 }
 
+
 .exec-count, .exec-time {
-	text-align: center;
+	text-align: right;
 	font-weight: bold;
 	font-size: 12px;
 	padding: 2px 5px;
@@ -340,7 +431,7 @@ tbody tr:nth-child(even) {
 }
 
 .dark-mode-toggle {
-	position: fixed;
+	position: absolute;
 	top: 20px;
 	right: 20px;
 	background-color: var(--button-bg);
@@ -350,13 +441,65 @@ tbody tr:nth-child(even) {
 	padding: 10px 15px;
 	cursor: pointer;
 	font-size: 16px;
-	z-index: 1000;
 	transition: background-color 0.3s ease;
 }
 
 .dark-mode-toggle:hover {
 	background-color: var(--button-hover-bg);
 	border-color: var(--button-hover-border);
+}
+
+/* Additional styles for coverage report */
+.header-section {
+	margin-bottom: 20px;
+	border-bottom: 2px solid var(--link-color);
+	padding-bottom: 15px;
+}
+
+.timestamp {
+	color: var(--non-executable-text);
+	font-size: 0.85em;
+	margin-bottom: 8px;
+}
+
+.coverage-summary {
+	color: var(--link-color);
+	font-size: 1em;
+	font-weight: bold;
+}
+
+.file-links {
+	font-size: 0.9em;
+	color: var(--non-executable-text);
+	margin-bottom: 15px;
+}
+
+.back-link {
+	display: inline-block;
+	margin-bottom: 15px;
+	padding: 8px 16px;
+	background: var(--link-color);
+	color: white;
+	text-decoration: none;
+	border-radius: 4px;
+	font-size: 0.9em;
+}
+
+.back-link:hover {
+	background: var(--link-hover-color);
+	text-decoration: none;
+	color: white;
+}
+
+.stats {
+	background: var(--header-bg);
+	padding: 10px;
+	border-radius: 5px;
+	margin-top: 10px;
+}
+
+.file-content {
+	padding: 15px;
 }
 
 @media (max-width: 768px) {

@@ -21,7 +21,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		];
 		
 		for (var testCase in testCases) {
-			var lineCount = variables.ast.countSourceLines(testCase.content);
+			var result = variables.ast.countSourceLines(testCase.content);
+			var lineCount = structKeyExists(result, "count") ? result.count : result;
 			expect(lineCount).toBe(testCase.expected, "Should count lines correctly for " & testCase.desc);
 		}
 	}

@@ -5,25 +5,25 @@
 	// For loop
 	for (i = 1; i <= 5; i++) {
 		total += i;
-		systemOutput("Loop iteration: " & i, true);
+		echo("Loop iteration: " & i);
 	}
 	
 	// While loop
 	counter = 0;
 	while (counter < 3) {
-		systemOutput("While counter: " & counter, true);
+		echo("While counter: " & counter);
 		counter++;
 	}
 	
 	// For-in loop
 	items = ["apple", "banana", "orange"];
 	for (item in items) {
-		systemOutput("Item: " & item, true);
+		echo("Item: " & item);
 		if (item == "banana") {
 			continue;
 		}
-		systemOutput("Processing: " & item, true);
+		echo("Processing: " & item);
 	}
 	
-	systemOutput("Total: " & total, true);
+	echo("Total: " & total);
 </cfscript>

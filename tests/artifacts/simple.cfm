@@ -3,5 +3,5 @@
 	x = 1;
 	y = 2;
 	result = x + y;
-	systemOutput("Result: " & result, true);
+	echo("Result: " & result);
 </cfscript>

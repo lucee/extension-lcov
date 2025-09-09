@@ -30,16 +30,24 @@
 	
 	// Test function calls
 	sum = add(5, 3);
-	systemOutput("Sum: " & sum, true);
+	echo("Sum: " & sum);
 	
 	try {
 		quotient = divide(10, 2);
-		systemOutput("Division: " & quotient, true);
+		echo("Division: " & quotient);
 	} catch (any e) {
-		systemOutput("Error: " & e.message, true);
+		echo("Error: " & e.message);
 	}
+
+	function sleeps(){
+		sleep(10);
+		sleep(25);
+		sleep(50);
+	}
+
+	sleeps();
 	
 	testArray = [1, "hello", 3, "world"];
 	processed = processArray(testArray);
-	systemOutput("Processed array: " & serializeJSON(processed), true);
+	echo("Processed array: " & serializeJSON(processed));
 </cfscript>

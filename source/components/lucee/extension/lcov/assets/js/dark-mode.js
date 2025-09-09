@@ -22,13 +22,16 @@ function toggleDarkMode() {
 
 function updateMode(mode, toggle) {
 	if (mode === 'dark') {
+		document.body.classList.remove('light-mode');
 		document.body.classList.add('dark-mode');
 		if (toggle) toggle.innerHTML = '☀️ Light';
 	} else if (mode === 'light') {
 		document.body.classList.remove('dark-mode');
+		document.body.classList.add('light-mode');
 		if (toggle) toggle.innerHTML = '🌙 Dark';
 	} else { // auto
 		document.body.classList.remove('dark-mode');
+		document.body.classList.remove('light-mode');
 		if (toggle) {
 			if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
 				toggle.innerHTML = '☀️ Light';

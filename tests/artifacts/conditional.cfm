@@ -3,12 +3,12 @@
 	value = url.keyExists("test") ? url.test : "default";
 	
 	if (value == "test") {
-		systemOutput("Test branch executed", true);
+		echo("Test branch executed");
 	} else if (value == "other") {
-		systemOutput("Other branch executed", true);
+		echo("Other branch executed");
 	} else {
 		sleep(7); // simulate some processing time
-		systemOutput("Default branch executed", true);
+		echo("Default branch executed");
 	}
 	
 	// Switch statement
@@ -23,5 +23,5 @@
 			result = "Unknown";
 	}
 	
-	systemOutput("Switch result: " & result, true);
+	echo("Switch result: " & result);
 </cfscript>

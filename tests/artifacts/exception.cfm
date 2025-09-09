@@ -1,11 +1,11 @@
 <cfscript>
 	// Exception handling coverage test
 	
-	writeOutput("Starting exception test<br>");
+	echo("Starting exception test");
 	
 	// Try-catch with different exception types
 	try {
-		writeOutput("Inside try block<br>");
+		echo("Inside try block");
 		value = url.keyExists("error") ? url.error : "none";
 		
 		if (value == "throw") {
@@ -13,18 +13,18 @@
 		} else if (value == "divide") {
 			result = 10 / 0;
 		} else {
-			writeOutput("No error path<br>");
+			echo("No error path");
 		}
 		
-		writeOutput("End of try block<br>");
+		echo("End of try block");
 		
 	} catch (CustomError e) {
-		writeOutput("Caught custom error: " & e.message & "<br>");
+		echo("Caught custom error: " & e.message);
 		rethrow;
 	} catch (any e) {
-		writeOutput("Caught general error: " & e.message & "<br>");
+		echo("Caught general error: " & e.message);
 	} finally {
-		writeOutput("Finally block executed<br>");
+		echo("Finally block executed");
 	}
 	
 	// Nested try-catch
@@ -33,17 +33,17 @@
 			if (url.keyExists("nested")) {
 				throw(type="NestedError", message="Nested exception");
 			}
-			writeOutput("Inner try completed<br>");
+			echo("Inner try completed");
 		} catch (NestedError e) {
-			writeOutput("Inner catch: " & e.message & "<br>");
+			echo("Inner catch: " & e.message);
 			throw(type="RethrowError", message="Rethrowing", cause=e);
 		}
 	} catch (any e) {
-		writeOutput("Outer catch: " & e.message & "<br>");
+		echo("Outer catch: " & e.message);
 		if (structKeyExists(e, "cause")) {
-			writeOutput("Original cause: " & e.cause.message & "<br>");
+			echo("Original cause: " & e.cause.message);
 		}
 	}
 	
-	writeOutput("Exception test completed<br>");
+	echo("Exception test completed");
 </cfscript>

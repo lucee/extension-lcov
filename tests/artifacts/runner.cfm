@@ -1,70 +1,70 @@
 <cfscript>
 	// Test runner that exercises all the artifact files
-	writeOutput("<h2>Testing Coverage Artifacts</h2>");
+	echo("Testing Coverage Artifacts");
 	
 	// Test simple.cfm
-	writeOutput("<h3>Simple CFM Test</h3>");
+	echo("Simple CFM Test");
 	include "simple.cfm";
-	writeOutput("<br><br>");
+	echo("");
 	
 	// Test conditional.cfm with different URL parameters
-	writeOutput("<h3>Conditional CFM Test - Default</h3>");
+	echo("Conditional CFM Test - Default");
 	include "conditional.cfm";
-	writeOutput("<br><br>");
+	echo("");
 	
 	// Test loops.cfm
-	writeOutput("<h3>Loops CFM Test</h3>");
+	echo("Loops CFM Test");
 	include "loops.cfm";
-	writeOutput("<br><br>");
+	echo("");
 	
 	// Test functions.cfm
-	writeOutput("<h3>Functions CFM Test</h3>");
+	echo("Functions CFM Test");
 	include "functions.cfm";
-	writeOutput("<br><br>");
+	echo("");
 	
 	// Test exception.cfm
-	writeOutput("<h3>Exception CFM Test</h3>");
+	echo("Exception CFM Test");
 	include "exception.cfm";
-	writeOutput("<br><br>");
+	echo("");
 	
 	// Test components
-	writeOutput("<h3>Component Tests</h3>");
+	echo("Component Tests");
 	
 	// SimpleComponent
 	simple = new SimpleComponent();
-	writeOutput("SimpleComponent name: " & simple.getName() & "<br>");
-	writeOutput("Process numeric: " & simple.processValue(42) & "<br>");
-	writeOutput("Process string: " & simple.processValue("hello") & "<br>");
+	echo("SimpleComponent name: " & simple.getName());
+	echo("Process numeric: " & simple.processValue(42));
+	echo("Process string: " & simple.processValue("hello"));
 	info = simple.getInfo();
-	writeOutput("Component info: " & serializeJSON(info) & "<br><br>");
+	echo("Component info: " & serializeJSON(info));
 	
 	// MathUtils
 	math = new MathUtils(3);
-	writeOutput("MathUtils precision: " & math.getPrecision() & "<br>");
-	writeOutput("Add: " & math.add(1.2345, 2.6789) & "<br>");
-	writeOutput("Factorial 5: " & math.factorial(5) & "<br>");
+	echo("MathUtils precision: " & math.getPrecision());
+	echo("Add: " & math.add(1.2345, 2.6789));
+	echo("Factorial 5: " & math.factorial(5));
 	
 	numbers = [1, 2, 3, 4, 5];
 	stats = math.arrayStats(numbers);
-	writeOutput("Array stats: " & serializeJSON(stats) & "<br><br>");
+	echo("Array stats: " & serializeJSON(stats));
 	
 	// DataProcessor
 	processor = new DataProcessor();
-	writeOutput("DataProcessor name: " & processor.getName() & "<br>");
+	echo("DataProcessor name: " & processor.getName());
 	
 	try {
 		validation = processor.validateInput("test", "string");
-		writeOutput("String validation: " & validation & "<br>");
+		echo("String validation: " & validation);
 	} catch (any e) {
-		writeOutput("Validation error: " & e.message & "<br>");
+		echo("Validation error: " & e.message);
 	}
 	
 	matrix = [[1, 2, 3], [4, -5, 6], [0, 8, 9]];
 	processed = processor.processMatrix(matrix);
-	writeOutput("Processed matrix: " & serializeJSON(processed) & "<br>");
+	echo("Processed matrix: " & serializeJSON(processed));
 	
 	safeResult = processor.safeProcess("test data");
-	writeOutput("Safe process result: " & serializeJSON(safeResult) & "<br>");
+	echo("Safe process result: " & serializeJSON(safeResult));
 	
-	writeOutput("<h3>Coverage Testing Complete</h3>");
+	echo("Coverage Testing Complete");
 </cfscript>

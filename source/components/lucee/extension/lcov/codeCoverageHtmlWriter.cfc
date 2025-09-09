@@ -7,7 +7,7 @@ component {
 	variables.htmlAssets = new htmlAssets();
 	
 	// Instance variable for heatmap calculations
-	variables.heatmapCalculator = new codeCoverageHeatmap();
+	variables.heatmapCalculator = new heatmap();
 	
 	// Instance variable to store display unit
 	variables.displayUnit = "micro";
@@ -147,7 +147,7 @@ component {
 		}
 
 		// PASS 1: Calculate heatmap styles and generate scoped CSS
-		var heatmapData = variables.heatmapCalculator.calculateHeatmapStyles(executedLines, fileLines, maxCount, maxTime, tableClass);
+		var heatmapData = variables.heatmapCalculator.calculateHeatmapStyles(executedLines, fileLines, tableClass);
 		var cssRules = heatmapData.cssRules;
 		var lineClasses = heatmapData.lineClasses;
 
@@ -171,7 +171,7 @@ component {
 			var lineData = structKeyExists( executedLines, lineKey ) ? executedLines[ lineKey ] : [];
 			var len = ArrayLen( lineData );
 			var isExecutable = structIsEmpty(executableLines) || structKeyExists(executableLines, lineKey);
-			var rowClass = len > 0 ? "executed" : (isExecutable ? "" : "non-executable");
+			var rowClass = len > 0 ? "executed" : (isExecutable ? "not-executed" : "non-executable");
 			var execCount = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 ? numberFormat( lineData[ 1 ] ) : "";
 			var rawExecTime = ( len >= 2 && lineData[ 2 ] ?: 0 ) > 0 ? lineData[ 2 ] : 0;
 			var execTime = convertTimeUnit(rawExecTime, "μs", variables.displayUnit);
@@ -342,15 +342,12 @@ component {
 			<h4 class="legend-title">Legend</h4>
 			<table class="code-table legend-table">
 				<tr class="executed">
-					<td class="legend-color-box">&nbsp;</td>
 					<td class="legend-description">Executed lines - Code that was run during testing</td>
 				</tr>
-				<tr>
-					<td class="legend-color-box">&nbsp;</td>
+				<tr class="not-executed">
 					<td class="legend-description">Not executed - Executable code that was not run</td>
 				</tr>
 				<tr class="non-executable">
-					<td class="legend-color-box">&nbsp;</td>
 					<td class="legend-description">Non-executable - Comments, empty lines (not counted in coverage)</td>
 				</tr>
 			</table>

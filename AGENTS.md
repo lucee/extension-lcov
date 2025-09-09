@@ -10,7 +10,7 @@
 - tests go in the /tests folder
 - use testbox for testings
 - all tests should extend  org.lucee.cfml.test.LuceeTestCase
-- all tests should use the label "lcov"
+- all tests should use the label "lcov", when running tests, always pass in the filter -DtestLables="lcov"
 - as a general approach to testing, always leave any generated artifacts in place for review afterwards, simply clean them in the beforeAll steps
 - tests can be run using script-runner, read the d:\work\script-runner\README.md
 - refer to https://docs.lucee.org/guides/working-with-source/build-from-source.html#build-performance-tips for how the lucee test runner works
@@ -59,7 +59,8 @@ ant -f "d:/work/script-runner/build.xml" \
     -DextensionDir="d:/work/lucee-extensions/extension-lcov/target" \
     -DluceeVersionQuery="7/all/jar" \
     -DtestAdditional="d:/work/lucee-extensions/extension-lcov/tests" \
-    -DtestFilter="YourTestName"
+    -DtestLabels="lcov" \
+    -DtestFilter="optionally a specific test name"
 ```
 
 3. **Running standalone CFML scripts** (for quick testing):
