@@ -4,9 +4,9 @@ component accessors="true" {
 	* Given a parsed AST, returns the number of lines instrumented (non-whitespace, non-comment).
 	* This simplified approach counts all non-empty, non-comment lines for LCOV compliance.
 	* @ast The AST struct as parsed from JSON.
-	* @return Number of code lines (not whitespace or comments).
+	* @return Struct with count and executableLines map
 	*/
-	public numeric function countInstrumentedLines(required struct ast) {
+	public struct function countInstrumentedLines(required struct ast) {
 		// For LCOV compliance, we'll count non-empty, non-comment lines
 		// First, try to get the source lines from the AST structure
 		var sourceLines = [];
@@ -48,11 +48,15 @@ component accessors="true" {
 			};
 			
 			traverse(arguments.ast);
-			return structCount(executableLines);
+			return {
+				"count": structCount(executableLines),
+				"executableLines": executableLines
+			};
 		}
 		
 		// Count non-empty, non-comment lines
 		var instrumentedLineCount = 0;
+		var executableLinesMap = {};
 		for (var i = 1; i <= arrayLen(sourceLines); i++) {
 			var line = trim(sourceLines[i]);
 			
@@ -68,6 +72,7 @@ component accessors="true" {
 			
 			// Count this as an instrumentable line
 			instrumentedLineCount++;
+			executableLinesMap[i] = true;
 		}
 		
 		// If no source lines available or count is 0, return minimum 1 for non-empty files
@@ -75,22 +80,32 @@ component accessors="true" {
 			if (structKeyExists(arguments.ast, "body") && 
 					((isArray(arguments.ast.body) && arrayLen(arguments.ast.body) > 0) ||
 					 (isStruct(arguments.ast.body) && structCount(arguments.ast.body) > 0))) {
-				return 1;
+				return {
+					"count": 1,
+					"executableLines": {"1": true}
+				};
 			}
-			return 0;
+			return {
+				"count": 0,
+				"executableLines": {}
+			};
 		}
 		
-		return instrumentedLineCount;
+		return {
+			"count": instrumentedLineCount,
+			"executableLines": executableLinesMap
+		};
 	}
 
 	/**
 	* Count non-empty, non-comment lines directly from source lines array.
 	* This is more reliable for LCOV compliance than AST parsing.
 	* @sourceLines Array of source code lines
-	* @return Number of instrumentable lines
+	* @return Struct with count and executableLines map
 	*/
-	public numeric function countSourceLines(required array sourceLines) {
+	public struct function countSourceLines(required array sourceLines) {
 		var instrumentedLineCount = 0;
+		var executableLines = {};
 		
 		for (var i = 1; i <= arrayLen(arguments.sourceLines); i++) {
 			var line = trim(arguments.sourceLines[i]);
@@ -107,8 +122,12 @@ component accessors="true" {
 			
 			// Count this as an instrumentable line
 			instrumentedLineCount++;
+			executableLines[i] = true;
 		}
 		
-		return instrumentedLineCount;
+		return {
+			"count": instrumentedLineCount,
+			"executableLines": executableLines
+		};
 	}
 }

@@ -221,7 +221,7 @@ component accessors="true" {
 		for (var i = 1; i <= arrayLen(blockRanges); i++) {
 			var current = blockRanges[i];
 			if (current.startLine <= 1 && current.span >= 10) { // Heuristic for whole-file coverage
-				systemOutput("WARNING whole-file coverage for file: " & filePath & " (" & current.startLine & "-" & current.endLine & ")", true);
+				// systemOutput("WARNING whole-file coverage for file: " & filePath & " (" & current.startLine & "-" & current.endLine & ")", true);
 				isWholeFile = true;
 			}
 		}

@@ -29,7 +29,7 @@ component accessors="true" {
 	* @return Struct containing sections and fileCoverage data
 	*/
 	public struct function parseExlFile(string exlPath, boolean needSingleFileCoverage = false,
-		array allowList=[], array blocklist=[]) {
+		array allowList=[], array blocklist=[], boolean useAstForLinesFound = true) {
 
 		var lines = [];
 		try {
@@ -68,7 +68,7 @@ component accessors="true" {
 
 		var coverage = {
 			"metadata": variables.utils.parseMetadata( metadata ),
-			"source": parseFiles( files, exlPath, allowList, blocklist ),
+			"source": parseFiles( files, exlPath, allowList, blocklist, arguments.useAstForLinesFound ),
 			"fileCoverage": fileCoverage,
 			"exeLog": exlPath
 		};
@@ -213,7 +213,7 @@ component accessors="true" {
 		// Only exclude ranges that cover the entire file (likely overhead/instrumentation)
 		if (startLine <= 1 && endLine >= fileTotalLines) {
 			// log a warning for debugging
-			systemOutput("WARNING whole-file coverage for file: " & f & " (" & startLine & "-" & endLine & ")", true);
+			// systemOutput("WARNING whole-file coverage for file: " & f & " (" & startLine & "-" & endLine & ")", true);
 			// return result; // Skip whole-file coverage
 		}
 		// Return structured result: [fileIdx, startLine, endLine, executionTime]
@@ -258,7 +258,7 @@ component accessors="true" {
 	* The file format is: metadata, empty line, file mappings (num:Path), empty line, then coverage data.
 	*/
 	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blockList) {
+			array allowList, array blockList, boolean useAstForLinesFound = true) {
 		var files = {};
 		var skipped = {}
 		for (var i = 1; i <= arrayLen(arguments.filesLines); i++) {
@@ -308,14 +308,24 @@ component accessors="true" {
 					variables.fileContentsCache[ path] = fileRead( path );
 					variables.lineMappingsCache[ path] = variables.utils.buildCharacterToLineMapping( variables.fileContentsCache[ path] );
 				}
-				var ast = astFromPath( path );
 				var sourceLines = readFileAsArrayBylines( path );
+				var lineInfo = {};
+				
+				if (arguments.useAstForLinesFound) {
+					// Use AST-based approach
+					var ast = astFromPath( path );
+					lineInfo = variables.ast.countInstrumentedLines( ast );
+				} else {
+					// Use simple line counting approach
+					lineInfo = variables.ast.countSourceLines( sourceLines );
+				}
+				
 				files[ num ] = {
 					"path": path,
 					"lineCount": len( variables.lineMappingsCache[ path] ),
-					"linesFound": variables.ast.countSourceLines( sourceLines ),
-					//"ast": ast,  less verbose for debugging
-					"lines": sourceLines
+					"linesFound": lineInfo.count,
+					"lines": sourceLines,
+					"executableLines": lineInfo.executableLines
 				};
 			}
 		}

@@ -3,6 +3,12 @@
 */
 component {
 	
+	// Instance variable for HTML assets
+	variables.htmlAssets = new htmlAssets();
+	
+	// Instance variable for heatmap calculations
+	variables.heatmapCalculator = new codeCoverageHeatmap();
+	
 	// Instance variable to store display unit
 	variables.displayUnit = "micro";
 	
@@ -38,15 +44,22 @@ component {
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>' & encodeForHtml(scriptName) & ' - Execution Report</title>
-		<style>' & getCommonCss() & '</style>
+		<style>' & variables.htmlAssets.getCommonCss() & '</style>
 	</head>
 	<body>
 		<div class="container">
 			<div class="header-section">
-				<h2 class="report-type">Lucee Code Coverage Report</h2>
-				<h1>' & encodeForHtml(scriptName) & ' <span style="color: ##666; font-size: 0.7em;">('
-					& encodeForHtml(executionTime.time) 
-					& ' ' & encodeForHtml(executionTime.unit) & ')</span></h1>
+				<div class="header-top">
+					<div class="header-content">
+						<h2 class="report-type">Lucee Code Coverage Report</h2>
+						<h1>' & encodeForHtml(scriptName) & ' <span class="file-path-subtitle">('
+							& encodeForHtml(executionTime.time) 
+							& ' ' & encodeForHtml(executionTime.unit) & ')</span></h1>
+					</div>
+					<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
+						<span class="toggle-icon">&##127769;</span>
+					</button>
+				</div>
 				<div class="timestamp">Generated: ' & lsDateTimeFormat(now()) & '</div>
 				<div class="coverage-summary">
 					<strong>Coverage Summary:</strong> ' & totalLinesHit & ' of ' & totalLinesFound & ' lines covered (' & coveragePercent & '%)
@@ -66,7 +79,12 @@ component {
 		}
 
 		html &= '
-		</div>
+		</div>';
+		
+		// Add dark mode toggle script
+		html &= variables.htmlAssets.getDarkModeScript();
+		
+		html &= '
 	</body>
 	</html>';
 		return html;
@@ -86,7 +104,7 @@ component {
 		}
 		var html = '<div class="file-section">
 			<div class="file-header">
-				<h3><a href="' & vscodeLink & '" style="color: white; text-decoration: none;">'
+				<h3><a href="' & vscodeLink & '" class="file-header-link">'
 					& encodeForHtml( contractPath( arguments.result.source.files[ arguments.filePath] .path ) )
 				& '</a></h3>
 			</div>
@@ -103,19 +121,20 @@ component {
 			<strong>Lines Covered:</strong> ' & stats.linesHit & ' of ' & stats.linesFound & '
 		</div>';
 
-		html &= '<table class="code-table">
-			<thead>
-				<tr>
-					<th class="line-number">Line</th>
-					<th class="code-cell">Code</th>
-					<th class="exec-count">Count</th>
-					<th class="exec-time">Time (' & displayUnit.symbol & ')</th>
-				</tr>
-			</thead>
-			<tbody>';
+		// PASS 1: Calculate all intensities and generate scoped CSS
+		var executedLines = arguments.result.coverage[ arguments.filePath ];
+		var fileLines = arguments.result.source.files[ arguments.filePath ].lines;
+		var executableLines = {};
+		if (structKeyExists(arguments.result.source.files[arguments.filePath], "executableLines")) {
+			executableLines = arguments.result.source.files[arguments.filePath].executableLines;
+		}
+
+		// Create unique CSS class identifier from file path
+		var hashValue = hash(arguments.filePath, "md5");
+		var fileId = "file-" & left(hashValue, 8);
+		var tableClass = "file-table-" & fileId;
 
 		// Calculate max values for color coding
-		var executedLines = arguments.result.coverage[ arguments.filePath ];
 		var maxCount = 0;
 		var maxTime = 0;
 		for ( var lineNum in executedLines)  {
@@ -126,43 +145,60 @@ component {
 				maxTime = executedLines[ lineNum ][ 2 ];
 			}
 		}
-		var fileLines = arguments.result.source.files[ arguments.filePath ].lines;
 
-		// Display each line in table rows
+		// PASS 1: Calculate heatmap styles and generate scoped CSS
+		var heatmapData = variables.heatmapCalculator.calculateHeatmapStyles(executedLines, fileLines, maxCount, maxTime, tableClass);
+		var cssRules = heatmapData.cssRules;
+		var lineClasses = heatmapData.lineClasses;
+
+		// Add scoped CSS for this table
+		html &= '<style>' & chr(10) & chr(9) & arrayToList(cssRules, chr(10) & chr(9)) & chr(10) & '</style>';
+
+		html &= '<table class="code-table ' & tableClass & '">
+			<thead>
+				<tr>
+					<th class="line-number">Line</th>
+					<th class="code-cell">Code</th>
+					<th class="exec-count">Count</th>
+					<th class="exec-time">Time (' & displayUnit.symbol & ')</th>
+				</tr>
+			</thead>
+			<tbody>';
+
+		// PASS 2: Generate table rows using CSS classes
 		for (var i = 1; i <= arrayLen( fileLines ); i++) {
 			var lineKey = toString(i);
 			var lineData = structKeyExists( executedLines, lineKey ) ? executedLines[ lineKey ] : [];
 			var len = ArrayLen( lineData );
-			var rowClass = len > 0 ? "executed" : "";
+			var isExecutable = structIsEmpty(executableLines) || structKeyExists(executableLines, lineKey);
+			var rowClass = len > 0 ? "executed" : (isExecutable ? "" : "non-executable");
 			var execCount = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 ? numberFormat( lineData[ 1 ] ) : "";
 			var rawExecTime = ( len >= 2 && lineData[ 2 ] ?: 0 ) > 0 ? lineData[ 2 ] : 0;
 			var execTime = convertTimeUnit(rawExecTime, "μs", variables.displayUnit);
 			var execTime = (execTime.time == -1) ? "" : ( execTime.time & " " & execTime.unit);
 
-			// Calculate color intensities (0-255) based on relative values
-			var countIntensity = ( len >= 1 && lineData[ 1 ] ?: 0 ) > 0 && maxCount > 0 ?
-				int( ( lineData[ 1 ] / maxCount ) * 255 ) : 0;
-			var timeIntensity = ( len >= 2 && lineData[ 2 ] ?: 0 ) > 0 && maxTime > 0 ?
-				int( ( lineData[ 2 ] / maxTime ) * 255 ) : 0;
-
-			// Generate background colors (white to red)
-			var countStyle = countIntensity > 0 ?
-				'style="background-color: rgb(255, ' & (255 - countIntensity) & ', ' & (255 - countIntensity) & ');"' : '';
-			var timeStyle = timeIntensity > 0 ?
-				'style="background-color: rgb(255, ' & (255 - timeIntensity) & ', ' & (255 - timeIntensity) & ');"' : '';
+			// Get CSS classes for this line
+			var classes = lineClasses[lineKey];
+			var countClass = classes.countClass != "" ? "exec-count " & classes.countClass : "exec-count";
+			var timeClass = classes.timeClass != "" ? "exec-time " & classes.timeClass : "exec-time";
 
 			html &= '<tr class="' & rowClass & '">
 				<td class="line-number">' & i & '</td>
 				<td class="code-cell">' & encodeForHtml(fileLines[i]) & '</td>
-				<td class="exec-count" ' & countStyle & '>' & execCount & '</td>
-				<td class="exec-time" ' & timeStyle & '>' & execTime & '</td>
+				<td class="' & countClass & '">' & execCount & '</td>
+				<td class="' & timeClass & '">' & execTime & '</td>
 			</tr>';
 		}
 
 		html &= '</tbody></table>';
+		
+		// Add legend
+		html &= generateLegendHtml();
+		
 		html &= '</div></div>';
 		return html;
 	}
+
 
 	/**
 	* Generates the HTML content for the index page
@@ -174,7 +210,7 @@ component {
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Code Coverage Reports Index</title>
-		<style>' & getCommonCss() & '</style>
+		<style>' & variables.htmlAssets.getCommonCss() & '</style>
 		<script>
 			document.addEventListener(''DOMContentLoaded'', function() {
 				// Add click handlers to table rows
@@ -192,7 +228,14 @@ component {
 	</head>
 	<body>
 		<div class="container">
-			<h1>Code Coverage Reports</h1>
+			<div class="header-top">
+				<div class="header-content">
+					<h1>Code Coverage Reports</h1>
+				</div>
+				<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
+					<span class="toggle-icon">&##127769;</span>
+				</button>
+			</div>
 			<div class="summary">
 				<strong>Total Reports:</strong> ' & arrayLen(arguments.reportData) & ' |
 				<strong>Generated:</strong> ' & lsDateTimeFormat(now()) & '
@@ -233,65 +276,15 @@ component {
 		}
 
 		html &= '
-		</div>
+		</div>';
+		
+		// Add dark mode toggle script
+		html &= variables.htmlAssets.getDarkModeScript();
+		
+		html &= '
 	</body>
 	</html>';
 		return html;
-	}
-
-	/**
-	* Returns the common CSS for both HTML pages
-	*/
-	private string function getCommonCss() {
-		return '
-	body { font-family: Arial, sans-serif; margin: 20px; background-color: ##f5f5f5; }
-	.container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-	.header-section { margin-bottom: 20px; border-bottom: 2px solid ##007acc; padding-bottom: 15px; }
-	.report-type { color: ##666; font-size: 0.9em; margin: 0 0 5px 0; font-weight: normal; text-transform: uppercase; letter-spacing: 1px; }
-	h1 { color: ##333; margin: 0 0 10px 0; }
-	.timestamp { color: ##666; font-size: 0.85em; margin-bottom: 8px; }
-	.coverage-summary { color: ##007acc; font-size: 1em; font-weight: bold; }
-	.file-links { font-size: 0.9em; color: ##666; margin-bottom: 15px; }
-	.file-link { color: ##888; text-decoration: none; font-family: monospace; }
-	.file-link:hover { color: ##007acc; text-decoration: underline; }
-	h2 { color: ##007acc; margin-top: 30px; }
-	.metadata { background: ##f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-	.metadata dt { font-weight: bold; color: ##495057; }
-	.metadata dd { margin-left: 20px; margin-bottom: 5px; }
-	.file-section { margin-bottom: 30px; border: 1px solid ##ddd; border-radius: 5px; }
-	.file-header { background: ##007acc; color: white; padding: 10px; border-radius: 5px 5px 0 0; cursor: pointer; user-select: text !important; }
-	.file-header h3 { user-select: text !important; }
-	.file-header a { color: white; text-decoration: none; display: block; user-select: text !important; }
-	.file-header a:hover { text-decoration: underline; }
-	.file-header:hover { background: ##0056b3; }
-	.file-content { padding: 15px; }
-	.code-table { width: 100%; border-collapse: collapse; font-family: "Courier New", monospace; }
-	.code-table th { background: ##f8f9fa; padding: 8px; text-align: left; border-bottom: 2px solid ##dee2e6; font-weight: bold; }
-	.code-table td { padding: 4px 8px; border-bottom: 1px solid ##e9ecef; white-space: pre-wrap; vertical-align: top; }
-	.code-table tr.executed { background-color: ##d4edda; }
-	.code-table .line-number { width: 50px; text-align: right; color: ##6c757d; font-weight: normal; }
-	.code-table .exec-count { width: 80px; text-align: right; color: ##000; font-weight: bold; }
-	.code-table .exec-time { width: 100px; text-align: right; color: ##000; }
-	.code-table .code-cell { font-family: "Courier New", monospace; }
-	.no-executions { color: ##6c757d; font-style: italic; }
-	.stats { background: ##e7f3ff; padding: 10px; border-radius: 5px; margin-top: 10px; }
-	h3 { margin: 0 !important; padding: 0 !important; }
-	.back-link { display: inline-block; margin-bottom: 15px; padding: 8px 16px; background: ##007acc; color: white; text-decoration: none; border-radius: 4px; font-size: 0.9em; }
-	.back-link:hover { background: ##005f9e; text-decoration: none; color: white; }
-	.summary { background: ##e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-	.reports-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-	.reports-table th { background: ##007acc; color: white; padding: 12px; text-align: left; border-bottom: 2px solid ##dee2e6; }
-	.reports-table td { padding: 10px 12px; border-bottom: 1px solid ##e9ecef; vertical-align: top; }
-	.reports-table tr:hover { background-color: ##f8f9fa; }
-	.reports-table tbody tr { cursor: pointer; }
-	.reports-table tbody tr:hover { background-color: ##e3f2fd; }
-	.script-name { font-weight: bold; color: ##007acc; }
-	.html-link { color: ##28a745; text-decoration: none; font-family: monospace; }
-	.html-link:hover { text-decoration: underline; }
-	.execution-time { font-family: monospace; color: ##6c757d; }
-	.timestamp { color: ##6c757d; font-size: 0.9em; }
-	.no-reports { color: ##6c757d; font-style: italic; text-align: center; padding: 40px; }
-	';
 	}
 
 	/**
@@ -339,6 +332,31 @@ component {
 			time: numberFormat( int( micros / targetFactor ) ),
 			unit: arguments.toUnit.symbol
 		};
+	}
+
+	/**
+	* Generates the HTML for the coverage legend
+	*/
+	private string function generateLegendHtml() {
+		var html = '<div class="coverage-legend">
+			<h4 class="legend-title">Legend</h4>
+			<table class="code-table legend-table">
+				<tr class="executed">
+					<td class="legend-color-box">&nbsp;</td>
+					<td class="legend-description">Executed lines - Code that was run during testing</td>
+				</tr>
+				<tr>
+					<td class="legend-color-box">&nbsp;</td>
+					<td class="legend-description">Not executed - Executable code that was not run</td>
+				</tr>
+				<tr class="non-executable">
+					<td class="legend-color-box">&nbsp;</td>
+					<td class="legend-description">Non-executable - Comments, empty lines (not counted in coverage)</td>
+				</tr>
+			</table>
+		</div>';
+		
+		return html;
 	}
 
 }

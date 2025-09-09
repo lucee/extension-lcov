@@ -39,7 +39,7 @@ lucee-core-version: "${luceeCoreVersion}"
         <!-- copy the components -->
         <copy todir="${temp}/components" failonerror="false">
             <fileset dir="${src}/components">
-                <include name="**/*.cfc"/>
+                <include name="**/*"/>
             </fileset>
         </copy>
         <!-- Zip everything -->

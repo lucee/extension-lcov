@@ -1,9 +1,15 @@
 component {
 	
-	function init() {
+	function init(string outputFolder = "") {
 		var testDir = getDirectoryFromPath(getCurrentTemplatePath());
 		variables.testArtifactsPath = testDir & "artifacts/";
-		variables.generatedArtifactsDir = testDir & "artifacts/generated/GenerateTestData/";
+		
+		// Use custom output folder if provided, otherwise use default
+		if (len(arguments.outputFolder)) {
+			variables.generatedArtifactsDir = arguments.outputFolder;
+		} else {
+			variables.generatedArtifactsDir = testDir & "artifacts/generated/GenerateTestData/";
+		}
 		
 		// Clean up and create directories
 		if (directoryExists(variables.generatedArtifactsDir)) {
@@ -18,7 +24,7 @@ component {
 		return this;
 	}
 	
-	function generateExlFilesForArtifacts(required string adminPassword) {
+	function generateExlFilesForArtifacts(required string adminPassword, string fileFilter = "") {
 		// Generate .exl files using ResourceExecutionLog
 		
 		// Clean coverage directory
@@ -46,7 +52,8 @@ component {
 		
 		// Get list of files in the directory, loop over them and call internalRequest
 		var fileCount = 0;
-		var files = directoryList(variables.testArtifactsPath, false, "name", "*.cfm");
+		var filePattern = len(arguments.fileFilter) ? arguments.fileFilter : "*.cfm";
+		var files = directoryList(variables.testArtifactsPath, false, "name", filePattern);
 
 		for (var _file in files) {
 			var urlArgs = {};
