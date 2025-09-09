@@ -1,4 +1,4 @@
-# LCOV Code Coverage Extension for Lucee
+# LCOV Code Line Coverage Extension for Lucee
 
 This extension provides LCOV code coverage reporting capabilities for Lucee CFML applications.
 
