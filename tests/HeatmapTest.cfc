@@ -1,10 +1,12 @@
-component extends="testbox.system.BaseSpec" {
+component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function run() {
 		describe("Heatmap Business Rules", function() {
 			
 			beforeEach(function() {
-				variables.heatmap = new lucee.extension.lcov.heatmap();
+				variables.colorGenerator = new lucee.extension.lcov.reporter.heatmap.colorGenerator();
+				variables.bucketCalculator = new lucee.extension.lcov.reporter.heatmap.bucketCalculator();
+				variables.cssGenerator = new lucee.extension.lcov.reporter.heatmap.cssGenerator();
 			});
 
 			// ========== COLOR GENERATION BUSINESS RULES ==========
@@ -13,8 +15,8 @@ component extends="testbox.system.BaseSpec" {
 				
 				it("should generate gradient from light to dark intensity", function() {
 					var baseColor = {r: 255, g: 0, b: 0}; // Red base color
-					var color1 = heatmap.generateGradientColor(baseColor, 1, 10); // Lightest (level 1)
-					var color10 = heatmap.generateGradientColor(baseColor, 10, 10); // Darkest (level 10)
+					var color1 = colorGenerator.generateGradientColor(baseColor, 1, 10); // Lightest (level 1)
+					var color10 = colorGenerator.generateGradientColor(baseColor, 10, 10); // Darkest (level 10)
 					
 					var intensity1 = extractIntensityFromColor(color1);
 					var intensity10 = extractIntensityFromColor(color10);
@@ -27,28 +29,28 @@ component extends="testbox.system.BaseSpec" {
 				it("should maintain brightness range 0.15-0.65", function() {
 					var baseColor = {r: 255, g: 0, b: 0}; // Red base color
 					for (var i = 1; i <= 10; i++) {
-						var color = heatmap.generateGradientColor(baseColor, i, 10);
+						var color = colorGenerator.generateGradientColor(baseColor, i, 10);
 						var brightness = extractBrightnessFromColor(color);
 						
-						expect(brightness).toBeGTE(0.15, "Brightness should be >= 0.15 for bucket #i#");
-						expect(brightness).toBeLTE(0.65, "Brightness should be <= 0.65 for bucket #i#");
+						expect(round(brightness, 2)).toBeGTE(0.15, "Brightness should be >= 0.15 for bucket #i#");
+						expect(round(brightness, 2)).toBeLTE(0.65, "Brightness should be <= 0.65 for bucket #i#");
 					}
 				});
 
 				it("should return valid light-dark CSS format", function() {
 					var baseColor = {r: 255, g: 0, b: 0}; // Red base color
 					for (var i = 1; i <= 10; i++) {
-						var color = heatmap.generateGradientColor(baseColor, i, 10);
+						var color = colorGenerator.generateGradientColor(baseColor, i, 10);
 						
-						expect(color).toContain("light-dark(", "Should use CSS light-dark function for level #i#");
-						expect(color).toContain("rgb(", "Should contain RGB color values for level #i#");
+						expect(color).toInclude("light-dark(", "Should use CSS light-dark function for level #i#");
+						expect(color).toInclude("rgb(", "Should contain RGB color values for level #i#");
 						expect(color).toMatch("light-dark\s*\(\s*rgb\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)", "Should match RGB pattern for level #i#");
 					}
 				});
 
 				it("should always use white text regardless of background", function() {
 					for (var i = 1; i <= 10; i++) {
-						var textColor = heatmap.getContrastTextColor(i, 10);
+						var textColor = colorGenerator.getContrastTextColor(i, 10);
 						expect(textColor).toBe("light-dark(white, white)", "Text should always be white for bucket #i#");
 					}
 				});
@@ -59,7 +61,7 @@ component extends="testbox.system.BaseSpec" {
 					var baseColor = {r: 255, g: 0, b: 0}; // Red base color
 					
 					for (var i = 1; i <= totalBuckets; i++) {
-						arrayAppend(colors, heatmap.generateGradientColor(baseColor, i, totalBuckets));
+						arrayAppend(colors, colorGenerator.generateGradientColor(baseColor, i, totalBuckets));
 					}
 					
 					var brightnesses = [];
@@ -80,7 +82,7 @@ component extends="testbox.system.BaseSpec" {
 				
 				it("should assign bucket 0 to fastest execution times", function() {
 					var times = [100, 500, 1000, 2000];
-					var buckets = heatmap.calculateBuckets(times, 4);
+					var buckets = bucketCalculator.calculateBuckets(times, 4);
 					
 					expect(buckets[100]).toBe(0, "Fastest time (100) should be in bucket 0");
 				});
@@ -88,7 +90,7 @@ component extends="testbox.system.BaseSpec" {
 				it("should assign highest bucket to slowest execution times", function() {
 					var times = [100, 500, 1000, 2000];
 					var totalBuckets = 4;
-					var buckets = heatmap.calculateBuckets(times, totalBuckets);
+					var buckets = bucketCalculator.calculateBuckets(times, totalBuckets);
 					
 					expect(buckets[2000]).toBe(totalBuckets - 1, "Slowest time (2000) should be in highest bucket");
 				});
@@ -96,7 +98,7 @@ component extends="testbox.system.BaseSpec" {
 				it("should keep all bucket values within valid range", function() {
 					var times = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 					var totalBuckets = 5;
-					var buckets = heatmap.calculateBuckets(times, totalBuckets);
+					var buckets = bucketCalculator.calculateBuckets(times, totalBuckets);
 					
 					for (var time in structKeyArray(buckets)) {
 						var bucket = buckets[time];
@@ -107,7 +109,7 @@ component extends="testbox.system.BaseSpec" {
 
 				it("should exclude zero execution times from heatmap calculation", function() {
 					var times = [0, 100, 200, 300];
-					var buckets = heatmap.calculateBuckets(times, 3);
+					var buckets = bucketCalculator.calculateBuckets(times, 3);
 					
 					expect(structKeyExists(buckets, 0)).toBeFalse("Zero execution times should not be in buckets");
 					expect(structCount(buckets)).toBe(3, "Only non-zero times should be bucketed");
@@ -119,23 +121,23 @@ component extends="testbox.system.BaseSpec" {
 			describe("Visual Styling Rules", function() {
 				
 				it("should right-align numeric cells (time/count)", function() {
-					var cssContent = heatmap.generateCssRules();
+					var cssContent = cssGenerator.generateCssRules();
 					
-					expect(cssContent).toContain(".exec-count", "CSS should contain exec-count class");
-					expect(cssContent).toContain(".exec-time", "CSS should contain exec-time class");
-					expect(cssContent).toContain("text-align: right", "Numeric cells should be right-aligned");
+					expect(cssContent).toInclude(".exec-count", "CSS should contain exec-count class");
+					expect(cssContent).toInclude(".exec-time", "CSS should contain exec-time class");
+					expect(cssContent).toInclude("text-align: right", "Numeric cells should be right-aligned");
 				});
 
 				it("should use light-dark CSS function for dual-mode theming", function() {
-					var textColor = heatmap.getContrastTextColor(5, 10);
-					expect(textColor).toContain("light-dark(", "Should use CSS light-dark function");
+					var textColor = colorGenerator.getContrastTextColor(5, 10);
+					expect(textColor).toInclude("light-dark(", "Should use CSS light-dark function");
 				});
 
 				it("should use separate styling for not-executed lines", function() {
-					var cssContent = heatmap.generateCssRules();
+					var cssContent = cssGenerator.generateCssRules();
 					
-					expect(cssContent).toContain("non-executable", "Should have non-executable class");
-					expect(cssContent).toNotContain("##heatmap-non-executable", "Non-executed lines should not use heatmap colors");
+					expect(cssContent).toInclude("non-executable", "Should have non-executable class");
+					expect(cssContent).notToInclude("##heatmap-non-executable", "Non-executed lines should not use heatmap colors");
 				});
 			});
 
@@ -145,16 +147,16 @@ component extends="testbox.system.BaseSpec" {
 				
 				it("should ensure WCAG contrast compliance with white text", function() {
 					for (var i = 0; i < 10; i++) {
-						var textColor = heatmap.getContrastTextColor(i, 10);
+						var textColor = colorGenerator.getContrastTextColor(i, 10);
 						expect(textColor).toBe("light-dark(white, white)", "White text ensures maximum contrast for bucket #i#");
 					}
 				});
 
 				it("should provide dark mode support through CSS variables", function() {
-					var cssContent = heatmap.generateCssRules();
+					var cssContent = cssGenerator.generateCssRules();
 					
-					expect(cssContent).toContain("--not-executed-bg", "Should define dark mode background variable");
-					expect(cssContent).toContain("--not-executed-text", "Should define dark mode text variable");
+					expect(cssContent).toInclude("--not-executed-bg", "Should define dark mode background variable");
+					expect(cssContent).toInclude("--not-executed-text", "Should define dark mode text variable");
 				});
 			});
 
@@ -164,7 +166,7 @@ component extends="testbox.system.BaseSpec" {
 				
 				it("should handle single bucket scenarios", function() {
 					var times = [500];
-					var buckets = heatmap.calculateBuckets(times, 1);
+					var buckets = bucketCalculator.calculateBuckets(times, 1);
 					
 					expect(structCount(buckets)).toBe(1, "Should handle single time value");
 					expect(buckets[500]).toBe(0, "Single time should be in bucket 0");
@@ -172,14 +174,14 @@ component extends="testbox.system.BaseSpec" {
 
 				it("should handle empty data gracefully", function() {
 					var times = [];
-					var buckets = heatmap.calculateBuckets(times, 5);
+					var buckets = bucketCalculator.calculateBuckets(times, 5);
 					
 					expect(structCount(buckets)).toBe(0, "Empty data should result in empty buckets");
 				});
 
 				it("should handle identical execution times", function() {
 					var times = [100, 100, 100, 100];
-					var buckets = heatmap.calculateBuckets(times, 3);
+					var buckets = bucketCalculator.calculateBuckets(times, 3);
 					
 					var firstBucket = buckets[100];
 					for (var time in structKeyArray(buckets)) {
@@ -194,7 +196,7 @@ component extends="testbox.system.BaseSpec" {
 					}
 					
 					var startTime = getTickCount();
-					var buckets = heatmap.calculateBuckets(times, 50);
+					var buckets = bucketCalculator.calculateBuckets(times, 50);
 					var endTime = getTickCount();
 					
 					expect(endTime - startTime).toBeLT(1000, "Should process 1000 times in < 1 second");
@@ -208,7 +210,7 @@ component extends="testbox.system.BaseSpec" {
 					}
 					
 					var startTime = getTickCount();
-					var buckets = heatmap.calculateBuckets(times, 100);
+					var buckets = bucketCalculator.calculateBuckets(times, 100);
 					var endTime = getTickCount();
 					
 					expect(endTime - startTime).toBeLT(500, "Should handle 100 buckets efficiently");

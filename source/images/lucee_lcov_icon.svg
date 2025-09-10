@@ -1,0 +1,32 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="256" height="256" rx="42" fill="#f5f5f7" />
+  
+  <!-- Umbrella -->
+  <path d="M128 40 C58 40 18 90 18 90 L238 90 C238 90 198 40 128 40Z" fill="#4285f4" stroke="#2b579a" stroke-width="5" />
+  <path d="M128 90 L128 140" stroke="#2b579a" stroke-width="6" stroke-linecap="round" />
+  <path d="M128 140 C140 140 148 148 148 160" stroke="#2b579a" stroke-width="6" fill="none" stroke-linecap="round" />
+  
+  <!-- LCOV Text on Umbrella -->
+  <text x="128" y="75" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">LCOV</text>
+  
+  <!-- Code Brackets -->
+  <path d="M60 120 L40 145 L60 170" stroke="#333" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M196 120 L216 145 L196 170" stroke="#333" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  
+  <!-- Code Lines -->
+  <line x1="80" y1="130" x2="176" y2="130" stroke="#666" stroke-width="6" stroke-linecap="round" />
+  <line x1="80" y1="150" x2="140" y2="150" stroke="#666" stroke-width="6" stroke-linecap="round" />
+  <line x1="80" y1="170" x2="160" y2="170" stroke="#666" stroke-width="6" stroke-linecap="round" />
+  
+  <!-- Coverage Indicators -->
+  <circle cx="70" cy="195" r="10" fill="#4caf50" />
+  <circle cx="100" cy="195" r="10" fill="#4caf50" />
+  <circle cx="130" cy="195" r="10" fill="#4caf50" />
+  <circle cx="160" cy="195" r="10" fill="#ff9800" />
+  <circle cx="190" cy="195" r="10" fill="#e53935" />
+  
+  <!-- Percentage Display -->
+  <rect x="90" y="215" width="76" height="25" rx="5" fill="#2b579a" />
+  <text x="128" y="233" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white" text-anchor="middle">75/100%</text>
+</svg>

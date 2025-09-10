@@ -1,15 +1,15 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
-		variables.parser = new lucee.extension.lcov.codeCoverageExlParser();
-		variables.testDataGenerator = new GenerateTestData();
+		variables.parser = new lucee.extension.lcov.ExecutionLogParser();
+		variables.testDataGenerator = new GenerateTestData(testName="ExecutionLogParserTest");
 		
 		// Generate test data if needed
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 	}
 	
 	function testParserExists() {
-		expect(variables.parser).toBeInstanceOf("codeCoverageExlParser");
+		expect(variables.parser).toBeInstanceOf("ExecutionLogParser");
 	}
 
 	function testParseFiles(){

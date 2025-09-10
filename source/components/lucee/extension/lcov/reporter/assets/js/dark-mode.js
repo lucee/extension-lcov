@@ -24,7 +24,7 @@ function updateMode(mode, toggle) {
 	if (mode === 'dark') {
 		document.body.classList.remove('light-mode');
 		document.body.classList.add('dark-mode');
-		if (toggle) toggle.innerHTML = '☀️ Light';
+		if (toggle) toggle.innerHTML = '☀ Light';
 	} else if (mode === 'light') {
 		document.body.classList.remove('dark-mode');
 		document.body.classList.add('light-mode');
@@ -34,7 +34,7 @@ function updateMode(mode, toggle) {
 		document.body.classList.remove('light-mode');
 		if (toggle) {
 			if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-				toggle.innerHTML = '☀️ Light';
+				toggle.innerHTML = '☀ Light';
 			} else {
 				toggle.innerHTML = '🌙 Dark';
 			}

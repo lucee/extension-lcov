@@ -1,12 +1,33 @@
 component accessors="true" {
 
 	/**
+	* Initialize the AST component with options
+	* @options Configuration options struct (optional)
+	*/
+	public function init(struct options = {}) {
+		// Store options and extract verbose flag
+		variables.options = arguments.options;
+		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		return this;
+	}
+
+	/**
+	* Private logging function that respects verbose setting
+	* @message The message to log
+	*/
+	private void function logger(required string message) {
+		if (variables.verbose) {
+			systemOutput(arguments.message, true);
+		}
+	}
+
+	/**
 	* Given a parsed AST, returns the number of lines instrumented (non-whitespace, non-comment).
 	* This simplified approach counts all non-empty, non-comment lines for LCOV compliance.
 	* @ast The AST struct as parsed from JSON.
 	* @return Struct with count and executableLines map
 	*/
-	public struct function countInstrumentedLines(required struct ast) {
+	public struct function countExecutableLinesFromAst(required struct ast) {
 		// For LCOV compliance, we'll count non-empty, non-comment lines
 		// First, try to get the source lines from the AST structure
 		var sourceLines = [];
@@ -103,7 +124,7 @@ component accessors="true" {
 	* @sourceLines Array of source code lines
 	* @return Struct with count and executableLines map
 	*/
-	public struct function countSourceLines(required array sourceLines) {
+	public struct function countExecutableLinesSimple(required array sourceLines) {
 		var instrumentedLineCount = 0;
 		var executableLines = {};
 		

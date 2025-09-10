@@ -1,6 +1,118 @@
 component accessors="true" {
 
 	/**
+	* Initialize the utils component with options
+	* @options Configuration options struct (optional)
+	*/
+	public function init(struct options = {}) {
+		// Store options and extract verbose flag
+		variables.options = arguments.options;
+		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		return this;
+	}
+
+	/**
+	* Private logging function that respects verbose setting
+	* @message The message to log
+	*/
+	private void function logger(required string message) {
+		if (variables.verbose) {
+			systemOutput(arguments.message, true);
+		}
+	}
+
+	/**
+	 * Merge coverage results by file path from multiple .exl parsing results
+	 * @results Struct of parsed results from multiple .exl files
+	 * @return Struct with mergedCoverage and sorted files array
+	 */
+	public struct function mergeResultsByFile(required struct results) {
+		logger("Merging results from " & structCount(arguments.results) & " .exl files");
+		
+		var merged = {
+			files: {},
+			coverage: {}
+		};
+
+		for (var src in arguments.results) {
+			var coverage = arguments.results[src].coverage;
+			var files = arguments.results[src].source.files;
+			var mapping = {};
+
+			for (var f in files) {
+				if (!structKeyExists(merged.files, files[f].path)) {
+					merged.files[files[f].path] = files[f];
+				}
+				mapping[f] = files[f].path;
+			}
+
+			for (var f in coverage) {
+				var realFile = mapping[f];
+				if (!structKeyExists(merged.coverage, realFile)) {
+					merged.coverage[realFile] = {};
+				}
+				for (var l in coverage[f]) {
+					if (!structKeyExists(merged.coverage[realFile], l)) {
+						merged.coverage[realFile][l] = [0, 0];
+					}
+					var lineData = merged.coverage[realFile][l];
+					var srcLineData = coverage[f][l];
+					lineData[1] += srcLineData[1];
+					lineData[2] += srcLineData[2];
+				}
+			}
+		}
+
+		var files = structKeyArray(merged.files);
+		arraySort(files, "textnocase");
+		
+		logger("Merged coverage data for " & arrayLen(files) & " unique files");
+		
+		return {
+			"mergedCoverage": merged,
+			"files": files
+		};
+	}
+
+	/**
+	 * Calculate LCOV-style statistics from merged coverage data
+	 * @fileCoverage Struct containing files and coverage data (merged format)
+	 * @return Struct with stats per file path
+	 */
+	public struct function calculateLcovStats(required struct fileCoverage) {
+		logger("Calculating LCOV stats for " & structCount(arguments.fileCoverage.files) & " files");
+		
+		var files = arguments.fileCoverage.files;
+		var coverage = arguments.fileCoverage.coverage;
+		var stats = {};
+
+		for (var file in files) {
+			var data = coverage[file];
+			var lineNumbers = structKeyArray(data);
+			
+			// Count actual lines hit (with hit count > 0)
+			var linesHit = 0;
+			for (var line in lineNumbers) {
+				if (data[line][1] > 0) {
+					linesHit++;
+				}
+			}
+
+			var linesFoundValue = structKeyExists(files[file], "linesFound") ? files[file].linesFound : arrayLen(lineNumbers);
+			stats[files[file].path] = {
+				"linesFound": linesFoundValue,
+				"linesHit": linesHit,
+				"lineCount": structKeyExists(files[file], "lineCount") ? files[file].lineCount : 0
+			};
+			
+			logger("File stats: " & files[file].path & " (LF:" & linesFoundValue & ", LH:" & linesHit & ")");
+		}
+
+		logger("Calculated LCOV stats for " & structCount(stats) & " files");
+		return stats;
+	}
+
+	/**
 	 * Utility: Group blocks by fileIdx: { fileIdx: [block, block, ...] }
 	 */
 	public function combineChunkResults(chunkResults) {
@@ -31,6 +143,9 @@ component accessors="true" {
 			var mappingLen = arrayLen(lineMapping);
 			var f = {};
 			
+			// Get executable lines for this file to filter execution hits
+			var executableLines = structKeyExists(files[fileIdx], "executableLines") ? files[fileIdx].executableLines : {};
+			
 			// Filter out large blocks that encompass smaller, more specific blocks
 			var filteredBlocks = filterOverlappingBlocks(blocks, blocksAreLineBased, lineMapping, mappingLen, filePath);
 			
@@ -48,11 +163,14 @@ component accessors="true" {
 				if (startLine == 0) startLine = 1;
 				if (endLine == 0) endLine = startLine;
 				for (var l = startLine; l <= endLine; l++) {
-					if (!structKeyExists(f, l)) {
-						f[l] = [1, block[4]];
-					} else {
-						f[l][1] += 1;
-						f[l][2] += block[4];
+					// Only count execution hits for lines that are actually executable
+					if (structKeyExists(executableLines, l)) {
+						if (!structKeyExists(f, l)) {
+							f[l] = [1, block[4]];
+						} else {
+							f[l][1] += 1;
+							f[l][2] += block[4];
+						}
 					}
 				}
 			}
@@ -273,6 +391,102 @@ component accessors="true" {
 		}
 		
 		return filteredBlocks;
+	}
+
+	/**
+	 * Calculate detailed statistics from parsed results including per-file breakdown
+	 * @results Struct of parsed results from multiple .exl files
+	 * @processingTimeMs Optional processing time to include in stats
+	 * @return Struct with detailed coverage statistics
+	 */
+	public struct function calculateDetailedStats(required struct results, numeric processingTimeMs = 0) {
+		var executedFiles = 0;
+		var fileStats = {};
+
+		for (var resultFile in arguments.results) {
+			var result = arguments.results[resultFile];
+			var hasExecutedCode = false;
+
+			// Build per-file stats from raw coverage data
+			if (structKeyExists(result, "source") && structKeyExists(result.source, "files")) {
+				for (var fileIndex in result.source.files) {
+					var fileInfo = result.source.files[fileIndex];
+					var filePath = fileInfo.path;
+					
+					if (!structKeyExists(fileStats, filePath)) {
+						fileStats[filePath] = {
+							"totalLines": val(fileInfo.linesFound ?: 0),
+							"coveredLines": 0,
+							"coveragePercentage": 0,
+							"coveredLineNumbers": {}
+						};
+					}
+
+					// Calculate covered lines for this file (track unique line numbers)
+					if (structKeyExists(result, "coverage") && structKeyExists(result.coverage, fileIndex)) {
+						var fileCoverage = result.coverage[fileIndex];
+						for (var line in fileCoverage) {
+							if (val(fileCoverage[line][1]) > 0) {
+								fileStats[filePath].coveredLineNumbers[line] = true;
+								hasExecutedCode = true;
+							}
+						}
+					}
+				}
+			}
+
+			// Count files that had any executed code
+			if (hasExecutedCode) {
+				executedFiles++;
+			}
+		}
+
+		// Calculate global totals by summing up per-file stats
+		var globalTotalLines = 0;
+		var globalCoveredLines = 0;
+		for (var filePath in fileStats) {
+			globalTotalLines += fileStats[filePath].totalLines;
+			globalCoveredLines += fileStats[filePath].coveredLines;
+		}
+		
+		var coveragePercentage = globalTotalLines > 0 ? (globalCoveredLines / globalTotalLines) * 100 : 0;
+
+		// Calculate final coverage percentages and clean up temporary tracking data
+		for (var filePath in fileStats) {
+			// Update covered lines count based on unique line numbers
+			fileStats[filePath].coveredLines = structCount(fileStats[filePath].coveredLineNumbers);
+			
+			// Calculate percentage - should reflect actual coverage, not capped
+			if (fileStats[filePath].totalLines > 0) {
+				fileStats[filePath].coveragePercentage = 
+					(fileStats[filePath].coveredLines / fileStats[filePath].totalLines) * 100;
+			}
+			
+			// Clean up temporary tracking data
+			if (structKeyExists(fileStats[filePath], "coveredLineNumbers")) {
+				structDelete(fileStats[filePath], "coveredLineNumbers");
+			}
+		}
+
+		return {
+			"totalLines": globalTotalLines,
+			"coveredLines": globalCoveredLines,
+			"coveragePercentage": coveragePercentage,
+			"totalFiles": structCount(fileStats),
+			"executedFiles": executedFiles,
+			"processingTimeMs": arguments.processingTimeMs,
+			"fileStats": fileStats
+		};
+	}
+
+	/**
+	 * Utility method to ensure a directory exists
+	 * @directoryPath The directory path to check/create
+	 */
+	public void function ensureDirectoryExists(required string directoryPath) {
+		if (!directoryExists(arguments.directoryPath)) {
+			directoryCreate(arguments.directoryPath, true);
+		}
 	}
 
 }

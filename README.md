@@ -1,5 +1,7 @@
 # LCOV Code Line Coverage Extension for Lucee
 
+![LCOV Extension Logo](source/images/logo.png)
+
 This extension provides LCOV code coverage reporting capabilities for Lucee CFML applications.
 
 ## Features
@@ -26,54 +28,71 @@ https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gu
 
 ## Components
 
+### Extension Functions
+
+The extension provides easy-to-use functions for code coverage analysis:
+
+- **lcovStartLogging(adminPassword, executionLogDir="", options={})** - Start execution logging with ResourceExecutionLog
+- **lcovStopLogging(adminPassword, className="lucee.runtime.engine.ResourceExecutionLog")** - Stop execution logging  
+- **lcovGenerateAllReports(executionLogDir, outputDir, options={})** - Generate LCOV, HTML, and JSON reports
+- **lcovGenerateLcov(executionLogDir, outputFile="", options={})** - Generate LCOV format file only
+- **lcovGenerateHtml(executionLogDir, outputDir, options={})** - Generate HTML reports only
+- **lcovGenerateJson(executionLogDir, outputDir, options={})** - Generate JSON reports only
+- **lcovGenerateSummary(executionLogDir, options={})** - Generate coverage statistics only
+
 ### Core Components
 
-- **codeCoverageReporter** - Main reporter component that orchestrates the coverage reporting process
-- **codeCoverageExlParser** - Parses Lucee .exl execution log files
+- **ExecutionLogParser** - Parses Lucee .exl execution log files with verbose logging
 - **codeCoverageUtils** - Utility functions for coverage calculations and data processing
-- **codeCoverageHtmlReporter** - Generates HTML coverage reports
-- **codeCoverageHtmlWriter** - Handles HTML content generation with customizable time units
-- **codeCoverageAst** - AST-based source code analysis for line counting
-- **exeLog** - Utility component to enable / disable execution logs 
+- **HtmlReporter** - Generates HTML coverage reports with dependency checks
+- **HtmlWriter** - Handles HTML content generation with customizable time units
+- **ExecutableLineCounter** - AST-based source code analysis for line counting
+- **exeLogger** - Utility component to enable/disable execution logs
+- **LcovFunctions** - Main component providing all extension functions
 
 ### Usage
 
-The extension components are automatically available once installed. Use them in your CFML code like:
+The extension functions are automatically available once installed. Use them in your CFML code like:
 
 ```cfml
 
 codeCoverageDir = ""/path/to/resourceExecutionlogs";
 
-// Enable Execution Logging
-codeCoverageReporter = new lucee.extension.lcov.exeLogger();
-exeLogger.enableExecutionLog(
-  class = "lucee.runtime.engine.ResourceExecutionLog",
-  args = {
-    "unit": "milli"
-    , "min-time": 0
-    , "directory": codeCoverageDir
-  },
-  maxlogs = 0
-); // Enables Lucee to produce execution log files, *.exl
+// Start execution logging
+var logDirectory = lcovStartLogging(
+    adminPassword = "your-admin-password",
+    executionLogDir = codeCoverageDir,  // Optional: specify directory, or leave empty for auto-generated
+    options = {
+        unit: "milli",
+        minTime: 0,
+        className: "lucee.runtime.engine.ResourceExecutionLog"
+    }
+);
 
-// Runs tests or whatever you like
+// Run your tests or application code here
+// ...
 
-// Disable Execution logging
-exeLogger.disableExecutionLog(class="lucee.runtime.engine.ResourceExecutionLog");
+// Stop execution logging
+lcovStopLogging(adminPassword = "your-admin-password");
 
-// When running test suites, it's a good idea to exclude other code you aren't interested in reporting on
-blocklist = [expandPath("/testbox"), expandPath("/specs"), expandPath("{lucee-config}")];
-allowList = [];
+// Generate all report types (LCOV, HTML, JSON)
+var options = {
+    verbose: true,
+    allowList: [],
+    blocklist: [expandPath("/testbox"), expandPath("/specs"), expandPath("{lucee-config}")],
+    displayUnit: "milli"
+};
 
-// Create a coverage reporter instance
-codeCoverageReporter = new lucee.extension.lcov.codeCoverageReporter();
-// Generate reports from .exl files
-generateCodeCoverage( coverageDir=codeCoverageDir,
-	outputFile="/path/to/LCOV.info",
-	generateHtml=true,
-	allowList=allowList,
-	blocklist=blocklist,
-	displayUnit="milli" );
+var result = lcovGenerateAllReports(
+    executionLogDir = codeCoverageDir,
+    outputDir = "/path/to/reports",
+    options = options
+);
+
+// Or generate individual report types:
+// lcovGenerateLcov(executionLogDir=codeCoverageDir, outputFile="/path/to/lcov.info", options=options);
+// lcovGenerateHtml(executionLogDir=codeCoverageDir, outputDir="/path/to/html", options=options);
+// lcovGenerateJson(executionLogDir=codeCoverageDir, outputDir="/path/to/json", options=options);
 ```
 
 [Examples](examples/coverage.cfm)

@@ -4,10 +4,10 @@
 component {
 	
 	// Instance variable for HTML assets
-	variables.htmlAssets = new htmlAssets();
+	variables.htmlAssets = new HtmlAssets();
 	
 	// Instance variable for heatmap calculations
-	variables.heatmapCalculator = new heatmap();
+	variables.heatmapCalculator = new Heatmap();
 	
 	// Instance variable to store display unit
 	variables.displayUnit = "micro";
@@ -15,7 +15,7 @@ component {
 	/**
 	* Constructor/init function
 	*/
-	public codeCoverageHtmlWriter function init(string displayUnit = "micro") {
+	public HtmlWriter function init(string displayUnit = "micro") {
 		variables.displayUnit = getUnitInfo(arguments.displayUnit);
 		return this;
 	}

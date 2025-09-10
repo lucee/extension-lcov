@@ -1,11 +1,11 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
-		variables.ast = new lucee.extension.lcov.codeCoverageAst();
+		variables.ast = new lucee.extension.lcov.ExecutableLineCounter();
 	}
 	
 	function testAstExists() {
-		expect(variables.ast).toBeInstanceOf("codeCoverageAst");
+		expect(variables.ast).toBeInstanceOf("ExecutableLineCounter");
 	}
 	
 	function testAstCanCountSourceLines() {
@@ -21,7 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		];
 		
 		for (var testCase in testCases) {
-			var result = variables.ast.countSourceLines(testCase.content);
+			var result = variables.ast.countExecutableLinesSimple(testCase.content);
 			var lineCount = structKeyExists(result, "count") ? result.count : result;
 			expect(lineCount).toBe(testCase.expected, "Should count lines correctly for " & testCase.desc);
 		}

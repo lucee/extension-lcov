@@ -6,14 +6,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	function testComponentInstantiation() {
-		var parser = new lucee.extension.lcov.codeCoverageExlParser();
+		var parser = new lucee.extension.lcov.ExecutionLogParser();
 		var utils = new lucee.extension.lcov.codeCoverageUtils();
-		var htmlReporter = new lucee.extension.lcov.codeCoverageHtmlReporter();
+		var htmlReporter = new lucee.extension.lcov.reporter.HtmlReporter();
 		var exeLogger = new lucee.extension.lcov.exeLogger(request.SERVERADMINPASSWORD);
 		
-		expect(parser).toBeInstanceOf("codeCoverageExlParser");
+		expect(parser).toBeInstanceOf("ExecutionLogParser");
 		expect(utils).toBeInstanceOf("codeCoverageUtils");
-		expect(htmlReporter).toBeInstanceOf("codeCoverageHtmlReporter");
+		expect(htmlReporter).toBeInstanceOf("HtmlReporter");
 		expect(exeLogger).toBeInstanceOf("exeLogger");
 	}
 }

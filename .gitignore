@@ -1,5 +1,5 @@
 /target
 /temp
-/tests/artifacts/generated
+/tests/generated-artifacts
 /.vscode
 /.claude

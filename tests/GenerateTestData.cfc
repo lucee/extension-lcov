@@ -1,17 +1,13 @@
 component {
 	
-	function init(string outputFolder = "") {
+	function init(string testName = "GenerateTestData") {
 		var testDir = getDirectoryFromPath(getCurrentTemplatePath());
 		variables.testArtifactsPath = testDir & "artifacts/";
 		
-		// Use custom output folder if provided, otherwise use default
-		if (len(arguments.outputFolder)) {
-			variables.generatedArtifactsDir = arguments.outputFolder;
-		} else {
-			variables.generatedArtifactsDir = testDir & "artifacts/generated/GenerateTestData/";
-		}
+		// Create directory under artifacts/generated based on test name
+		variables.generatedArtifactsDir = testDir & "generated-artifacts/" & arguments.testName & "/";
 		
-		// Clean up and create directories
+		// Clean up from previous runs and create directories
 		if (directoryExists(variables.generatedArtifactsDir)) {
 			directoryDelete(variables.generatedArtifactsDir, true);
 		}

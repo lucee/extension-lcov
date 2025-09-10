@@ -121,42 +121,5 @@ component output="false" {
 		return lineClasses;
 	}
 
-	/**
-	 * Gets intensity level string based on numeric intensity
-	 * @param intensity Numeric intensity value (0-255)
-	 * @return string Intensity level: "low", "medium", or "high"
-	 */
-	public string function getIntensityLevel(numeric intensity) {
-		return arguments.intensity <= 85 ? "low" : (arguments.intensity <= 170 ? "medium" : "high");
-	}
 
-	// ========== DELEGATE METHODS FOR BACKWARD COMPATIBILITY ==========
-
-	/**
-	 * Delegates to colorGenerator for text color generation
-	 */
-	public string function getContrastTextColor(numeric level, numeric bucketCount) {
-		return variables.colorGenerator.getContrastTextColor(arguments.level, arguments.bucketCount);
-	}
-
-	/**
-	 * Delegates to colorGenerator for gradient color generation
-	 */
-	public string function generateGradientColor(struct baseColor, numeric level, numeric bucketCount) {
-		return variables.colorGenerator.generateGradientColor(arguments.baseColor, arguments.level, arguments.bucketCount);
-	}
-
-	/**
-	 * Delegates to bucketCalculator for bucket calculation
-	 */
-	public struct function calculateBuckets(array times, numeric bucketCount) {
-		return variables.bucketCalculator.calculateBuckets(arguments.times, arguments.bucketCount);
-	}
-
-	/**
-	 * Delegates to cssGenerator for CSS rule generation
-	 */
-	public string function generateCssRules() {
-		return variables.cssGenerator.generateCssRules();
-	}
 }

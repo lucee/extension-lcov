@@ -2,12 +2,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function testReporterUnitConversion() {
 		// Test creating reporter with different display units
-		var htmlWriter = new lucee.extension.lcov.codeCoverageHtmlWriter();
+		var htmlWriter = new lucee.extension.lcov.reporter.HtmlWriter();
 		
 		var units = htmlWriter.getUnits();
 
 		for (var unit in units) {
-			var htmlWriter = new lucee.extension.lcov.codeCoverageHtmlWriter( displayUnit: unit );
+			var htmlWriter = new lucee.extension.lcov.reporter.HtmlWriter( displayUnit: unit );
 			var type = htmlWriter.getUnitInfo( unit );
 			var exe = htmlWriter.convertTimeUnit( 1024, "ms", type );
 			var n = lsparseNumber( exe.time );

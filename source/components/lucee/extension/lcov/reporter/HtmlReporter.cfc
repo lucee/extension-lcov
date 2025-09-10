@@ -5,13 +5,32 @@ component {
 
 	// Instance variable to store display unit
 	variables.displayUnit = "micro";
+	variables.outputDir = "";
 	
 	/**
 	* Constructor/init function
 	*/
-	public function init(string displayUnit = "micro") {
+	public function init(string displayUnit = "micro", boolean verbose = false) {
 		variables.displayUnit = arguments.displayUnit;
+		variables.verbose = arguments.verbose;
 		return this;
+	}
+	
+	/**
+	* Private logging function that respects verbose setting
+	* @message The message to log
+	*/
+	private void function logger(required string message) {
+		if (variables.verbose) {
+			systemOutput(arguments.message, true);
+		}
+	}
+
+	/**
+	* Set the output directory for HTML file generation
+	*/
+	public void function setOutputDir(required string outputDir) {
+		variables.outputDir = arguments.outputDir;
 	}
 
 	/**
@@ -20,11 +39,15 @@ component {
 	 */
 	public string function generateHtmlReport(struct result) {
 		if (!structKeyExists(arguments.result, "coverage") || structIsEmpty(arguments.result.coverage)) {
-			systemOutput("No coverage data found in " & arguments.result.exeLog & ", skipping HTML report generation", true);
+			logger("No coverage data found in " & arguments.result.exeLog & ", skipping HTML report generation");
 			return; // Skip empty files
 		}
 
-		var htmlWriter = new codeCoverageHtmlWriter(variables.displayUnit);
+		if (!extensionExists("37C61C0A-5D7E-4256-8572639BE0CF5838")) {
+			throw(message="HTML report generation requires the ESAPI extension for security encoding functions. Please install the ESAPI extension first.", type="extension.dependency");
+		}
+
+		var htmlWriter = new HtmlWriter(variables.displayUnit);
 		var html = htmlWriter.generateHtmlContent(result);
 		var htmlPath = createHtmlPath(result);
 		fileWrite(htmlPath, html);
@@ -38,43 +61,43 @@ component {
 	* Generates an index.html file listing all HTML reports
 	*/
 	public string function generateIndexHtml(string outputDirectory) {
-		var htmlWriter = new codeCoverageHtmlWriter(variables.displayUnit);
-
-		var indexJsonPath = outputDirectory & "index-data.json";
-
-		if (!fileExists(indexJsonPath)) {
-			throw "No index data found, skipping index.html generation";
+		if (!extensionExists("37C61C0A-5D7E-4256-8572639BE0CF5838")) {
+			throw(message="HTML index generation requires the ESAPI extension for security encoding functions. Please install the ESAPI extension first.", type="extension.dependency");
 		}
 
-		// Load index data
-		var jsonContent = fileRead(indexJsonPath);
+		var htmlWriter = new HtmlWriter(variables.displayUnit);
+
+		var indexJsonPath = outputDirectory & "/index-data.json";
+
+		// Load index data or create empty structure
 		var indexData = [];
-		if (len(trim(jsonContent)) > 0) {
-			indexData = deserializeJSON(jsonContent);
-		}
-
-		if ( arrayLen( indexData ) == 0 ) {
-			throw "No reports found in index data";
+		if (fileExists(indexJsonPath)) {
+			var jsonContent = fileRead(indexJsonPath);
+			if (len(trim(jsonContent)) > 0) {
+				indexData = deserializeJSON(jsonContent);
+			}
 		}
 
 		// Sort by coverage, totalLines / totalLinesFound (highest first)
-		arraySort(indexData, function(a, b) {
-			var coverageA = a.totalLinesHit / a.totalLinesFound;
-			var coverageB = b.totalLinesHit / b.totalLinesFound;
-			if (coverageA != coverageB) {
-				return coverageB - coverageA;
-			}
-			return true;
-		});
+		if (arrayLen(indexData) > 0) {
+			arraySort(indexData, function(a, b) {
+				var coverageA = a.totalLinesHit / a.totalLinesFound;
+				var coverageB = b.totalLinesHit / b.totalLinesFound;
+				if (coverageA != coverageB) {
+					return coverageB - coverageA;
+				}
+				return 0;
+			});
+		}
 
 		// Generate HTML content
 		var html = htmlWriter.generateIndexHtmlContent( indexData );
 
 		// Write index.html file
-		var indexHtmlPath = arguments.outputDirectory & "index.html";
+		var indexHtmlPath = arguments.outputDirectory & "/index.html";
 		fileWrite(indexHtmlPath, html);
 
-		systemOutput("Generated index.html with " & arrayLen( indexData ) & " reports", true);
+		logger("Generated index.html with " & arrayLen( indexData ) & " reports");
 		return indexHtmlPath;
 	}
 
@@ -126,7 +149,11 @@ component {
 		scriptName = replace( scriptName, ".", "_", "all" ); // Convert dots to underscores
 
 		// Create the base filename: number-scriptname
-		var directory = getDirectoryFromPath( result.exeLog );
+		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.exeLog );
+		// Ensure directory ends with separator
+		if (len(directory) && !right(directory, 1) == "/" && !right(directory, 1) == "\") {
+			directory = directory & "/";
+		}
 		var baseFileName = numberPrefix & "-" & scriptName;
 		var newFileName = baseFileName & ".html";
 		var fullPath = directory & newFileName;

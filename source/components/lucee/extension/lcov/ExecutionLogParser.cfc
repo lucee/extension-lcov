@@ -11,12 +11,27 @@ component accessors="true" {
 
 	/**
 	* Initialize the parser with cache structures
+	* @options Configuration options struct (optional)
 	*/
-	public function init() {
+	public function init(struct options = {}) {
+		// Store options and extract verbose flag
+		variables.options = arguments.options;
+		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		
 		// Always instantiate the utility component for code coverage helpers
-		variables.utils = new codeCoverageUtils();
-		variables.ast = new codeCoverageAst();
+		variables.utils = new codeCoverageUtils(arguments.options);
+		variables.ast = new ExecutableLineCounter(arguments.options);
 		return this;
+	}
+
+	/**
+	* Private logging function that respects verbose setting
+	* @message The message to log
+	*/
+	private void function logger(required string message) {
+		if (variables.verbose) {
+			systemOutput(arguments.message, true);
+		}
 	}
 
 	/**
@@ -36,7 +51,7 @@ component accessors="true" {
 			var fileContent = fileRead(arguments.exlPath);
 			lines = listToArray(fileContent, chr(10), true, false);
 		} catch (any e) {
-			systemOutput("Error reading file [" & arguments.exlPath & "]: " & e.message, true);
+			logger("Error reading file [" & arguments.exlPath & "]: " & e.message);
 			return { "sections": {}, "fileCoverage": {} };
 		}
 
@@ -74,21 +89,21 @@ component accessors="true" {
 		};
 
 		if ( structCount( coverage.source.files ) == 0 && arrayLen( coverage.fileCoverage ) == 0 ) {
-			systemOutput("Skipping file with empty files and fileCoverage: [" & exlPath & "]", true);
+			logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
 			return {};
 		}
 
 		coverage["coverage"] = parseCoverage( coverage );
 
-		systemOutput("parsed file: " & exlPath &
+		logger("parsed file: " & exlPath &
 			", Metadata lines: " & structCount( coverage.metadata ) &
 			", files lines: " & structCount( coverage.source.files ) &
 			", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
-			", Coverage lines: " & arrayLen( coverage.fileCoverage ), true);
+			", Coverage lines: " & arrayLen( coverage.fileCoverage ));
 
 			// write out filecoverage as json using compact=false for debuggingg
 		fileWrite( replace( arguments.exlPath, ".exl", "-fileCoverage.json" ), serializeJson( var=coverage, compact=false ) );
-		systemOutput( "", true );
+		logger( "" );
 
 		return coverage;
 	}
@@ -114,9 +129,9 @@ component accessors="true" {
 				"size": endIdx - i + 1
 			});
 		}
-		systemOutput("  Created " & arrayLen(chunks) & " chunks of " & numberFormat(chunkSize)
-			& " lines each (arrayEach will auto-parallelize)", true);
-
+		if (arrayLen(chunks) > 1) {
+			logger("  Split " & totalLines & " coverage lines into " & arrayLen(chunks) & " chunks of ~" & numberFormat(chunkSize) & " lines each");
+		}
 		var parallelStart = getTickCount();
 		// Process job queue in parallel - arrayEach automatically handles thread allocation
 		var chunkResults = [];
@@ -155,13 +170,13 @@ component accessors="true" {
 			}
 
 			var chunkTime = getTickCount() - chunkStart;
-			systemOutput("  Chunk " & index & " / " & arrayLen(chunks) & " completed in " & chunkTime & "ms", true);
+			logger("  Chunk " & index & " / " & arrayLen(chunks) & " completed in " & chunkTime & "ms");
 
 			// Store result for merging
 			arrayAppend(chunkResults, chunkBlocks);
 		}, true); // parallel=true
 
-		systemOutput("  Parallel processing completed in " & (getTickCount() - parallelStart) & "ms", true);
+		logger("  Parallel processing completed in " & (getTickCount() - parallelStart) & "ms");
 
 		var mergeStart = getTickCount();
 
@@ -170,11 +185,11 @@ component accessors="true" {
 		// Pass a flag to processBlocks to indicate blocks are already line-based
 		var processStart = getTickCount();
 		var coverage = variables.utils.processBlocks( allBlocks, files, lineMappingsCache, true );
-		systemOutput("  Processed blocks into line coverage in " & (getTickCount() - processStart) & "ms", true);
+		logger("  Processed blocks into line coverage in " & (getTickCount() - processStart) & "ms");
 
 		var totalTime = mergeStart - start;
-		systemOutput("  Merge completed in " & (getTickCount() - mergeStart) & "ms", true);
-		systemOutput("  Total parallel processing time: " & totalTime & "ms (" & decimalFormat(totalTime/totalLines) & "ms per line)", true);
+		logger("  Merge completed in " & (getTickCount() - mergeStart) & "ms");
+		logger("  Total parallel processing time: " & totalTime & "ms (" & decimalFormat(totalTime/totalLines) & "ms per line)");
 
 		return coverage;
 	}
@@ -258,7 +273,7 @@ component accessors="true" {
 	* The file format is: metadata, empty line, file mappings (num:Path), empty line, then coverage data.
 	*/
 	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blockList, boolean useAstForLinesFound = true) {
+			array allowList, array blocklist, boolean useAstForLinesFound = true) {
 		var files = {};
 		var skipped = {}
 		for (var i = 1; i <= arrayLen(arguments.filesLines); i++) {
@@ -282,7 +297,11 @@ component accessors="true" {
 			if ( arrayLen( arguments.allowList ) > 0 ) {
 				skip = true;
 				for ( var pattern in arguments.allowList ) {
-					if ( find( pattern, path ) > 0 ) {
+					var normalizedPath = replace(path, "/", server.separator.file, "all");
+					normalizedPath = replace(normalizedPath, "\", server.separator.file, "all");
+					var normalizedPattern = replace(pattern, "/", server.separator.file, "all");
+					normalizedPattern = replace(normalizedPattern, "\", server.separator.file, "all");
+					if ( find( normalizedPattern, normalizedPath ) > 0 ) {
 						skip = false;
 						break;
 					}
@@ -294,8 +313,12 @@ component accessors="true" {
 				}
 			}
 
-			for ( var pattern in arguments.blockList ) {
-				if ( find( pattern, path ) > 0 ) {
+			for ( var pattern in arguments.blocklist ) {
+				var normalizedPath = replace(path, "/", server.separator.file, "all");
+				normalizedPath = replace(normalizedPath, "\", server.separator.file, "all");
+				var normalizedPattern = replace(pattern, "/", server.separator.file, "all");
+				normalizedPattern = replace(normalizedPattern, "\", server.separator.file, "all");
+				if ( find( normalizedPattern, normalizedPath ) > 0 ) {
 					variables.fileIgnoreCache[ path ] = "found in blocklist [" & num & "]";
 					skip = true;
 					skipped[ path ] = path & " found in blocklist";
@@ -314,10 +337,10 @@ component accessors="true" {
 				if (arguments.useAstForLinesFound) {
 					// Use AST-based approach
 					var ast = astFromPath( path );
-					lineInfo = variables.ast.countInstrumentedLines( ast );
+					lineInfo = variables.ast.countExecutableLinesFromAst( ast );
 				} else {
 					// Use simple line counting approach
-					lineInfo = variables.ast.countSourceLines( sourceLines );
+					lineInfo = variables.ast.countExecutableLinesSimple( sourceLines );
 				}
 				
 				files[ num ] = {
@@ -330,7 +353,7 @@ component accessors="true" {
 			}
 		}
 		if (len(skipped) > 0) {
-			systemOutput("Skipped [" & len(skipped) & "] files due to allow/block lists in [" & listLast(arguments.exlPath, "\/") & "]", true);
+			logger("Skipped [" & len(skipped) & "] files due to allow/block lists in [" & listLast(arguments.exlPath, "\/") & "]");
 		}
 		return {
 			"files": files,

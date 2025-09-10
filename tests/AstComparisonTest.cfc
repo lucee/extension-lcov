@@ -1,12 +1,11 @@
 component extends="testbox.system.BaseSpec" {
 	
 	function beforeAll() {
-		// Set up test directory for output
-		variables.testOutputDir = expandPath("./artifacts/generated/AstComparisonTest/");
 		variables.adminPassword = server.system.environment.LUCEE_ADMIN_PASSWORD ?: "admin";
 		
-		// Create test generator instance with custom output folder
-		variables.testGenerator = new GenerateTestData(outputFolder=variables.testOutputDir);
+		// Create test generator instance with test name - handles directory creation and cleanup
+		variables.testGenerator = new GenerateTestData(testName="AstComparisonTest");
+		variables.testOutputDir = variables.testGenerator.getGeneratedArtifactsDir();
 	}
 	
 	function run() {
@@ -33,7 +32,7 @@ component extends="testbox.system.BaseSpec" {
 				var exlPath = exlFiles[1];
 				
 				// Create parser instance
-				var parser = new lucee.extension.lcov.codeCoverageExlParser();
+				var parser = new lucee.extension.lcov.ExecutionLogParser();
 				
 				// Parse with AST approach (default)
 				var astResult = parser.parseExlFile(
@@ -119,7 +118,7 @@ component extends="testbox.system.BaseSpec" {
 				var exlPath = exlFiles[1];
 				
 				// Parse to get coverage data
-				var parser = new lucee.extension.lcov.codeCoverageExlParser();
+				var parser = new lucee.extension.lcov.ExecutionLogParser();
 				var coverageData = parser.parseExlFile(exlPath = exlPath);
 				
 				// Count actual covered lines
@@ -162,7 +161,7 @@ component extends="testbox.system.BaseSpec" {
 			});
 			
 			it("should verify both approaches handle edge cases", function() {
-				var parser = new lucee.extension.lcov.codeCoverageExlParser();
+				var parser = new lucee.extension.lcov.ExecutionLogParser();
 				
 				// Test with empty lines and comments
 				var testSourceLines = [
@@ -178,7 +177,7 @@ component extends="testbox.system.BaseSpec" {
 				];
 				
 				// Test simple line counting
-				var simpleResult = parser.getAst().countSourceLines(testSourceLines);
+				var simpleResult = parser.getAst().countExecutableLinesSimple(testSourceLines);
 				var simpleCount = simpleResult.count;
 				
 				systemOutput("", true);
