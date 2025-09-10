@@ -456,7 +456,10 @@ logDir = lcovStartLogging(
     adminPassword=AdminPassword);
 
 // 2. Run tests (in separate request to activate logging)
-internalRequest(template="/path/to/test-runner.cfm");
+internalRequest(
+    template = "/path/to/test-runner.cfm",
+    throwonerror = true
+);
 
 // 3. Disable logging
 lcovStopLogging(adminPassword=AdminPassword);
@@ -507,7 +510,10 @@ systemOutput("Generated: " & result.htmlIndex);
 // Minimal code for basic coverage
 logDir = lcovStartLogging(
     adminPassword=AdminPassword,);
-internalRequest(template="/run-my-code.cfm");
+internalRequest(
+    template = "/run-my-code.cfm",
+    throwonerror = true
+);
 lcovStopLogging(adminPassword=AdminPassword);
 
 result = lcovGenerateAllReports(
@@ -524,7 +530,10 @@ systemOutput("Coverage: " & result.stats.coveragePercentage & "%");
 // Enable logging and run tests
 logDir = lcovStartLogging(
     adminPassword=AdminPassword,);
-internalRequest(template="/tests/all.cfm");
+internalRequest(
+    template = "/tests/all.cfm",
+    throwonerror = true
+);
 lcovStopLogging(adminPassword=AdminPassword);
 
 // Generate only LCOV for CI
@@ -566,7 +575,10 @@ systemOutput("Generated LCOV, HTML, and JSON reports with individual control");
 // Minimal overhead - just get the statistics
 logDir = lcovStartLogging(
     adminPassword=AdminPassword);
-internalRequest(template="/tests/critical.cfm");
+internalRequest(
+    template = "/tests/critical.cfm",
+    throwonerror = true
+);
 lcovStopLogging(adminPassword=AdminPassword);
 
 // Fast stats-only generation (no file I/O for reports)
@@ -699,7 +711,10 @@ logDir = lcovStartLogging(
     adminPassword=AdminPassword,);
 
 // Run test suite in separate request
-internalRequest(template="/tests/run-all.cfm");
+internalRequest(
+    template = "/tests/run-all.cfm",
+    throwonerror = true
+);
 
 // Stop logging and generate reports
 lcovStopLogging(adminPassword=AdminPassword);

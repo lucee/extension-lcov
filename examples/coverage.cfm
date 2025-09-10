@@ -53,7 +53,11 @@
 	systemOutput("Running: " & testRunner, true);
 	
 	// THIS internalRequest() call is what actually generates the .exl files!
-	internalRequest(template=testRunner);
+	// Use throwonerror=true for fail-fast behavior if tests don't exist
+	internalRequest(
+		template = testRunner,
+		throwonerror = true
+	);
 	systemOutput("✓ Code execution complete - .exl files should now exist", true);
 	systemOutput("", true);
 

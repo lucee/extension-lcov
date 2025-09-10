@@ -2,9 +2,9 @@
 	// Test runner that exercises all the artifact files
 	echo("Testing Coverage Artifacts");
 	
-	// Test simple.cfm
+	// Test coverage-simple-sequential.cfm
 	echo("Simple CFM Test");
-	include "simple.cfm";
+	include "coverage-simple-sequential.cfm";
 	echo("");
 	
 	// Test conditional.cfm with different URL parameters
@@ -17,9 +17,9 @@
 	include "loops.cfm";
 	echo("");
 	
-	// Test functions.cfm
+	// Test functions-example.cfm
 	echo("Functions CFM Test");
-	include "functions.cfm";
+	include "functions-example.cfm";
 	echo("");
 	
 	// Test exception.cfm

@@ -65,11 +65,19 @@ component {
 			}
 			try {
 				if (len(urlArgs) == 0) {
-					internalRequest(template: templatePath & "/" & _file, url: urlArgs);
+					internalRequest(
+						template = templatePath & "/" & _file,
+						urls = urlArgs,
+						throwonerror = true
+					);
 					fileCount++;
 				} else {
 					for (var args in urlArgs) {
-						internalRequest(template: templatePath & "/" & _file, url: args);
+						internalRequest(
+							template = templatePath & "/" & _file,
+							urls = args,
+							throwonerror = true
+						);
 						fileCount++;
 					}
 				}

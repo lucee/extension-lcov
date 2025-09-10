@@ -143,10 +143,8 @@ component {
 		var numberPrefix = listFirst( fileName, "-" );
 		var scriptName = result.metadata[ "script-name" ] ?: "unknown";
 
-		// Clean up script name: remove leading slash and convert remaining slashes to underscores
-		scriptName = reReplace( scriptName, "^/", "" ); // Remove leading slash
-		scriptName = replace( scriptName, "/", "_", "all" ); // Convert slashes to underscores
-		scriptName = replace( scriptName, ".", "_", "all" ); // Convert dots to underscores
+		// Clean up script name for use as filename
+		scriptName = cleanScriptNameForFilename(scriptName);
 
 		// Create the base filename: number-scriptname
 		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.exeLog );
@@ -171,6 +169,48 @@ component {
 		}
 
 		return fullPath;
+	}
+
+	/**
+	* Clean script name to make it safe for use as filename, preserving query parameter info
+	* @scriptName The script name from metadata (may contain URL parameters, slashes, etc)
+	* @return Clean filename-safe string with query parameters preserved as underscores
+	*/
+	private string function cleanScriptNameForFilename(required string scriptName) {
+		var cleaned = arguments.scriptName;
+		
+		// Remove leading slash
+		cleaned = reReplace( cleaned, "^/", "" );
+		
+		// Handle query parameters - preserve them but make them filename-safe
+		if (find("?", cleaned)) {
+			var scriptPart = listFirst( cleaned, "?" );
+			var queryPart = listLast( cleaned, "?" );
+			
+			// Clean up the query parameters to be filename-safe
+			queryPart = replace( queryPart, "=", "_", "all" );  // param=value becomes param_value
+			queryPart = replace( queryPart, "&", "_", "all" );  // param1&param2 becomes param1_param2
+			queryPart = replace( queryPart, "%", "_", "all" );  // URL encoded characters
+			queryPart = replace( queryPart, "+", "_", "all" );  // URL encoded spaces
+			
+			// Recombine with underscore separator
+			cleaned = scriptPart & "_" & queryPart;
+		}
+		
+		// Convert filesystem-unsafe characters to underscores
+		cleaned = replace( cleaned, "/", "_", "all" );  // Convert slashes to underscores
+		cleaned = replace( cleaned, ".", "_", "all" );  // Convert dots to underscores
+		cleaned = replace( cleaned, ":", "_", "all" );  // Convert colons to underscores (Windows drive letters, etc)
+		cleaned = replace( cleaned, "*", "_", "all" );  // Convert asterisks to underscores
+		cleaned = replace( cleaned, "?", "_", "all" );  // Convert any remaining question marks to underscores
+		cleaned = replace( cleaned, '"', "_", "all" );  // Convert quotes to underscores
+		cleaned = replace( cleaned, "<", "_", "all" );  // Convert less-than to underscores
+		cleaned = replace( cleaned, ">", "_", "all" );  // Convert greater-than to underscores
+		cleaned = replace( cleaned, "|", "_", "all" );  // Convert pipes to underscores
+		cleaned = replace( cleaned, " ", "_", "all" );  // Convert spaces to underscores
+		cleaned = replace( cleaned, "##", "_", "all" );  // Convert hash symbols to underscores
+		
+		return cleaned;
 	}
 
 }

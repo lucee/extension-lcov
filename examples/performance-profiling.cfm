@@ -48,7 +48,10 @@
 	systemOutput("Running: " & testRunner, true);
 	
 	// THIS internalRequest() call generates performance output to console!
-	internalRequest(template=testRunner);
+	internalRequest(
+		template = testRunner,
+		throwonerror = true
+	);
 	systemOutput("✓ Code execution complete - check console for performance data", true);
 	systemOutput("", true);
 

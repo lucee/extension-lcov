@@ -28,7 +28,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 	
 	function testAstCanParseSourceFiles() {
-		var testFiles = ["simple.cfm", "SimpleComponent.cfc"];
+		var testFiles = ["coverage-simple-sequential.cfm", "SimpleComponent.cfc"];
 		
 		for (var filename in testFiles) {
 			var filePath = expandPath("./artifacts/" & filename);

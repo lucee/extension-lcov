@@ -79,9 +79,15 @@ var logDirectory = lcovStartLogging(
 
 // Run your tests or application code here
 // CRITICAL: Must use internalRequest() for logging to work!
-internalRequest(template="/your/test/runner.cfm");
+internalRequest(
+    template = "/your/test/runner.cfm",
+    throwonerror = true
+);
 // or
-internalRequest(template="/your/application/entry-point.cfm");
+internalRequest(
+    template = "/your/application/entry-point.cfm",
+    throwonerror = true
+);
 
 // Stop execution logging
 lcovStopLogging(adminPassword = "your-admin-password");

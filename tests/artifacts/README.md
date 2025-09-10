@@ -18,12 +18,12 @@ These test artifacts use `echo()` instead of `systemOutput()` because:
 3. **Silent Execution**: `echo()` allows the code to execute (generating coverage data) without producing console output
 
 The artifacts include various code patterns to test coverage tracking:
-- Simple sequential execution (`simple.cfm`)
+- Simple sequential execution (`coverage-simple-sequential.cfm`)
 - Conditional branches (`conditional.cfm`)
 - Loop structures (`loops.cfm`)
-- Function definitions and calls (`functions.cfm`)
+- Function definitions and calls (`functions-example.cfm`)
 - Exception handling (`exception.cfm`)
-- Component usage (`runner.cfm`)
+- Component usage (`kitchen-sink-example.cfm`)
 
 ## Components
 
