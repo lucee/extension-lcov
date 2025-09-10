@@ -1,4 +1,4 @@
-# LCOV Code Line Coverage Extension for Lucee
+# LCOV Line Coverage Extension for Lucee
 
 ![LCOV Extension Logo](source/images/logo.png)
 
