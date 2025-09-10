@@ -14,6 +14,10 @@ This extension provides LCOV code coverage reporting capabilities for Lucee CFML
 - Coverage statistics and reporting utilities
 - Can handle processing large logs from a single test suite execution run
 
+## Limitations
+
+This extension consumes the Execution Logs from Lucee, it currently doesn't consider some block elmements as being executed, i.e. switch, component, function, etc
+
 ## HTML Reports
 
 <img width="1242" height="1210" alt="image" src="https://github.com/user-attachments/assets/e23f726a-d0da-4ec0-bb39-d815a362babc" />
