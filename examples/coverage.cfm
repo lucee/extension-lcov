@@ -1,6 +1,8 @@
 <cfscript>
 	setting requesttimeout="100000";
 	
+	SERVERADMINPASSWORD = "admin"; // script-runner default password
+
 	systemOutput("==========================================", true);
 	systemOutput("LUCEE LCOV COVERAGE EXAMPLE", true);
 	systemOutput("==========================================", true);
@@ -24,7 +26,7 @@
 	systemOutput("STEP 2: Enabling Lucee ResourceExecutionLog - THIS GENERATES THE .EXL FILES!", true);
 	systemOutput("Without this step, NO coverage data will be captured!", true);
 	
-	exeLogger = new lucee.extension.lcov.exeLogger(request.SERVERADMINPASSWORD);
+	exeLogger = new lucee.extension.lcov.exeLogger(SERVERADMINPASSWORD);
 	exeLogger.enableExecutionLog(
 		class = "lucee.runtime.engine.ResourceExecutionLog", // This class writes .exl files
 		args = {
@@ -70,37 +72,36 @@
 	// STEP 5: Generate LCOV coverage reports from the .exl files
 	systemOutput("STEP 5: Generating LCOV coverage reports from .exl files", true);
 	systemOutput("Using LCOV extension functions to process the execution logs", true);
+	systemOutput("codeCoverageDir = " & codeCoverageDir, true);
+	systemOutput("", true);
 	
 	// Generate LCOV format file (for VS Code Coverage Gutters)
-	lcovFile = lcovGenerateLcov(
+	lcovFile = codeCoverageDir & "LCOV.info"
+	lcovGenerateLcov(
 		executionLogDir = codeCoverageDir,
-		outputFile = codeCoverageDir & "coverage.lcov"
+		outputFile = lcovFile
 	);
 	systemOutput("✓ LCOV file generated: " & lcovFile, true);
 	
 	// Generate HTML reports (for browser viewing)
-	htmlIndex = lcovGenerateHtml(
+	htmlFiles = lcovGenerateHtml(
 		executionLogDir = codeCoverageDir,
 		outputDir = codeCoverageDir & "html-reports/"
 	);
-	systemOutput("✓ HTML reports generated: " & htmlIndex, true);
-	
+
+	systemOutput("✓ HTML reports generated: " & serializeJson(var=htmlFiles, compact=false), true);
+
 	// Generate JSON data (for programmatic use)
 	jsonFile = lcovGenerateJson(
 		executionLogDir = codeCoverageDir,
-		outputFile = codeCoverageDir & "coverage.json"
+		outputDir = codeCoverageDir & "coverage.json"
 	);
-	systemOutput("✓ JSON file generated: " & jsonFile, true);
+	systemOutput("✓ JSON files generated: " & serializeJson(var=jsonFile, compact=false), true);
 	
 	systemOutput("", true);
 	systemOutput("==========================================", true);
 	systemOutput("COVERAGE GENERATION COMPLETE!", true);
-	systemOutput("Generated files:", true);
-	systemOutput("- " & lcovFile & " (for VS Code Coverage Gutters)", true);
-	systemOutput("- " & htmlIndex & " (open in browser)", true);
-	systemOutput("- " & jsonFile & " (for programmatic use)", true);
-	systemOutput("==========================================", true);
-	
+
 	
 	// NOTE: For performance profiling (separate from coverage), see performance-profiling.cfm example
 </cfscript>

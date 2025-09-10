@@ -26,6 +26,7 @@
 
 	systemOutput("Generated reports:", true);
 	systemOutput("- LCOV file: " & result.lcovFile, true);
-	systemOutput("- HTML index: " & result.htmlIndex, true);
+	systemOutput("- HTML reports: " & serializeJson(var=result.htmlFiles, compact=false), true);
+	systemOutput("- JSON files: " & serializeJson(var=result.jsonFiles, compact=false), true);
 	systemOutput("- Coverage: " & result.stats.coveragePercentage & "%", true);
 </cfscript>
