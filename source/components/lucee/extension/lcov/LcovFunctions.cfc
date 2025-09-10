@@ -189,7 +189,8 @@ component {
 				verbose: false,
 				displayUnit: "milli",
 				allowList: [],
-				blocklist: []
+				blocklist: [],
+				separateFiles: false
 			};
 			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
 
@@ -217,9 +218,21 @@ component {
 				processingTimeMs: 0
 			};
 
+			// Post-process results if separateFiles is true - merge by source file
+			var processedResults = results;
+			if (mergedOptions.separateFiles) {
+				if (mergedOptions.verbose) {
+					systemOutput("Original results count: " & structCount(results), true);
+				}
+				processedResults = logProcessor.mergeResultsBySourceFile(results, mergedOptions.verbose);
+				if (mergedOptions.verbose) {
+					systemOutput("Processed results count: " & structCount(processedResults), true);
+				}
+			}
+
 			// Generate individual HTML reports for each result
-			for (var exlPath in results) {
-				var result = results[exlPath];
+			for (var resultKey in processedResults) {
+				var result = processedResults[resultKey];
 				if (structKeyExists(result, "coverage") && !structIsEmpty(result.coverage)) {
 					htmlReporter.generateHtmlReport(result);
 					
@@ -249,6 +262,7 @@ component {
 			throw(message="Failed to generate HTML reports: " & e.message, detail=e.detail, cause=e);
 		}
 	}
+
 
 	/**
 	 * Generate JSON reports

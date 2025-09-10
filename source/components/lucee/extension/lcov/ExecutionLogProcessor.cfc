@@ -117,4 +117,148 @@ component {
 
 		return info;
 	}
+
+	/**
+	 * Merge execution results by source file instead of by execution run
+	 * When separateFiles: true, this combines coverage data from multiple .exl runs
+	 * that executed the same source files, creating one result per source file
+	 * @results Struct of results keyed by .exl file path
+	 * @verbose Boolean flag for verbose logging
+	 * @return Struct of merged results keyed by source file path
+	 */
+	public struct function mergeResultsBySourceFile(required struct results, boolean verbose = false) {
+		logger("Starting mergeResultsBySourceFile - processing " & structCount(arguments.results) & " results");
+		
+		var mergedResults = {};
+		
+		// Iterate through each .exl result
+		for (var exlPath in arguments.results) {
+			var result = arguments.results[exlPath];
+			
+			// Skip if no coverage data
+			if (!structKeyExists(result, "coverage") || structIsEmpty(result.coverage)) {
+				logger("Skipping " & exlPath & " - no coverage data");
+				continue;
+			}
+			
+			// Process each source file in this result's coverage data
+			for (var fileIndex in result.coverage) {
+				var sourceFileCoverage = result.coverage[fileIndex];
+				
+				// Get the actual file path from the file index
+				var sourceFilePath = "";
+				if (structKeyExists(result, "source") && structKeyExists(result.source, "files") && structKeyExists(result.source.files, fileIndex)) {
+					sourceFilePath = result.source.files[fileIndex].path ?: fileIndex;
+				} else {
+					sourceFilePath = fileIndex; // Fallback to index if path not found
+				}
+				
+				// Initialize merged result for this source file if it doesn't exist
+				if (!structKeyExists(mergedResults, sourceFilePath)) {
+					mergedResults[sourceFilePath] = {
+						"exeLog": sourceFilePath, // Use source file path instead of .exl path
+						"metadata": {
+							"script-name": contractPath(sourceFilePath),
+							"execution-time": "0", // Will be accumulated from individual results
+							"unit": result.metadata.unit ?: "μs"
+						},
+						"files": {}, // This should remain at the top level, not nested
+						"fileCoverage": [], // fileCoverage is an array, not a struct
+						"coverage": {},
+						"source": { 
+							"files": {} // This is what calculateCoverageStats expects
+						},
+						"stats": {
+							"totalLinesFound": 0,
+							"totalLinesHit": 0,
+							"totalExecutions": 0,
+							"totalExecutionTime": 0
+						}
+					};
+					
+					// Copy the source file structure to the correct locations
+					mergedResults[sourceFilePath].coverage[sourceFilePath] = {};
+					if (structKeyExists(result, "source") && structKeyExists(result.source, "files") && structKeyExists(result.source.files, fileIndex)) {
+						mergedResults[sourceFilePath].source.files[sourceFilePath] = result.source.files[fileIndex];
+					}
+					if (structKeyExists(result, "files") && structKeyExists(result.files, fileIndex)) {
+						mergedResults[sourceFilePath].files[sourceFilePath] = result.files[fileIndex];
+					}
+					// Note: fileCoverage is an array that contains raw coverage data lines
+					// We'll merge the relevant coverage data from the array later
+				}
+				
+				// Merge coverage data for this source file
+				var targetCoverage = mergedResults[sourceFilePath].coverage[sourceFilePath];
+				
+				// If target coverage is empty, initialize it
+				if (structIsEmpty(targetCoverage)) {
+					mergedResults[sourceFilePath].coverage[sourceFilePath] = duplicate(sourceFileCoverage);
+				} else {
+					// Merge line-by-line coverage data
+					for (var lineNumber in sourceFileCoverage) {
+						var sourceLine = sourceFileCoverage[lineNumber];
+						
+						if (!structKeyExists(targetCoverage, lineNumber)) {
+							// First time seeing this line
+							targetCoverage[lineNumber] = duplicate(sourceLine);
+						} else {
+							// Merge execution data for this line
+							var targetLine = targetCoverage[lineNumber];
+							
+							// Add execution counts
+							if (structKeyExists(sourceLine, "count")) {
+								targetLine.count = val(targetLine.count ?: 0) + val(sourceLine.count ?: 0);
+							}
+							
+							// Merge execution times if present
+							if (structKeyExists(sourceLine, "time")) {
+								targetLine.time = val(targetLine.time ?: 0) + val(sourceLine.time ?: 0);
+							}
+							
+							// Merge any other execution data
+							for (var key in sourceLine) {
+								if (key != "count" && key != "time") {
+									if (isNumeric(sourceLine[key]) && isNumeric(targetLine[key] ?: 0)) {
+										targetLine[key] = val(targetLine[key] ?: 0) + val(sourceLine[key]);
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				// Also merge fileCoverage array data for this source file
+				if (structKeyExists(result, "fileCoverage") && isArray(result.fileCoverage)) {
+					// We already have the fileIndex from the loop variable
+					// Add relevant coverage lines from fileCoverage array
+					for (var coverageLine in result.fileCoverage) {
+						// Parse the tab-separated coverage line: fileIdx, lineNum, count, time
+						var parts = listToArray(coverageLine, chr(9), false, false);
+						if (arrayLen(parts) >= 2 && parts[1] == fileIndex) {
+							// This coverage line is for our current source file
+							arrayAppend(mergedResults[sourceFilePath].fileCoverage, coverageLine);
+						}
+					}
+				}
+				
+				// Note: execution-time will be set later based on calculated stats
+				
+				logger("Merged coverage data for source file: " & sourceFilePath);
+			}
+		}
+		
+		// Recalculate stats for each merged result and update execution time
+		for (var sourceFile in mergedResults) {
+			mergedResults[sourceFile].stats = variables.codeCoverageUtils.calculateCoverageStats(mergedResults[sourceFile]);
+			
+			// Set the execution time based on the calculated per-file stats
+			if (structKeyExists(mergedResults[sourceFile].stats, "totalExecutionTime")) {
+				mergedResults[sourceFile].metadata["execution-time"] = mergedResults[sourceFile].stats.totalExecutionTime;
+			}
+		}
+		
+		logger("Completed mergeResultsBySourceFile - created " & structCount(mergedResults) & " merged results");
+		return mergedResults;
+	}
 }

@@ -9,6 +9,9 @@ component {
 	// Instance variable for heatmap calculations
 	variables.heatmapCalculator = new Heatmap();
 	
+	// Instance variable for HTML encoding
+	variables.htmlEncoder = new HtmlEncoder();
+	
 	// Instance variable to store display unit
 	variables.displayUnit = "micro";
 	
@@ -21,6 +24,14 @@ component {
 	}
 
 	/**
+	* Generates the consistent report title header
+	*/
+	private string function getReportTitleHeader() {
+		return '<h2 class="report-type">Lucee Code Coverage Report</h2>';
+	}
+
+
+	/**
 	* Generates the HTML content for the execution report
 	*/
 	public string function generateHtmlContent(struct result) {
@@ -31,7 +42,7 @@ component {
 		var executionTime = result.metadata["execution-time"] ?: "N/A";
 		var executionTime = convertTimeUnit(executionTime, originalUnit, variables.displayUnit);
 
-		var fileCoverageJson = replace(arguments.result.exeLog, ".exl", "-fileCoverage.json");
+		var fileCoverageJson = replace(arguments.result.exeLog, ".exl", ".json");
 		
 		// Calculate total coverage summary
 		var totalLinesFound = arguments.result.stats.totalLinesFound ?: 0;
@@ -43,7 +54,7 @@ component {
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>' & encodeForHtml(scriptName) & ' - Execution Report</title>
+		<title>' & variables.htmlEncoder.htmlEncode(scriptName) & ' - Execution Report</title>
 		<style>' & variables.htmlAssets.getCommonCss() & '</style>
 	</head>
 	<body>
@@ -51,10 +62,10 @@ component {
 			<div class="header-section">
 				<div class="header-top">
 					<div class="header-content">
-						<h2 class="report-type">Lucee Code Coverage Report</h2>
-						<h1>' & encodeForHtml(scriptName) & ' <span class="file-path-subtitle">('
-							& encodeForHtml(executionTime.time) 
-							& ' ' & encodeForHtml(executionTime.unit) & ')</span></h1>
+						' & getReportTitleHeader() & '
+						<h1>' & variables.htmlEncoder.htmlEncode(scriptName) & ' <span class="file-path-subtitle">('
+							& variables.htmlEncoder.htmlEncode(executionTime.time) 
+							& ' ' & variables.htmlEncoder.htmlEncode(executionTime.unit) & ')</span></h1>
 					</div>
 					<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
 						<span class="toggle-icon">&##127769;</span>
@@ -67,11 +78,11 @@ component {
 			</div>
 			<a href="index.html" class="back-link">Back to Index</a>
 			<p class="file-links"><strong>Log Files:</strong> <a href="'
-				& encodeForHtmlAttribute(arguments.result.exeLog) & '" target="_blank" class="file-link">'
-				& encodeForHtml(listLast(arguments.result.exeLog, "/\\"))
+				& variables.htmlEncoder.htmlAttributeEncode(arguments.result.exeLog) & '" target="_blank" class="file-link">'
+				& variables.htmlEncoder.htmlEncode(listLast(arguments.result.exeLog, "/\\"))
 				& '</a> &nbsp;|&nbsp; <strong>Coverage JSON:</strong>'
-				& ' <a href="' & encodeForHtmlAttribute(fileCoverageJson) & '" target="_blank" class="file-link">'
-					& encodeForHtml(listLast(fileCoverageJson, "/\\")) & '</a></p>';
+				& ' <a href="' & variables.htmlEncoder.htmlAttributeEncode(fileCoverageJson) & '" target="_blank" class="file-link">'
+					& variables.htmlEncoder.htmlEncode(listLast(fileCoverageJson, "/\\")) & '</a></p>';
 
 		for (var filePath in arguments.result.source.files ) {
 			// Only show files that are in the files (were referenced in this .exl file)
@@ -105,7 +116,7 @@ component {
 		var html = '<div class="file-section">
 			<div class="file-header">
 				<h3><a href="' & vscodeLink & '" class="file-header-link">'
-					& encodeForHtml( contractPath( arguments.result.source.files[ arguments.filePath] .path ) )
+					& variables.htmlEncoder.htmlEncode( contractPath( arguments.result.source.files[ arguments.filePath] .path ) )
 				& '</a></h3>
 			</div>
 			<div class="file-content">';
@@ -184,7 +195,7 @@ component {
 
 			html &= '<tr class="' & rowClass & '">
 				<td class="line-number">' & i & '</td>
-				<td class="code-cell">' & encodeForHtml(fileLines[i]) & '</td>
+				<td class="code-cell">' & variables.htmlEncoder.htmlEncode(fileLines[i]) & '</td>
 				<td class="' & countClass & '">' & execCount & '</td>
 				<td class="' & timeClass & '">' & execTime & '</td>
 			</tr>';
@@ -230,6 +241,7 @@ component {
 		<div class="container">
 			<div class="header-top">
 				<div class="header-content">
+					' & getReportTitleHeader() & '
 					<h1>Code Coverage Reports</h1>
 				</div>
 				<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
@@ -255,7 +267,11 @@ component {
 				<tbody>';
 
 			for (var report in arguments.reportData) {
-				var formattedTime = numberFormat(report.executionTime);
+				// Convert execution time from raw value to display unit (milliseconds)
+				var originalUnit = report.unit ?: "μs";
+				var convertedTime = convertTimeUnit(report.executionTime, originalUnit, variables.displayUnit);
+				var formattedTime = (convertedTime.time == -1) ? "0" : numberFormat(convertedTime.time);
+				var displayUnit = convertedTime.unit;
 				var timestamp = LsDateTimeFormat(report.timestamp);
 
 				// Per-file code coverage stats
@@ -263,12 +279,12 @@ component {
 				var totalLines = structKeyExists(report, "totalLinesFound") ? report.totalLinesFound : "-";
 				var percentCovered = (isNumeric(linesInstrumented) && isNumeric(totalLines) && totalLines > 0) ? numberFormat(100.0 * linesInstrumented / totalLines, "9.9") & '%' : '-';
 
-				html &= '<tr data-html-file="' & encodeForHtmlAttribute(report.htmlFile) & '">
-					<td class="script-name">' & encodeForHtml(report.scriptName) & '</td>';
+				html &= '<tr data-html-file="' & variables.htmlEncoder.htmlAttributeEncode(report.htmlFile) & '">
+					<td class="script-name">' & variables.htmlEncoder.htmlEncode(report.scriptName) & '</td>';
 
-					//'<td><a href="' & encodeForHtmlAttribute(report.htmlFile) & '" class="html-link">' & encodeForHtml(report.htmlFile) & '</a></td>';
+					//'<td><a href="' & variables.htmlEncoder.htmlAttributeEncode(report.htmlFile) & '" class="html-link">' & variables.htmlEncoder.htmlEncode(report.htmlFile) & '</a></td>';
 				html &= '<td class="coverage">' & linesInstrumented & ' / ' & totalLines & ' (' & percentCovered & ')</td>
-					<td class="execution-time">' & formattedTime & ' ' & encodeForHtml(report.unit) & '</td>
+					<td class="execution-time">' & formattedTime & ' ' & variables.htmlEncoder.htmlEncode(displayUnit) & '</td>
 				</tr>';
 			}
 

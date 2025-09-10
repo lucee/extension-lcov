@@ -198,7 +198,7 @@ component accessors="true" {
 	/**
 	* Process a single coverage line and return structured data with a valid flag
 	*/
-		private array function processCoverageLine(line, files, exlPath, lineMappings, lineMappingLen) {
+	private array function processCoverageLine(line, files, exlPath, lineMappings, lineMappingLen) {
 		// Use listToArray with tab delimiter - more compatible than split()
 		var result = [];
 		var p = listToArray(arguments.line, chr(9), false, false);

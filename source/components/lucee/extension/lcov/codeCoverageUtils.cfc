@@ -135,7 +135,8 @@ component accessors="true" {
 	 */
 	public struct function processBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
 		var coverage = {};
-		var perFileResults = [];
+		
+		// Use structEach with parallel=true and directly populate coverage struct (thread-safe)
 		structEach(blocksByFile, function(fileIdx, blocks) {
 			if (!structKeyExists(files, fileIdx)) return;
 			var filePath = files[fileIdx].path;
@@ -174,12 +175,10 @@ component accessors="true" {
 					}
 				}
 			}
-			perFileResults.append({fileIdx=fileIdx, fileCoverage=f});
-		}, true); // true = parallel
+			// Directly assign to coverage struct - thread-safe since each fileIdx is unique
+			coverage[fileIdx] = f;
+		}, true); // true = parallel, safe now that we're not using shared array
 
-		for (var result in perFileResults) {
-			coverage[result.fileIdx] = result.fileCoverage;
-		}
 		return coverage;
 	}
 

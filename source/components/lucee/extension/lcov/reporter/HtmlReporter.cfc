@@ -43,9 +43,6 @@ component {
 			return; // Skip empty files
 		}
 
-		if (!extensionExists("37C61C0A-5D7E-4256-8572639BE0CF5838")) {
-			throw(message="HTML report generation requires the ESAPI extension for security encoding functions. Please install the ESAPI extension first.", type="extension.dependency");
-		}
 
 		var htmlWriter = new HtmlWriter(variables.displayUnit);
 		var html = htmlWriter.generateHtmlContent(result);
@@ -61,13 +58,10 @@ component {
 	* Generates an index.html file listing all HTML reports
 	*/
 	public string function generateIndexHtml(string outputDirectory) {
-		if (!extensionExists("37C61C0A-5D7E-4256-8572639BE0CF5838")) {
-			throw(message="HTML index generation requires the ESAPI extension for security encoding functions. Please install the ESAPI extension first.", type="extension.dependency");
-		}
 
 		var htmlWriter = new HtmlWriter(variables.displayUnit);
 
-		var indexJsonPath = outputDirectory & "/index-data.json";
+		var indexJsonPath = outputDirectory & "/index.json";
 
 		// Load index data or create empty structure
 		var indexData = [];
@@ -112,14 +106,14 @@ component {
 			"executionTime": result.metadata[ "execution-time" ] ?: "N/A",
 			"unit": result.metadata[ "unit" ] ?: "μs",
 			"timestamp": now(),
-			"fullPath": arguments.htmlPath,
+			"fullPath": expandPath(arguments.htmlPath),
 			"totalLinesFound": arguments.result.stats.totalLinesFound,
 			"totalLinesHit": arguments.result.stats.totalLinesHit,
 			"totalExecutions": arguments.result.stats.totalExecutions,
 			"totalExecutionTime": arguments.result.stats.totalExecutionTime
 		};
 
-		var indexJsonPath = getDirectoryFromPath( arguments.htmlPath ) & "index-data.json";
+		var indexJsonPath = getDirectoryFromPath( arguments.htmlPath ) & "index.json";
 
 		// Load existing index data or create new
 		var indexData = [];
@@ -138,29 +132,39 @@ component {
 	* Creates a human-friendly HTML filename from the .exl path and metadata
 	*/
 	private string function createHtmlPath(struct result) {
-		// Extract the number prefix from the .exl filename
-		var fileName = getFileFromPath( result.exeLog );
-		var numberPrefix = listFirst( fileName, "-" );
-		var scriptName = result.metadata[ "script-name" ] ?: "unknown";
-
-		// Clean up script name for use as filename
-		scriptName = cleanScriptNameForFilename(scriptName);
-
-		// Create the base filename: number-scriptname
 		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.exeLog );
 		// Ensure directory ends with separator
 		if (len(directory) && !right(directory, 1) == "/" && !right(directory, 1) == "\") {
 			directory = directory & "/";
 		}
-		var baseFileName = numberPrefix & "-" & scriptName;
+		
+		var baseFileName = "";
+		
+		// Check if this is a source file path (separateFiles mode) or .exl execution file
+		if (right(result.exeLog, 4) == ".exl") {
+			// Original .exl execution file mode - extract number prefix
+			var fileName = getFileFromPath( result.exeLog );
+			var numberPrefix = listFirst( fileName, "-" );
+			var scriptName = result.metadata[ "script-name" ] ?: "unknown";
+			// Clean up script name for use as filename
+			scriptName = cleanScriptNameForFilename(scriptName);
+			baseFileName = numberPrefix & "-" & scriptName;
+		} else {
+			// Source file mode (separateFiles: true) - use source file name
+			var sourceFileName = getFileFromPath( result.exeLog );
+			// Remove file extension and clean up for HTML filename
+			var cleanName = reReplace(sourceFileName, "\.(cfm|cfc)$", "");
+			cleanName = cleanScriptNameForFilename(cleanName);
+			baseFileName = cleanName;
+		}
 		var newFileName = baseFileName & ".html";
-		var fullPath = directory & newFileName;
+		var fullPath = expandPath(directory & newFileName);
 
 		// Check for filename conflicts and add suffix if needed
 		var suffix = 1;
 		while (fileExists( fullPath )) {
 			newFileName = baseFileName & "-" & suffix & ".html";
-			fullPath = directory & newFileName;
+			fullPath = expandPath(directory & newFileName);
 			suffix++;
 			// Safety check to prevent infinite loop
 			if ( suffix > 1000 ) {
