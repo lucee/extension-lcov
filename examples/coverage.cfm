@@ -1,53 +1,102 @@
 <cfscript>
 	setting requesttimeout="100000";
-	systemOutput("Running test suite with code coverage", true );
-	paths = [ "root.test.suite" ];
+	
+	systemOutput("==========================================", true);
+	systemOutput("LUCEE LCOV COVERAGE EXAMPLE", true);
+	systemOutput("==========================================", true);
+	systemOutput("This example shows how to generate code coverage reports using the LCOV extension", true);
+	systemOutput("", true);
+	
+	// STEP 1: Setup coverage directory - this is where .exl execution log files will be stored
+	systemOutput("STEP 1: Setting up coverage directory for .exl execution logs", true);
 	codeCoverageDir = getDirectoryFromPath( getCurrentTemplatePath() ) & "artifacts/codeCoverageRawLogs/";
-	if ( directoryExists( codeCoverageDir ) )
+	systemOutput("Coverage directory: " & codeCoverageDir, true);
+	
+	if ( directoryExists( codeCoverageDir ) ) {
+		systemOutput("Cleaning existing coverage directory for fresh run", true);
 		directoryDelete( codeCoverageDir, true ); // fresh each time
+	}
 	directoryCreate( codeCoverageDir, true );
+	systemOutput("✓ Coverage directory ready", true);
+	systemOutput("", true);
 
-	systemOutput("enableExecutionLog", true );
-
+	// STEP 2: Enable execution logging - THIS IS CRITICAL for generating .exl files
+	systemOutput("STEP 2: Enabling Lucee ResourceExecutionLog - THIS GENERATES THE .EXL FILES!", true);
+	systemOutput("Without this step, NO coverage data will be captured!", true);
+	
 	exeLogger = new lucee.extension.lcov.exeLogger(request.SERVERADMINPASSWORD);
 	exeLogger.enableExecutionLog(
-		class = "lucee.runtime.engine.ResourceExecutionLog",
+		class = "lucee.runtime.engine.ResourceExecutionLog", // This class writes .exl files
 		args = {
-			"unit": "micro"
-			, "min-time": 0
-			, "directory": codeCoverageDir
+			"unit": "micro",        // Time unit for execution times
+			"min-time": 0,          // Capture ALL executions (even 0 microseconds)
+			"directory": codeCoverageDir  // Where to write .exl files
 		},
-		maxlogs = 0 // default is just 10! 
+		maxlogs = 0 // IMPORTANT: 0 means unlimited logs (default is only 10!)
 	);
+	systemOutput("✓ ResourceExecutionLog enabled - .exl files will now be generated", true);
+	systemOutput("", true);
 
-	testRunner = getDirectoryFromPath( getCurrentTemplatePath() ) & "index.cfm";
-	testRunner = "/test/index.cfm";
+	// STEP 3: Run your application/tests - execution logging captures what code runs
+	systemOutput("STEP 3: Running application code to capture execution data", true);
+	testRunner = "/test/index.cfm";  // Change this to YOUR application entry point
 
-	// once ResourceExecutionLog is enabled, it won't be enabled for the current request, so we use testRunner, which will regenerate logs
-	// with ResourceExecutionLog enabled
-	systemOutput("Including test runner: #testRunner#", true );
+
+
+	// IMPORTANT: internalRequest() is required to generate .exl files!
+	// The ResourceExecutionLog only works on NEW requests after enableExecutionLog()
+	// If you run code directly in this request, NO .exl files will be created!
+
+
+	systemOutput("CRITICAL: Using internalRequest() to run code with logging enabled", true);
+	systemOutput("The ResourceExecutionLog only works on NEW requests after enableExecutionLog()", true);
+	systemOutput("Running: " & testRunner, true);
+	
+	// THIS internalRequest() call is what actually generates the .exl files!
 	internalRequest(template=testRunner);
+	systemOutput("✓ Code execution complete - .exl files should now exist", true);
+	systemOutput("", true);
 
-	systemOutput("disableExecutionLog", true );
+	// STEP 4: Disable execution logging to clean up
+	systemOutput("STEP 4: Disabling ResourceExecutionLog", true);
 	exeLogger.disableExecutionLog(class="lucee.runtime.engine.ResourceExecutionLog");
+	systemOutput("✓ Execution logging disabled", true);
+	systemOutput("", true);
 
-	// lucee.runtime.engine.ConsoleExecutionLog is useful for profiling code performance
-	/*
-	exeLogger.enableExecutionLog(
-		class = "lucee.runtime.engine.ConsoleExecutionLog",
-		args = {
-			"min-time": 1000000, // ns
-			"snippet": false,
-			"stream-type": "out",
-			"unit": "micro"
-		},
-		maxLogs = 0
+	// STEP 5: Generate LCOV coverage reports from the .exl files
+	systemOutput("STEP 5: Generating LCOV coverage reports from .exl files", true);
+	systemOutput("Using LCOV extension functions to process the execution logs", true);
+	
+	// Generate LCOV format file (for VS Code Coverage Gutters)
+	lcovFile = lcovGenerateLcov(
+		executionLogDir = codeCoverageDir,
+		outputFile = codeCoverageDir & "coverage.lcov"
 	);
-	*/
-	systemOutput("generate coverage report", true );
-	internalRequest(template=ExpandPath("/.coverageReporter.cfm"),
-		url={
-			codeCoverageDir=codeCoverageDir
-		}
+	systemOutput("✓ LCOV file generated: " & lcovFile, true);
+	
+	// Generate HTML reports (for browser viewing)
+	htmlIndex = lcovGenerateHtml(
+		executionLogDir = codeCoverageDir,
+		outputDir = codeCoverageDir & "html-reports/"
 	);
+	systemOutput("✓ HTML reports generated: " & htmlIndex, true);
+	
+	// Generate JSON data (for programmatic use)
+	jsonFile = lcovGenerateJson(
+		executionLogDir = codeCoverageDir,
+		outputFile = codeCoverageDir & "coverage.json"
+	);
+	systemOutput("✓ JSON file generated: " & jsonFile, true);
+	
+	systemOutput("", true);
+	systemOutput("==========================================", true);
+	systemOutput("COVERAGE GENERATION COMPLETE!", true);
+	systemOutput("Generated files:", true);
+	systemOutput("- " & lcovFile & " (for VS Code Coverage Gutters)", true);
+	systemOutput("- " & htmlIndex & " (open in browser)", true);
+	systemOutput("- " & jsonFile & " (for programmatic use)", true);
+	systemOutput("==========================================", true);
+	
+	
+	// NOTE: For performance profiling (separate from coverage), see performance-profiling.cfm example
 </cfscript>

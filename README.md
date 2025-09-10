@@ -56,7 +56,11 @@ The extension provides easy-to-use functions for code coverage analysis:
 
 ### Usage
 
-The extension functions are automatically available once installed. Use them in your CFML code like:
+The extension functions are automatically available once installed. 
+
+**IMPORTANT:** ResourceExecutionLog only works on NEW requests after `enableExecutionLog()`. You must use `internalRequest()`, `cfhttp`, or similar to make a new request for logging to occur. Code executed in the same request as `enableExecutionLog()` will NOT be logged.
+
+Use them in your CFML code like:
 
 ```cfml
 
@@ -74,7 +78,10 @@ var logDirectory = lcovStartLogging(
 );
 
 // Run your tests or application code here
-// ...
+// CRITICAL: Must use internalRequest() for logging to work!
+internalRequest(template="/your/test/runner.cfm");
+// or
+internalRequest(template="/your/application/entry-point.cfm");
 
 // Stop execution logging
 lcovStopLogging(adminPassword = "your-admin-password");
