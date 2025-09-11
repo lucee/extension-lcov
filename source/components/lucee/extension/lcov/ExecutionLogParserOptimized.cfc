@@ -107,12 +107,10 @@ component accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("parsed file: " & exlPath );
-		logger("Metadata lines: " & structCount( coverage.metadata ) &
-			", files lines: " & structCount( coverage.source.files ) &
-			", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
-			", Coverage lines: " & arrayLen( coverage.fileCoverage ) &
-			", in " & numberFormat(totalTime, "0.00") & "ms");
+		logger("Files: " & structCount( coverage.source.files ) &
+		//	", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
+			", raw rows: " & numberFormat(arrayLen( coverage.fileCoverage )) &
+			", in " & numberFormat(totalTime ) & "ms");
 
 		// Write out filecoverage as json using compact=false for debugging
 		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), serializeJson( var=coverage, compact=false ) );
@@ -131,8 +129,7 @@ component accessors="true" {
 		var exlPath = arguments.coverageData.exeLog;
 		var start = getTickCount();
 
-		logger("Processing " & numberFormat(totalLines) 
-			& " lines");
+		//logger("Processing " & numberFormat(totalLines) & " lines");
 
 		// Build line mappings cache for all files
 		var lineMappingsCache = {};
@@ -251,11 +248,13 @@ component accessors="true" {
 		var timePerOriginalLine = totalLines > 0 ? numberFormat((totalTime / totalLines), "0.00") : "0";
 		var timePerAggregatedEntry = aggregatedEntries > 0 ? numberFormat((processingTime / aggregatedEntries), "0.00") : "0";
 
+		/*
 		logger("Processing " & numberFormat(aggregatedEntries) 
 			& " aggregated entries completed in " & numberFormat(processingTime) 
-			& "ms (" & timePerAggregatedEntry & "ms per entry)");
-		logger("=== OPTIMIZED PARSER: Total time " 
-			& numberFormat(totalTime) & "ms (" & timePerOriginalLine & "ms per original line) ===");
+			& "ms (" & timePerAggregatedEntry & "ms per entry), "
+			& "Total time:" & numberFormat(totalTime) & "ms, (" & timePerOriginalLine 
+			& "ms per original line)");
+		*/
 
 		// Store performance data to be added at main level
 		variables.optimizedPerformanceData = {
@@ -344,8 +343,9 @@ component accessors="true" {
 		
 		var files = {};
 		var skipped = {};
+		var startFiles = getTickCount();
 		
-		logger("Filtering " & arrayLen(arguments.filesLines) & " files");
+		//logger("Filtering " & arrayLen(arguments.filesLines) & " files");
 		
 		for (var i = 1; i <= arrayLen(arguments.filesLines); i++) {
 			var line = trim(arguments.filesLines[i]);
@@ -426,7 +426,8 @@ component accessors="true" {
 		
 		var validFiles = structCount(files);
 		var skippedFiles = structCount(skipped);
-		logger("Post Filter: " & validFiles & " valid files, " & skippedFiles & " skipped");
+		logger("Post Filter: " & validFiles & " valid files, " & skippedFiles & " skipped, in " 
+			& numberFormat(getTickCount() - startFiles) & "ms");
 		
 		return {
 			"files": files,

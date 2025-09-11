@@ -74,7 +74,7 @@ component {
 				if (len(result)) {
 					result["stats"] = variables.codeCoverageUtils.calculateCoverageStats(result);
 					results[exlPath] = result;
-					logger("Successfully processed: " & exlPath);
+					///logger("Successfully processed: " & exlPath);
 				} else {
 					logger("Skipped empty result for: " & exlPath);
 				}
@@ -144,7 +144,7 @@ component {
 	public struct function mergeResultsBySourceFile(required struct results, boolean verbose = false) {
 		//logger("=== MERGE BY SOURCE FILE: Starting merge process ===");
 		//logger("Processing " & structCount(arguments.results) & " .exl results");
-		
+		var mergeStart = getTickCount();
 		var mergedResults = {};
 		var sourceFileStats = {};
 		var totalFilesProcessed = 0;
@@ -163,7 +163,7 @@ component {
 			
 			validResults[exlPath] = result;
 			totalFilesProcessed++;
-			logger("VALID: " & listLast(exlPath, "/\\") & " contains " & structCount(result.coverage) & " source files");
+			// logger("VALID: " & listLast(exlPath, "/\\") & " contains " & structCount(result.coverage) & " source files");
 		}
 		//logger("Pass 1 complete: " & totalFilesProcessed & " valid .exl files found");
 		
@@ -204,7 +204,8 @@ component {
 				var sourceFileCoverage = result.coverage[fileIndex];
 				
 				// Merge coverage data
-				var mergedLines = mergeCoverageData(mergedResults[sourceFilePath], sourceFileCoverage, sourceFilePath);
+				var mergedLines = mergeCoverageData(mergedResults[sourceFilePath], 
+					sourceFileCoverage, sourceFilePath);
 				totalMergeOperations += mergedLines;
 				
 				// Merge fileCoverage array data
@@ -231,8 +232,7 @@ component {
 			var coverage = stats.totalLinesFound > 0 ? numberFormat(100.0 * stats.totalLinesHit / stats.totalLinesFound, "0.0") : "0.0";
 			//logger("STATS: " & contractPath(sourceFilePath) & " - " & stats.totalLinesHit & "/" & stats.totalLinesFound & " (" & coverage & "%) in " & calcTime & "ms");
 		}
-		
-		//logger("=== MERGE COMPLETE: " & structCount(mergedResults) & " source files ready ===");
+		logger("Merge Results completed in " & numberFormat(getTickCount() - mergeStart) & "ms");
 		return mergedResults;
 	}
 	
@@ -291,47 +291,36 @@ component {
 	}
 	
 	/**
-	 * Merges coverage data from source into target
+	 * Combines line coverage data from multiple source files into the target result
 	 * @return Number of lines merged
 	 */
-	private numeric function mergeCoverageData(required struct targetResult, required struct sourceFileCoverage, required string sourceFilePath) {
+	private numeric function mergeCoverageData(required struct targetResult, 
+			required struct sourceFileCoverage, required string sourceFilePath) {
+				
 		var targetCoverage = arguments.targetResult.coverage[arguments.sourceFilePath];
 		var linesMerged = 0;
 		
-		// If target coverage is empty, initialize it
-		if (structIsEmpty(targetCoverage)) {
-			arguments.targetResult.coverage[arguments.sourceFilePath] = duplicate(arguments.sourceFileCoverage);
-			return structCount(arguments.sourceFileCoverage);
+		// If target coverage is empty, populate and return
+		if ( structIsEmpty( targetCoverage ) ) {
+			arguments.targetResult.coverage[ arguments.sourceFilePath ]  
+				= duplicate( arguments.sourceFileCoverage );
+			return structCount( arguments.sourceFileCoverage );
 		}
 		
 		// Merge line-by-line coverage data
 		for (var lineNumber in arguments.sourceFileCoverage) {
 			var sourceLine = arguments.sourceFileCoverage[lineNumber];
 			
-			if (!structKeyExists(targetCoverage, lineNumber)) {
+			if ( !structKeyExists( targetCoverage, lineNumber ) ) {
 				// First time seeing this line
-				targetCoverage[lineNumber] = duplicate(sourceLine);
+				targetCoverage[ lineNumber ] = duplicate( sourceLine );
 			} else {
 				// Merge execution data for this line
-				var targetLine = targetCoverage[lineNumber];
-				
-				// Add execution counts
-				if (structKeyExists(sourceLine, "count")) {
-					targetLine.count = val(targetLine.count ?: 0) + val(sourceLine.count ?: 0);
-				}
-				
-				// Merge execution times if present
-				if (structKeyExists(sourceLine, "time")) {
-					targetLine.time = val(targetLine.time ?: 0) + val(sourceLine.time ?: 0);
-				}
+				var targetLine = targetCoverage[ lineNumber ];
 				
 				// Merge any other numeric execution data
 				for (var key in sourceLine) {
-					if (key != "count" && key != "time") {
-						if (isNumeric(sourceLine[key]) && isNumeric(targetLine[key] ?: 0)) {
-							targetLine[key] = val(targetLine[key] ?: 0) + val(sourceLine[key]);
-						}
-					}
+					targetLine[ key ] += sourceLine[ key ];
 				}
 			}
 			linesMerged++;

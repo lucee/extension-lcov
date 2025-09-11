@@ -40,7 +40,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			}
 		}
 		
-		systemOutput("separateFiles: false - Generated " & nonIndexFiles & " HTML files", true);
+		//systemOutput("separateFiles: false - Generated " & nonIndexFiles & " HTML files", true);
 		expect(nonIndexFiles).toBeGT(0, "Should have generated HTML report files");
 	}
 
@@ -74,14 +74,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		];
 
 		var htmlFiles = directoryList(outputDir, false, "name", "*.html");
-		systemOutput("separateFiles: true - Generated files: " & arrayToList(htmlFiles), true);
+		//systemOutput("separateFiles: true - Generated files: " & arrayToList(htmlFiles), true);
 
 		// Count non-index files
 		var nonIndexFiles = arrayFilter(htmlFiles, function(file) {
 			return file != "index.html";
 		});
 
-		systemOutput("separateFiles: true - Generated " & arrayLen(nonIndexFiles) & " HTML files", true);
+		//systemOutput("separateFiles: true - Generated " & arrayLen(nonIndexFiles) & " HTML files", true);
 		expect(arrayLen(nonIndexFiles)).toBeGT(0, "Should have generated HTML report files");
 
 		// TODO: Once separateFiles is properly implemented, verify we get source-file-based names
@@ -93,7 +93,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		});
 		
 		if (arrayLen(currentBehavior) > 0) {
-			systemOutput("CURRENT BEHAVIOR: Getting execution-run-based files: " & arrayToList(currentBehavior), true);
+			//systemOutput("CURRENT BEHAVIOR: Getting execution-run-based files: " & arrayToList(currentBehavior), true);
 		}
 	}
 
@@ -120,8 +120,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var combinedFiles = directoryList(combinedDir, false, "name", "*.html");
 		var separateFiles = directoryList(separateDir, false, "name", "*.html");
 
-		systemOutput("separateFiles: false generated " & arrayLen(combinedFiles) & " files", true);
-		systemOutput("separateFiles: true generated " & arrayLen(separateFiles) & " files", true);
+		//systemOutput("separateFiles: false generated " & arrayLen(combinedFiles) & " files", true);
+		//systemOutput("separateFiles: true generated " & arrayLen(separateFiles) & " files", true);
 
 		// Currently both approaches should generate the same files because separateFiles isn't implemented
 		// Once fixed, separateFiles: true should create source-file-based HTML files
@@ -151,7 +151,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var indexJsonContent = fileRead(indexJsonPath);
 		var indexData = deserializeJSON(indexJsonContent);
 
-		systemOutput("index.json structure: " & (isArray(indexData) ? "Array of " & arrayLen(indexData) & " entries" : "Object with keys: " & structKeyList(indexData)), true);
+		//systemOutput("index.json structure: " & (isArray(indexData) ? "Array of " & arrayLen(indexData) & " entries" : "Object with keys: " & structKeyList(indexData)), true);
 
 		// Validate the structure - should be an array of report entries
 		expect(isArray(indexData)).toBeTrue("index.json should be an array of report entries");

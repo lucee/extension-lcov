@@ -110,9 +110,9 @@ component accessors="true" {
 
 		logger("parsed file: " & exlPath &
 			", Metadata lines: " & structCount( coverage.metadata ) &
-			", files lines: " & structCount( coverage.source.files ) &
-			", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
-			", Coverage lines: " & arrayLen( coverage.fileCoverage ));
+			", Files: " & structCount( coverage.source.files ) &
+			", Skipped files: " & len( coverage.source.skipped ) & "] skipped" &
+			", Rows: " & arrayLen( coverage.fileCoverage ));
 
 			// write out filecoverage as json using compact=false for debuggingg
 		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), serializeJson( var=coverage, compact=false ) );
@@ -148,9 +148,7 @@ component accessors="true" {
 		}
 
 		// Exclude overlapping blocks using utils
-		/*
 		var coverage = variables.utils.excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, false);
-		*/
 
 		// Convert numeric keys to string for compatibility
 		for (var fileIdx in coverage) {
