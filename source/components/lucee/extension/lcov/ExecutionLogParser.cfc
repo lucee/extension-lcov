@@ -126,7 +126,8 @@ component accessors="true" {
 			arrayAppend(chunks, {
 				"startIdx": i,
 				"endIdx": endIdx,
-				"size": endIdx - i + 1
+				"size": endIdx - i + 1,
+				"fileCoverageSlice": arraySlice(fileCoverage, i, endIdx - i + 1)
 			});
 		}
 		if (arrayLen(chunks) > 1) {
@@ -144,25 +145,40 @@ component accessors="true" {
 			mappingLens[fpath] = arrayLen(lineMappingsCache[fpath]);
 		}
 
+		// Pre-duplicate mapping caches for each thread to avoid concurrent duplication
+		var threadCaches = [];
+		var chunkCount = arrayLen(chunks);
+		for (var i = 1; i <= chunkCount; i++) {
+			threadCaches[i] = {
+				"lineMappingsCache": duplicate(lineMappingsCache),
+				"mappingLens": duplicate(mappingLens),
+				"files": duplicate(files),
+				"exlPath": exlPath,
+				"chunkCount": chunkCount
+			};
+		}
+
 		arrayEach(chunks, function(chunk, index) {
 			var chunkBlocks = [];
 			var chunkStart = getTickCount();
 
-			// duplicate mapping caches for thread safety
-			var _lineMappingsCache = duplicate(lineMappingsCache);
-			var _mappingLens = duplicate(mappingLens);
+			// Use pre-duplicated cache for this thread
+			var _lineMappingsCache = threadCaches[arguments.index].lineMappingsCache;
+			var _mappingLens = threadCaches[arguments.index].mappingLens;
+			var _files = threadCaches[arguments.index].files;
+			var _exlPath = threadCaches[arguments.index].exlPath;
+			var _chunkCount = threadCaches[arguments.index].chunkCount;
 
-			for (var j = chunk.startIdx; j <= chunk.endIdx; j++) {
-				var line = fileCoverage[ j ];
+			var chunkSlice = arguments.chunk.fileCoverageSlice;
+			for (var j = 1; j <= arrayLen(chunkSlice); j++) {
+				var line = chunkSlice[j];
 				var p = listToArray(line, chr(9), false, false);
 				var fileIdx = p[1];
-				if (!structKeyExists(files, fileIdx)) {
+				if (!structKeyExists(_files, fileIdx)) {
 					continue; // file is blocklistsed or not allowed
 				}
-				var fpath = files[fileIdx].path;
-				var lineMapping = _lineMappingsCache[fpath];
-				var mappingLen = _mappingLens[fpath];
-				var r = processCoverageLine(line, files, exlPath, lineMapping, mappingLen);
+				var fpath = _files[fileIdx].path;
+				var r = processCoverageLine(p, _files, _exlPath, _lineMappingsCache[fpath], _mappingLens[fpath]);
 				if (arrayLen(r)) {
 					// r = [fileIdx, startLine, endLine, execTime]
 					arrayAppend(chunkBlocks, r);
@@ -170,10 +186,14 @@ component accessors="true" {
 			}
 
 			var chunkTime = getTickCount() - chunkStart;
-			logger("  Chunk " & index & " / " & arrayLen(chunks) & " completed in " & chunkTime & "ms");
+			logger("  Chunk " & index & " / " & _chunkCount & " completed in " & chunkTime & "ms");
 
 			// Store result for merging
 			arrayAppend(chunkResults, chunkBlocks);
+			
+			// Free memory by clearing thread-local data
+			threadCaches[arguments.index] = "";
+			chunk = "";
 		}, true); // parallel=true
 
 		logger("  Parallel processing completed in " & (getTickCount() - parallelStart) & "ms");
@@ -198,27 +218,26 @@ component accessors="true" {
 	/**
 	* Process a single coverage line and return structured data with a valid flag
 	*/
-	private array function processCoverageLine(line, files, exlPath, lineMappings, lineMappingLen) {
+	private array function processCoverageLine( line, files, exlPath, lineMappings, lineMappingLen) {
 		// Use listToArray with tab delimiter - more compatible than split()
 		var result = [];
-		var p = listToArray(arguments.line, chr(9), false, false);
-		if (arrayLen(p) != 4) {
-			throw "Malformed coverage data line in [" & arguments.exlPath & "]: [" & arguments.line & "]" &
+		if (arrayLen(line) != 4) {
+			throw "Malformed coverage data line in [" & arguments.exlPath & "]: [" & arguments.line.toJson() & "]" &
 				", Detail: Line does not have 4 tab-separated values.";
 		}
 
-		if (!structKeyExists(arguments.files, p[1])) {
+		if (!structKeyExists(arguments.files, line[1])) {
 			return {}; // file is not allowed due to allow / block list
 		}
 
-		var f = arguments.files[ p[ 1 ] ].path;
+		var f = arguments.files[ line[ 1 ] ].path;
 
-		var startLine = getLineFromCharacterPosition( p[ 2 ], f, lineMappings, lineMappingLen);
-		var endLine = getLineFromCharacterPosition( p[ 3 ], f, lineMappings, lineMappingLen);
+		var startLine = getLineFromCharacterPosition( line[ 2 ], f, lineMappings, lineMappingLen);
+		var endLine = getLineFromCharacterPosition( line[ 3 ], f, lineMappings, lineMappingLen, startLine);
 
 		// Skip invalid positions
 		if ((startLine == 0 && endLine == 0) || endLine == 0) {
-			throw "Malformed coverage data line in [" & arguments.exlPath & "]: [" & arguments.line & "]" &
+			throw "Malformed coverage data line in [" & arguments.exlPath & "]: [" & arguments.line.toJson() & "]" &
 				", Detail: Both start and end character positions map to line 0 in file: " & f;
 		}
 
@@ -232,7 +251,7 @@ component accessors="true" {
 			// return result; // Skip whole-file coverage
 		}
 		// Return structured result: [fileIdx, startLine, endLine, executionTime]
-		return [ p[ 1 ], startLine, endLine, p[ 4 ] ];
+		return [ line[ 1 ], startLine, endLine, line[ 4 ] ];
 	}
 
 
@@ -241,13 +260,13 @@ component accessors="true" {
 	* Get the line number for a given character position in a file.
 	* Uses cached line mappings for performance.
 	*/
-	public numeric function getLineFromCharacterPosition( charPos, path, lineMapping = 0, mappingLen = 0 ) {
+	public numeric function getLineFromCharacterPosition( charPos, path, lineMapping = 0, mappingLen = 0, minLine = 1 ) {
 		// Accept a pre-cached line mapping array and its length to avoid repeated struct lookups and arrayLen calls
 		var lineStarts = isArray(lineMapping) ? lineMapping : variables.lineMappingsCache[ arguments.path ];
 		var len = mappingLen > 0 ? mappingLen : arrayLen(lineStarts);
 
 		// Binary search to find the line
-		var low = 1;
+		var low = arguments.minLine;
 		var high = len;
 
 		while (low <= high) {
