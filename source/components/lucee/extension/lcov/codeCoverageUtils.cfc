@@ -135,7 +135,7 @@ component accessors="true" {
 	 */
 	public struct function processBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
 		var coverage = {};
-		
+
 		// Use structEach with parallel=true and directly populate coverage struct (thread-safe)
 		structEach(blocksByFile, function(fileIdx, blocks) {
 			if (!structKeyExists(files, fileIdx)) return;

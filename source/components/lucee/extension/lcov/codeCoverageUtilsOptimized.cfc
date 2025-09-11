@@ -201,7 +201,7 @@ component accessors="true" {
 			var executableLines = executableLinesCache[fileIdx];
 			
 			// OPTIMIZATION: Filter overlapping blocks with character-based detection when possible
-			var filteredBlocks = filterOverlappingBlocksOptimized(blocks, arguments.blocksAreLineBased, lineMapping, mappingLen, filePath);
+			var filteredBlocks = filterOverlappingBlocksOptimized(blocks, arguments.blocksAreLineBased);
 			
 			// OPTIMIZATION: Process blocks in batch with minimal conversions
 			for (var b = 1; b <= arrayLen(filteredBlocks); b++) {
@@ -273,76 +273,48 @@ component accessors="true" {
 	 * OPTIMIZED: Streamlined overlap detection with character-based filtering
 	 * Major performance improvement over line-based approach
 	 */
-	private array function filterOverlappingBlocksOptimized(blocks, blocksAreLineBased, lineMapping, mappingLen, filePath) {
-		// TODO: Implement character-based overlap detection for massive performance gain
-		// For now, use simplified approach that's faster than original
-		
+	private array function filterOverlappingBlocksOptimized(blocks, blocksAreLineBased) {
 		if (arrayLen(arguments.blocks) <= 1) {
 			return arguments.blocks; // No overlap possible
 		}
-		
-		// OPTIMIZATION: Quick whole-file detection without line conversion
-		var hasLargeBlocks = false;
-		for (var i = 1; i <= arrayLen(arguments.blocks); i++) {
-			var block = arguments.blocks[i];
-			
-			if (arguments.blocksAreLineBased) {
-				if (block[2] <= 1 && (block[3] - block[2]) >= 50) {
-					hasLargeBlocks = true;
-					break;
-				}
-			} else {
-				// Character-based: check if span covers significant portion of file
-				var span = val(block[3]) - val(block[2]);
-				if (val(block[2]) <= 100 && span >= 5000) { // Heuristic for large blocks
-					hasLargeBlocks = true;
-					break;
-				}
-			}
-		}
-		
-		if (!hasLargeBlocks) {
-			return arguments.blocks; // No large blocks to filter
-		}
-		
-		// OPTIMIZATION: Sort by span size and filter aggressively
+
+		// New logic: Exclude any block that overlaps with a smaller, more specific block
+		// blockInfo: [ [block, span, startPos, endPos], ... ]
+		//  [1]=block, [2]=span, [3]=startPos, [4]=endPos
 		var blockInfo = [];
 		for (var i = 1; i <= arrayLen(arguments.blocks); i++) {
 			var block = arguments.blocks[i];
-			var span = 0;
-			
-			if (arguments.blocksAreLineBased) {
-				span = block[3] - block[2] + 1;
-			} else {
-				span = val(block[3]) - val(block[2]) + 1;
-			}
-			
-			arrayAppend(blockInfo, {
-				"block": block,
-				"span": span,
-				"startPos": arguments.blocksAreLineBased ? block[2] : val(block[2]),
-				"endPos": arguments.blocksAreLineBased ? block[3] : val(block[3])
-			});
+			// [block, span, startPos, endPos]
+			arrayAppend(blockInfo, [
+				block, // [1] the original block array
+				block[3] - block[2] + 1, // [2] span (length)
+				block[2], // [3] startPos
+				block[3]  // [4] endPos
+			]);
 		}
-		
-		// Sort by span (smallest first)
-		arraySort(blockInfo, function(a, b) {
-			return a.span - b.span;
-		});
-		
-		// Keep smaller, more specific blocks
-		var filteredBlocks = [];
-		var maxSpan = arrayLen(blockInfo) > 10 ? blockInfo[10].span : blockInfo[arrayLen(blockInfo)].span;
-		
+		// For each block, check if it overlaps with a strictly smaller block
+		var keep = arrayNew(1);
 		for (var i = 1; i <= arrayLen(blockInfo); i++) {
 			var info = blockInfo[i];
-			// Keep blocks that are reasonably small
-			if (info.span <= maxSpan * 0.1 || arrayLen(filteredBlocks) < 5) {
-				arrayAppend(filteredBlocks, info.block);
+			// info: [block, span, startPos, endPos]
+			var exclude = false;
+			for (var j = 1; j <= arrayLen(blockInfo); j++) {
+				if (i == j) continue;
+				var other = blockInfo[j];
+				// other: [block, span, startPos, endPos]
+				// Overlap if start <= other.end and end >= other.start
+				if (info[3] <= other[4] && info[4] >= other[3]) {
+					if (other[2] < info[2]) { // other.span < info.span
+						exclude = true;
+						break;
+					}
+				}
+			}
+			if (!exclude) {
+				arrayAppend(keep, info[1]); // info[1] is the original block
 			}
 		}
-		
-		return arrayLen(filteredBlocks) > 0 ? filteredBlocks : [arguments.blocks[1]]; // Always return at least one block
+		return keep;
 	}
 
 	/**
