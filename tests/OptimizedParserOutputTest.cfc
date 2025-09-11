@@ -189,7 +189,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var originalData = variables.originalParsedData[originalFile];
 						var optimizedData = variables.optimizedParsedData[optimizedFile];
 						
-						//systemOutput("Comparing script: " & scriptKey & " (Original: " & originalFile & ", Optimized: " & optimizedFile & ")", true);
+						systemOutput("Comparing script: " & scriptKey & " (Original: " & originalFile & ", Optimized: " & optimizedFile & ")", true);
 						
 						// Run all comparison tests for this script pair
 						try {
@@ -324,7 +324,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			
 			expect(origFileCoverage).toBeStruct();
 			expect(optFileCoverage).toBeStruct();
-			
+
+			systemOutput("", true);
+			systemOutput("Comparing coverage for file index: " & fileIdx, true);
+			systemOutput("  Original: " & serializeJSON(origFileCoverage), true);
+			systemOutput("  Optimized: " & serializeJSON(optFileCoverage), true);
+
 			// Line count should match for each file
 			expect(structCount(origFileCoverage)).toBe(structCount(optFileCoverage));
 			

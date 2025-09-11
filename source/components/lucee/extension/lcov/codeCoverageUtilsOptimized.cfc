@@ -31,7 +31,7 @@ component accessors="true" {
 	 */
 	public struct function mergeResultsByFile(required struct results) {
 		var startTime = getTickCount();
-		logger("=== OPTIMIZED MERGE: Starting merge of " & structCount(arguments.results) & " .exl files ===");
+		///logger("=== OPTIMIZED MERGE: Starting merge of " & structCount(arguments.results) & " .exl files ===");
 		
 		var merged = {
 			files: {},
@@ -89,8 +89,9 @@ component accessors="true" {
 		arraySort(files, "textnocase");
 		
 		var totalTime = getTickCount() - startTime;
-		logger("=== OPTIMIZED MERGE: Completed in " & totalTime & "ms ===");
-		logger("Processed " & totalCoverageLines & " coverage lines for " & arrayLen(files) & " files");
+		//logger("=== OPTIMIZED MERGE: Completed in " & totalTime & "ms ===");
+		logger("Processed " & numberFormat(totalCoverageLines) 
+			& " coverage lines for " & arrayLen(files) & " files");
 		
 		return {
 			"mergedCoverage": merged,
@@ -107,7 +108,7 @@ component accessors="true" {
 	public struct function calculateLcovStats(required struct fileCoverage) {
 		var startTime = getTickCount();
 		var fileCount = structCount(arguments.fileCoverage.files);
-		logger("=== OPTIMIZED LCOV STATS: Processing " & fileCount & " files ===");
+		//logger("=== OPTIMIZED LCOV STATS: Processing " & fileCount & " files ===");
 		
 		var files = arguments.fileCoverage.files;
 		var coverage = arguments.fileCoverage.coverage;
@@ -135,7 +136,8 @@ component accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("=== OPTIMIZED LCOV STATS: Completed " & structCount(stats) & " files in " & totalTime & "ms ===");
+		logger("LCOV calculated: Completed " & structCount(stats) 
+			& " files in " & numberFormat(totalTime) & "ms");
 		return stats;
 	}
 
@@ -177,7 +179,7 @@ component accessors="true" {
 			totalBlocks += arrayLen(arguments.blocksByFile[fileIdx]);
 		}
 		
-		logger("=== OPTIMIZED PROCESS BLOCKS: " & totalBlocks & " blocks, " & structCount(arguments.blocksByFile) & " files ===");
+		//logger("=== OPTIMIZED PROCESS BLOCKS: " & totalBlocks & " blocks, " & structCount(arguments.blocksByFile) & " files ===");
 		var coverage = {};
 		
 		// OPTIMIZATION: Pre-compute executable lines for all files once
@@ -200,8 +202,8 @@ component accessors="true" {
 			// Get pre-computed executable lines for this file
 			var executableLines = executableLinesCache[fileIdx];
 			
-			// OPTIMIZATION: Filter overlapping blocks with character-based detection when possible
-			var filteredBlocks = filterOverlappingBlocksOptimized(blocks, arguments.blocksAreLineBased);
+			// Use overlap-aware filtering to match original logic and pass all tests
+			var filteredBlocks = filterOverlappingBlocks(blocks, arguments.blocksAreLineBased, lineMapping, mappingLen, filePath);
 			
 			// OPTIMIZATION: Process blocks in batch with minimal conversions
 			for (var b = 1; b <= arrayLen(filteredBlocks); b++) {
@@ -214,8 +216,8 @@ component accessors="true" {
 					endLine = block[3];
 				} else {
 					// Use optimized character position lookup
-					startLine = getLineFromCharacterPositionOptimized(block[2], lineMapping, mappingLen);
-					endLine = getLineFromCharacterPositionOptimized(block[3], lineMapping, mappingLen, startLine);
+					   startLine = getLineFromCharacterPosition(block[2], filePath, lineMapping, mappingLen);
+					   endLine = getLineFromCharacterPosition(block[3], filePath, lineMapping, mappingLen, startLine);
 				}
 				
 				if (startLine == 0) startLine = 1;
@@ -238,7 +240,8 @@ component accessors="true" {
 		}
 		
 		var totalTime = getTickCount() - startTime;
-		logger("=== OPTIMIZED PROCESS BLOCKS: Completed " & structCount(coverage) & " files in " & totalTime & "ms ===");
+		logger("excludeOverlappingBlocks: Completed " & structCount(coverage) 
+			& " files in " & totalTime & "ms ===");
 		return coverage;
 	}
 
@@ -246,14 +249,18 @@ component accessors="true" {
 	 * OPTIMIZED: Character position to line conversion with binary search optimization
 	 * Includes minLine hint for sequential processing
 	 */
-	public numeric function getLineFromCharacterPositionOptimized(charPos, lineMapping, mappingLen, minLine = 1) {
+	public numeric function getLineFromCharacterPosition(charPos, filePath, lineMapping, mappingLen, minLine = 1) {
+		// Fail fast if mapping is invalid
+		if (!isArray(arguments.lineMapping) || arguments.mappingLen == 0) {
+			throw 'getLineFromCharacterPosition: Invalid lineMapping or mappingLen=0. Args: charPos=' & arguments.charPos & ', mappingLen=' & arguments.mappingLen & ', minLine=' & arguments.minLine & ', lineMappingType=' & (isArray(arguments.lineMapping) ? 'array' : typeOf(arguments.lineMapping));
+		}
 		// OPTIMIZATION: Use minLine hint for sequential processing
 		var low = arguments.minLine;
 		var high = arguments.mappingLen;
-		
+    
 		while (low <= high) {
 			var mid = int((low + high) / 2);
-			
+        
 			if (mid == arguments.mappingLen) {
 				return arguments.lineMapping[mid] <= arguments.charPos ? mid : mid - 1;
 			} else if (arguments.lineMapping[mid] <= arguments.charPos 
@@ -265,88 +272,87 @@ component accessors="true" {
 				low = mid + 1;
 			}
 		}
-		
-		return 0; // Not found
+    
+		return 1; // Not found, default to first line
 	}
 
 	/**
-	 * OPTIMIZED: Streamlined overlap detection with character-based filtering
-	 * Major performance improvement over line-based approach
-	 */
-	private array function filterOverlappingBlocksOptimized(blocks, blocksAreLineBased) {
-		if (arrayLen(arguments.blocks) <= 1) {
-			return arguments.blocks; // No overlap possible
-		}
-
-		// New logic: Exclude any block that overlaps with a smaller, more specific block
-		// blockInfo: [ [block, span, startPos, endPos], ... ]
-		//  [1]=block, [2]=span, [3]=startPos, [4]=endPos
-		var blockInfo = [];
-		for (var i = 1; i <= arrayLen(arguments.blocks); i++) {
-			var block = arguments.blocks[i];
-			// [block, span, startPos, endPos]
-			arrayAppend(blockInfo, [
-				block, // [1] the original block array
-				block[3] - block[2] + 1, // [2] span (length)
-				block[2], // [3] startPos
-				block[3]  // [4] endPos
-			]);
-		}
-		// For each block, check if it overlaps with a strictly smaller block
-		var keep = arrayNew(1);
-		for (var i = 1; i <= arrayLen(blockInfo); i++) {
-			var info = blockInfo[i];
-			// info: [block, span, startPos, endPos]
-			var exclude = false;
-			for (var j = 1; j <= arrayLen(blockInfo); j++) {
-				if (i == j) continue;
-				var other = blockInfo[j];
-				// other: [block, span, startPos, endPos]
-				// Overlap if start <= other.end and end >= other.start
-				if (info[3] <= other[4] && info[4] >= other[3]) {
-					if (other[2] < info[2]) { // other.span < info.span
-						exclude = true;
-						break;
-					}
+	* OPTIMIZED: Streamlined overlap detection with character-based filtering
+	* Major performance improvement over line-based approach
+	*/
+		private array function filterOverlappingBlocks(blocks, blocksAreLineBased, lineMapping, mappingLen, filePath) {
+			var filteredBlocks = [];
+			var blockRanges = [];
+			// Convert all blocks to line ranges for comparison
+			for (var i = 1; i <= arrayLen(blocks); i++) {
+				var block = blocks[i];
+				var startLine = 0;
+				var endLine = 0;
+				   if (blocksAreLineBased) {
+					   startLine = block[2];
+					   endLine = block[3];
+				   } else {
+					   startLine = getLineFromCharacterPosition(block[2], filePath, lineMapping, mappingLen);
+					   endLine = getLineFromCharacterPosition(block[3], filePath, lineMapping, mappingLen);
+				   }
+				if (startLine == 0) startLine = 1;
+				if (endLine == 0) endLine = startLine;
+				blockRanges.append({
+					index: i,
+					startLine: startLine,
+					endLine: endLine,
+					span: endLine - startLine + 1,
+					block: block
+				});
+			}
+			// Check for whole-file blocks and warn
+			var isWholeFile = false;
+			for (var i = 1; i <= arrayLen(blockRanges); i++) {
+				var current = blockRanges[i];
+				if (current.startLine <= 1 && current.span >= 10) {
+					isWholeFile = true;
 				}
 			}
-			if (!exclude) {
-				arrayAppend(keep, info[1]); // info[1] is the original block
-			}
-		}
-		return keep;
-	}
-
-	/**
-	 * OPTIMIZED: Accumulate line coverage with reduced overhead
-	 */
-	public void function accumulateLineCoverage(coverage, r) {
-		var fileIdx = arguments.r[1];
-		
-		if (!structKeyExists(arguments.coverage, fileIdx)) {
-			arguments.coverage[fileIdx] = {};
-		}
-		
-		var fileCoverage = arguments.coverage[fileIdx];
-		
-		// OPTIMIZATION: Process range in single operation
-		for (var l = arguments.r[2]; l <= arguments.r[3]; l++) {
-			if (!structKeyExists(fileCoverage, l)) {
-				fileCoverage[l] = [1, int(arguments.r[4])];
+			// If we have whole-file blocks, filter them out aggressively
+			if (isWholeFile) {
+				// Sort by span size (smallest first)
+				arraySort(blockRanges, function(a, b) {
+					return a.span - b.span;
+				});
+				// Keep only the most specific blocks
+				var keptBlocks = [];
+				for (var i = 1; i <= arrayLen(blockRanges); i++) {
+					var current = blockRanges[i];
+					var shouldKeep = true;
+					for (var j = 1; j <= arrayLen(keptBlocks); j++) {
+						var kept = keptBlocks[j];
+						if (kept.startLine >= current.startLine && kept.endLine <= current.endLine && kept.span < current.span) {
+							shouldKeep = false;
+							break;
+						}
+					}
+					if (shouldKeep) {
+						var newKeptBlocks = [];
+						for (var k = 1; k <= arrayLen(keptBlocks); k++) {
+							var existing = keptBlocks[k];
+							if (!(current.startLine >= existing.startLine && current.endLine <= existing.endLine && current.span < existing.span)) {
+								newKeptBlocks.append(existing);
+							}
+						}
+						newKeptBlocks.append(current);
+						keptBlocks = newKeptBlocks;
+					}
+				}
+				// Convert back to blocks array
+				for (var i = 1; i <= arrayLen(keptBlocks); i++) {
+					filteredBlocks.append(keptBlocks[i].block);
+				}
 			} else {
-				var lineData = fileCoverage[l];
-				lineData[1] += 1;
-				lineData[2] += int(arguments.r[4]);
+				// No whole-file blocks detected, return original blocks
+				filteredBlocks = blocks;
 			}
+			return filteredBlocks;
 		}
-	}
-
-	/**
-	 * Same as original but with defensive argument handling removed for performance
-	 */
-	public numeric function getLineFromCharacterPosition(charPos, path, lineMapping, mappingLen) {
-		return getLineFromCharacterPositionOptimized(arguments.charPos, arguments.lineMapping, arguments.mappingLen);
-	}
 
 	/**
 	 * OPTIMIZED: Character to line mapping with improved string processing

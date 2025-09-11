@@ -201,6 +201,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	// Compare two result structs for equality and log differences
 	private void function compareResults(any optimized, any original, string label) {
 		// loop over keys and compare
+		/*
+		systemOutput("", true);
+		systemOutput("[DEBUG] Comparing results for #label#", true);
+		systemOutput("Optimized: " & serializeJSON(optimized), true);
+		systemOutput("Original:  " & serializeJSON(original), true);
+		*/
 		var keys = structKeyArray(optimized);
 		for (var key in keys) {
 			expect(original).toHaveKey(key);
