@@ -14,7 +14,7 @@ component {
 		directoryCreate(variables.generatedArtifactsDir, true);
 		
 		// Set coverage directory within generated artifacts
-		variables.tempCoverageDir = variables.generatedArtifactsDir & "coverage/";
+		variables.tempCoverageDir = variables.generatedArtifactsDir & "raw/";
 		directoryCreate(variables.tempCoverageDir, true);
 		
 		return this;

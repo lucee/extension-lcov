@@ -6,7 +6,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 * Test that optimized ExecutionLogParserOptimized can be instantiated and has expected methods
 	 */
 	function testExecutionLogParserOptimizedExists() {
-		systemOutput("=== TESTING OPTIMIZED PARSER INSTANTIATION ===", true);
+
 
 		// Test instantiation
 		var options = {"verbose": true};
@@ -20,19 +20,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var func in functions) {
 			arrayAppend(methods, func.name);
 		}
-		systemOutput("Optimized parser methods: " & arrayToList(methods), true);
+
 		
 		expect(arrayContains(methods, "parseExlFile"), "Should have parseExlFile method").toBeTrue();
 		expect(arrayContains(methods, "getLineFromCharacterPosition"), "Should have getLineFromCharacterPosition method").toBeTrue();
 
-		systemOutput("Optimized ExecutionLogParser instantiated successfully", true);
+
 	}
 
 	/**
 	 * Test that optimized codeCoverageUtilsOptimized can be instantiated and has expected methods
 	 */
 	function testCodeCoverageUtilsOptimizedExists() {
-		systemOutput("=== TESTING OPTIMIZED UTILS INSTANTIATION ===", true);
+
 
 		// Test instantiation
 		var options = {"verbose": true};
@@ -46,20 +46,20 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var func in functions) {
 			arrayAppend(methods, func.name);
 		}
-		systemOutput("Optimized utils methods: " & arrayToList(methods), true);
+
 		
 		expect(arrayContains(methods, "calculateCoverageStats"), "Should have calculateCoverageStats method").toBeTrue();
-		expect(arrayContains(methods, "processBlocks"), "Should have processBlocks method").toBeTrue();
+		expect(arrayContains(methods, "excludeOverlappingBlocks"), "Should have excludeOverlappingBlocks method").toBeTrue();
 		expect(arrayContains(methods, "mergeResultsByFile"), "Should have mergeResultsByFile method").toBeTrue();
 
-		systemOutput("Optimized codeCoverageUtils instantiated successfully", true);
+
 	}
 
 	/**
 	 * Test that optimized classes use optimization-specific logging
 	 */
 	function testOptimizedLoggingExists() {
-		systemOutput("=== TESTING OPTIMIZATION LOGGING ===", true);
+
 
 		var options = {"verbose": true};
 		
@@ -71,14 +71,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var optimizedUtils = new lucee.extension.lcov.codeCoverageUtilsOptimized(options);
 		expect(isObject(optimizedUtils), "Optimized utils should instantiate").toBeTrue();
 		
-		systemOutput("Both optimized components support verbose logging", true);
+
 	}
 
 	/**
 	 * Test comparing method signatures between original and optimized versions
 	 */
 	function testMethodSignatureCompatibility() {
-		systemOutput("=== TESTING METHOD SIGNATURE COMPATIBILITY ===", true);
+
 
 		// Compare ExecutionLogParser methods
 		var originalParser = new lucee.extension.lcov.ExecutionLogParser({"verbose": false});
@@ -120,13 +120,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 		
 		// Check that key methods exist in both
-		var keyUtilsMethods = ["calculateCoverageStats", "processBlocks", "mergeResultsByFile"];
+		var keyUtilsMethods = ["calculateCoverageStats", "excludeOverlappingBlocks", "mergeResultsByFile"];
 		for (var method in keyUtilsMethods) {
 			expect(arrayContains(originalUtilsMethods, method), "Original utils should have " & method).toBeTrue();
 			expect(arrayContains(optimizedUtilsMethods, method), "Optimized utils should have " & method).toBeTrue();
 		}
 
-		systemOutput("Method signature compatibility verified", true);
+
 	}
 
 }

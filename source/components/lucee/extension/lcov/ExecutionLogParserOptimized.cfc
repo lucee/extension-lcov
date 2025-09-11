@@ -185,7 +185,27 @@ component accessors="true" {
 		logger("Pre-aggregation: " & totalLines & " entries -> " & aggregatedEntries & " unique (" & reductionPercent & "% reduction)");
 		logger("Found " & duplicateCount & " duplicate entries to combine");
 		logger("Pre-aggregation completed in " & aggregationTime & "ms");
-		
+
+		var exclusionStart = getTickCount();
+		if (variables.verbose) {
+			var beforeEntities = 0;
+			for (var key in aggregated) {
+				beforeEntities += structCount(aggregated[key]);
+			}
+			logger("Total aggregated entries before exclusion: " & beforeEntities);
+		}
+
+		// STAGE 1.5: Exclude overlapping blocks
+		aggregated =  utils.excludeOverlappingBlocks(aggregated, files, lineMappingsCache);
+		// structCount(aggregated) doesn't quite reflect updated count after exclusion, as the changes are in the values
+		if (variables.verbose) {
+			var remaining = 0;
+			for (var key in aggregated) {
+				remaining += structCount(aggregated[key]);
+			}
+			logger("After excluding overlapping blocks, remaining aggregated entries: " & remaining & " (took " & (getTickCount() - exclusionStart) & "ms)");
+		}
+
 		// STAGE 2: Process aggregated entries to line coverage
 		var processingStart = getTickCount();
 		var coverage = {};

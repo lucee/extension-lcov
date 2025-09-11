@@ -12,6 +12,7 @@ component {
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
 		variables.codeCoverageUtils = new codeCoverageUtils(arguments.options);
+		variables.useOptimized = false;
 		return this;
 	}
 
@@ -31,15 +32,27 @@ component {
 	 * @options Processing options including allowList and blocklist
 	 * @return Struct of parsed results keyed by .exl file path
 	 */
+
 	public struct function parseExecutionLogs(required string executionLogDir, struct options = {}) {
+		// add an exclusive cflock here
+		cflock(name="lcov-parse:#arguments.executionLogDir#", timeout=0, type="exclusive", throwOnTimeout=true) {
+			return _parseExecutionLogs(arguments.executionLogDir, arguments.options);
+		}
+	}
+
+	private struct function _parseExecutionLogs(required string executionLogDir, struct options = {}) {
 		if (!directoryExists(arguments.executionLogDir)) {
 			throw(message="Execution log directory does not exist: " & arguments.executionLogDir);
 		}
 
 		logger("Processing execution logs from: " & arguments.executionLogDir);
 
-		// Create parser with options for verbose logging
-		var exlParser = new ExecutionLogParser(arguments.options);
+		if (useOptimized) {
+			// Create parser with options for verbose logging
+			var exlParser = new ExecutionLogParserOptimized(arguments.options);
+		} else {
+			var exlParser = new ExecutionLogParser(arguments.options);
+		}
 
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
 		var results = {};
@@ -127,8 +140,8 @@ component {
 	 * @return Struct of merged results keyed by source file path
 	 */
 	public struct function mergeResultsBySourceFile(required struct results, boolean verbose = false) {
-		logger("=== MERGE BY SOURCE FILE: Starting merge process ===");
-		logger("Processing " & structCount(arguments.results) & " .exl results");
+		//logger("=== MERGE BY SOURCE FILE: Starting merge process ===");
+		//logger("Processing " & structCount(arguments.results) & " .exl results");
 		
 		var mergedResults = {};
 		var sourceFileStats = {};
@@ -136,7 +149,7 @@ component {
 		var totalSourceFilesFound = 0;
 		
 		// PASS 1: Discovery and Validation
-		logger("--- PASS 1: Discovery and Validation ---");
+		//logger("--- PASS 1: Discovery and Validation ---");
 		var validResults = {};
 		for (var exlPath in arguments.results) {
 			var result = arguments.results[exlPath];
@@ -150,10 +163,10 @@ component {
 			totalFilesProcessed++;
 			logger("VALID: " & listLast(exlPath, "/\\") & " contains " & structCount(result.coverage) & " source files");
 		}
-		logger("Pass 1 complete: " & totalFilesProcessed & " valid .exl files found");
+		//logger("Pass 1 complete: " & totalFilesProcessed & " valid .exl files found");
 		
 		// PASS 2: Source File Discovery and Structure Initialization
-		logger("--- PASS 2: Source File Discovery ---");
+		//logger("--- PASS 2: Source File Discovery ---");
 		for (var exlPath in validResults) {
 			var result = validResults[exlPath];
 			
@@ -165,7 +178,7 @@ component {
 					// Initialize new source file entry
 					mergedResults[sourceFilePath] = initializeSourceFileEntry(sourceFilePath, result, fileIndex);
 					totalSourceFilesFound++;
-					logger("INIT: " & contractPath(sourceFilePath) & " (from " & listLast(exlPath, "/\\") & ")");
+					//logger("INIT: " & contractPath(sourceFilePath) & " (from " & listLast(exlPath, "/\\") & ")");
 				}
 				
 				// Track statistics
@@ -175,10 +188,10 @@ component {
 				arrayAppend(sourceFileStats[sourceFilePath].exlFiles, listLast(exlPath, "/\\"));
 			}
 		}
-		logger("Pass 2 complete: " & totalSourceFilesFound & " unique source files discovered");
+		//logger("Pass 2 complete: " & totalSourceFilesFound & " unique source files discovered");
 		
 		// PASS 3: Coverage Data Merging
-		logger("--- PASS 3: Coverage Data Merging ---");
+		//logger("--- PASS 3: Coverage Data Merging ---");
 		var totalMergeOperations = 0;
 		for (var exlPath in validResults) {
 			var result = validResults[exlPath];
@@ -195,13 +208,13 @@ component {
 				// Merge fileCoverage array data
 				mergeFileCoverageArray(mergedResults[sourceFilePath], result, fileIndex);
 				
-				logger("MERGE: " & contractPath(sourceFilePath) & " + " & exlFileName & " (" & mergedLines & " lines)");
+				//logger("MERGE: " & contractPath(sourceFilePath) & " + " & exlFileName & " (" & mergedLines & " lines)");
 			}
 		}
-		logger("Pass 3 complete: " & totalMergeOperations & " total line merges performed");
+		//logger("Pass 3 complete: " & totalMergeOperations & " total line merges performed");
 		
 		// PASS 4: Statistics Recalculation and Finalization
-		logger("--- PASS 4: Statistics and Finalization ---");
+		//logger("--- PASS 4: Statistics and Finalization ---");
 		for (var sourceFilePath in mergedResults) {
 			var startTime = getTickCount();
 			mergedResults[sourceFilePath].stats = variables.codeCoverageUtils.calculateCoverageStats(mergedResults[sourceFilePath]);
@@ -214,10 +227,10 @@ component {
 			
 			var stats = mergedResults[sourceFilePath].stats;
 			var coverage = stats.totalLinesFound > 0 ? numberFormat(100.0 * stats.totalLinesHit / stats.totalLinesFound, "0.0") : "0.0";
-			logger("STATS: " & contractPath(sourceFilePath) & " - " & stats.totalLinesHit & "/" & stats.totalLinesFound & " (" & coverage & "%) in " & calcTime & "ms");
+			//logger("STATS: " & contractPath(sourceFilePath) & " - " & stats.totalLinesHit & "/" & stats.totalLinesFound & " (" & coverage & "%) in " & calcTime & "ms");
 		}
 		
-		logger("=== MERGE COMPLETE: " & structCount(mergedResults) & " source files ready ===");
+		//logger("=== MERGE COMPLETE: " & structCount(mergedResults) & " source files ready ===");
 		return mergedResults;
 	}
 	

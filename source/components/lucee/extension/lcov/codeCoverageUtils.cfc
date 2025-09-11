@@ -133,7 +133,7 @@ component accessors="true" {
 	 * Private helper: Shared logic for mapping blocks to line-based coverage, grouped by fileIdx
 	 * the lucee coverage data sometimes spans a large block of code, which for LCOV purposes we want to ignore, if a larger block covers smaller lines or blocks, it should be ignored
 	 */
-	public struct function processBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
+	public struct function excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
 		var coverage = {};
 
 		// Use structEach with parallel=true and directly populate coverage struct (thread-safe)
@@ -276,7 +276,12 @@ component accessors="true" {
 			"executedLines": {}
 		};
 		for (var filePath in result.source.files) {
+
 			stats.files[ filePath ] = duplicate( statsTemplate );
+
+			// Add linesCount (total lines in file, informational)
+			var linesCount = structKeyExists(result.source.files[filePath], "linesCount") ? result.source.files[filePath].linesCount : 0;
+			stats.files[filePath].linesCount = linesCount;
 
 			stats.files[ filePath ].linesFound += result.source.files[ filePath ].linesFound;
 			stats.totalLinesFound += result.source.files[ filePath ].linesFound;
@@ -294,6 +299,8 @@ component accessors="true" {
 					stats.files[ filePath ].totalExecutionTime += lineData[ 2 ];
 					// stats.executedLines[ lineNum ] = lineData;
 				}
+
+				// No warning here; test should assert linesHit/linesFound <= linesCount
 			}
 		}
 		return stats;

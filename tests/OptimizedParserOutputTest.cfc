@@ -21,7 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					);
 					
 					expect(directoryExists(variables.originalTestData.coverageDir)).toBeTrue();
-					systemOutput("Original test data generated at: " & variables.originalTestData.coverageDir, true);
+					//systemOutput("Original test data generated at: " & variables.originalTestData.coverageDir, true);
 				});
 
 				it("should generate optimized parser test data", function() {
@@ -32,7 +32,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					);
 					
 					expect(directoryExists(variables.optimizedTestData.coverageDir)).toBeTrue();
-					systemOutput("Optimized test data generated at: " & variables.optimizedTestData.coverageDir, true);
+					//systemOutput("Optimized test data generated at: " & variables.optimizedTestData.coverageDir, true);
 				});
 				
 				it("should have matching EXL files in both directories", function() {
@@ -43,7 +43,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					expect(arrayLen(optimizedFiles)).toBeGT(0);
 					expect(arrayLen(originalFiles)).toBe(arrayLen(optimizedFiles));
 					
-					systemOutput("Found " & arrayLen(originalFiles) & " EXL files in each directory", true);
+					//systemOutput("Found " & arrayLen(originalFiles) & " EXL files in each directory", true);
 				});
 			});
 
@@ -53,10 +53,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					var originalParser = new lucee.extension.lcov.ExecutionLogParser({"verbose": false});
 					var testFiles = directoryList(variables.originalTestData.coverageDir, false, "path", "*.exl");
 					
-					systemOutput("Original parser processing " & arrayLen(testFiles) & " EXL files", true);
+					//systemOutput("Original parser processing " & arrayLen(testFiles) & " EXL files", true);
 					
 					for (var testExlFile in testFiles) {
-						systemOutput("Processing: " & listLast(testExlFile, "/\"), true);
+						//systemOutput("Processing: " & listLast(testExlFile, "/\"), true);
 						var parserResult = originalParser.parseExlFile(testExlFile);
 						
 						expect(parserResult).toBeStruct();
@@ -65,17 +65,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						expect(parserResult).toHaveKey("coverage");
 					}
 					
-					systemOutput("Original parser completed successfully on all files", true);
+					//systemOutput("Original parser completed successfully on all files", true);
 				});
 
 				it("should execute optimized parser on all files successfully", function() {
 					var optimizedParser = new lucee.extension.lcov.ExecutionLogParserOptimized({"verbose": false});
 					var testFiles = directoryList(variables.optimizedTestData.coverageDir, false, "path", "*.exl");
 					
-					systemOutput("Optimized parser processing " & arrayLen(testFiles) & " EXL files", true);
+					//systemOutput("Optimized parser processing " & arrayLen(testFiles) & " EXL files", true);
 					
 					for (var testExlFile in testFiles) {
-						systemOutput("Processing: " & listLast(testExlFile, "/\"), true);
+						//systemOutput("Processing: " & listLast(testExlFile, "/\"), true);
 						var parserResult = optimizedParser.parseExlFile(testExlFile);
 						
 						expect(parserResult).toBeStruct();
@@ -84,7 +84,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						expect(parserResult).toHaveKey("coverage");
 					}
 					
-					systemOutput("Optimized parser completed successfully on all files", true);
+					//systemOutput("Optimized parser completed successfully on all files", true);
 				});
 			});
 
@@ -94,8 +94,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					var originalJsonFiles = directoryList(variables.originalTestData.coverageDir, false, "path", "*.json");
 					var optimizedJsonFiles = directoryList(variables.optimizedTestData.coverageDir, false, "path", "*.json");
 					
-					systemOutput("Original JSON files: " & arrayLen(originalJsonFiles), true);
-					systemOutput("Optimized JSON files: " & arrayLen(optimizedJsonFiles), true);
+					//systemOutput("Original JSON files: " & arrayLen(originalJsonFiles), true);
+					//systemOutput("Optimized JSON files: " & arrayLen(optimizedJsonFiles), true);
 					
 					expect(arrayLen(originalJsonFiles)).toBeGT(0);
 					expect(arrayLen(optimizedJsonFiles)).toBeGT(0);
@@ -153,8 +153,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					variables.originalScriptMapping = originalScriptMapping;
 					variables.optimizedScriptMapping = optimizedScriptMapping;
 					
-					systemOutput("Original scripts mapped: " & structCount(originalScriptMapping), true);
-					systemOutput("Optimized scripts mapped: " & structCount(optimizedScriptMapping), true);
+					//systemOutput("Original scripts mapped: " & structCount(originalScriptMapping), true);
+					//systemOutput("Optimized scripts mapped: " & structCount(optimizedScriptMapping), true);
 				});
 			});
 
@@ -173,7 +173,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 					
 					expect(arrayLen(matchingScripts)).toBeGT(0, "No matching scripts found between original and optimized parsers");
-					systemOutput("Found " & arrayLen(matchingScripts) & " matching scripts to compare", true);
+					//systemOutput("Found " & arrayLen(matchingScripts) & " matching scripts to compare", true);
 					
 					var totalComparisons = 0;
 					
@@ -189,27 +189,27 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var originalData = variables.originalParsedData[originalFile];
 						var optimizedData = variables.optimizedParsedData[optimizedFile];
 						
-						systemOutput("Comparing script: " & scriptKey & " (Original: " & originalFile & ", Optimized: " & optimizedFile & ")", true);
+						//systemOutput("Comparing script: " & scriptKey & " (Original: " & originalFile & ", Optimized: " & optimizedFile & ")", true);
 						
 						// Run all comparison tests for this script pair
 						try {
 							compareHighLevelStructure(originalData, optimizedData);
 						} catch (any e) {
-							systemOutput("  ✗ High-level structure comparison failed for " & scriptName & ": " & e.message, true);
+							systemOutput("High-level structure comparison failed for " & scriptKey & ": " & e.message, true);
 							rethrow;
 						}
 						
 						try {
 							compareMetadata(originalData.metadata, optimizedData.metadata);
 						} catch (any e) {
-							systemOutput("  ✗ Metadata comparison failed for " & scriptName & ": " & e.message, true);
+							systemOutput("Metadata comparison failed for " & scriptKey & ": " & e.message, true);
 							rethrow;
 						}
 						
 						try {
 							compareFileStructure(originalData.source.files, optimizedData.source.files);
 						} catch (any e) {
-							systemOutput("  ✗ File structure comparison failed for " & scriptName & ": " & e.message, true);
+							systemOutput("File structure comparison failed for " & scriptKey & ": " & e.message, true);
 							systemOutput("    Original files count: " & structCount(originalData.source.files), true);
 							systemOutput("    Optimized files count: " & structCount(optimizedData.source.files), true);
 							rethrow;
@@ -218,21 +218,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						try {
 							compareCoverageStructure(originalData.coverage, optimizedData.coverage);
 						} catch (any e) {
-							systemOutput("  ✗ Coverage structure comparison failed for " & scriptName & ": " & e.message, true);
+							systemOutput("Coverage structure comparison failed for " & scriptKey & ": " & e.message, true);
 							rethrow;
 						}
 						
 						try {
 							compareParserPerformance(originalData, optimizedData);
 						} catch (any e) {
-							systemOutput("  ✗ Parser performance comparison failed for " & scriptName & ": " & e.message, true);
+							systemOutput("Parser performance comparison failed for " & scriptKey & ": " & e.message, true);
 							rethrow;
 						}
 						
 						totalComparisons++;
 					}
 					
-					systemOutput("Successfully compared " & totalComparisons & " script pairs", true);
+					//systemOutput("Successfully compared " & totalComparisons & " script pairs", true);
 				});
 			});
 		});
@@ -241,7 +241,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	// Helper functions for BDD tests
 	
 	private function compareHighLevelStructure(required struct originalData, required struct optimizedData) {
-		systemOutput("Comparing high-level structure...", true);
+		//systemOutput("Comparing high-level structure...", true);
 		
 		// Check main keys exist in both data structures
 		var expectedKeys = ["metadata", "source", "coverage", "fileCoverage", "exeLog", "parserPerformance"];
@@ -263,7 +263,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 	
 	private function compareMetadata(required struct originalMeta, required struct optimizedMeta) {
-		systemOutput("Comparing metadata (excluding time-sensitive fields)...", true);
+		//systemOutput("Comparing metadata (excluding time-sensitive fields)...", true);
 		
 		// Compare time-insensitive fields that should be identical
 		var compareFields = ["script-name", "context-path", "server-name", "server-port", "protocol", "query-string", "path-info", "unit"];
@@ -279,7 +279,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 	
 	private function compareFileStructure(required struct originalFiles, required struct optimizedFiles) {
-		systemOutput("Comparing file structure...", true);
+		//systemOutput("Comparing file structure...", true);
 		
 		// Compare each file's structure
 		for (var fileIdx in originalFiles) {
@@ -305,7 +305,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 	
 	private function compareCoverageStructure(required struct originalCoverage, required struct optimizedCoverage) {
-		systemOutput("Comparing coverage structure...", true);
+		//systemOutput("Comparing coverage structure...", true);
 		
 		// Coverage should be struct with file indexes as keys
 		expect(originalCoverage).toBeStruct();
@@ -357,7 +357,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	private function compareParserPerformance(required struct originalCoverage, required struct optimizedCoverage) {
-		systemOutput("Comparing parser performance metrics...", true);
+		//systemOutput("Comparing parser performance metrics...", true);
 		
 		// Both should have parserPerformance structure
 		expect(originalCoverage).toHaveKey("parserPerformance");

@@ -168,7 +168,7 @@ component accessors="true" {
 	 * OPTIMIZED: Process blocks with streamlined overlap detection and caching
 	 * Major performance improvements over original version
 	 */
-	public struct function processBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
+	public struct function excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
 		var startTime = getTickCount();
 		var totalBlocks = 0;
 		
@@ -416,7 +416,12 @@ component accessors="true" {
 		
 		for (var i = 1; i <= arrayLen(filePaths); i++) {
 			var filePath = filePaths[i];
+
 			stats.files[ filePath ] = duplicate( statsTemplate );
+
+			// Add linesCount (total lines in file, informational)
+			var linesCount = structKeyExists(arguments.result.source.files[filePath], "linesCount") ? arguments.result.source.files[filePath].linesCount : 0;
+			stats.files[filePath].linesCount = linesCount;
 
 			stats.files[ filePath ].linesFound += arguments.result.source.files[ filePath ].linesFound;
 			stats.totalLinesFound += arguments.result.source.files[ filePath ].linesFound;
@@ -426,7 +431,7 @@ component accessors="true" {
 				var fileLinesHit = structCount( filecoverage );
 				stats.totalLinesHit += fileLinesHit;
 				stats.files[ filePath ].linesHit += fileLinesHit;
-				
+
 				// OPTIMIZATION: Process line data in batch
 				var lineNumbers = structKeyArray(filecoverage);
 				for ( var j = 1; j <= arrayLen(lineNumbers); j++ ) {
@@ -437,11 +442,12 @@ component accessors="true" {
 					stats.files[ filePath ].totalExecutions += lineData[ 1 ];
 					stats.files[ filePath ].totalExecutionTime += lineData[ 2 ];
 				}
+				// No warning here; test should assert linesHit/linesFound <= linesCount
 			}
 		}
 		
 		var totalTime = getTickCount() - startTime;
-		logger("Calculated coverage stats for " & arrayLen(filePaths) & " files in " & totalTime & "ms");
+		//logger("Calculated coverage stats for " & arrayLen(filePaths) & " files in " & totalTime & "ms");
 		return stats;
 	}
 

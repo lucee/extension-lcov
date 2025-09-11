@@ -122,7 +122,7 @@ component accessors="true" {
 	}
 
 	/**
-	* DISABLED BLOCK PROCESSING - Direct line-by-line processing without utils.processBlocks
+	* DISABLED BLOCK PROCESSING - Direct line-by-line processing without utils.excludeOverlappingBlocks
 	*/
 	private struct function parseCoverage( struct coverageData) {
 		var totalLines = arrayLen(arguments.coverageData.fileCoverage);
@@ -130,61 +130,42 @@ component accessors="true" {
 		var fileCoverage = arguments.coverageData.fileCoverage;
 		var exlPath = arguments.coverageData.exeLog;
 		var start = getTickCount();
-		var coverage = {};
-
-		logger("=== ORIGINAL PARSER: BLOCK PROCESSING DISABLED ===");
-		logger("Processing " & totalLines & " coverage lines directly without block optimization");
-
 		// Build line mappings cache for all files
 		var lineMappingsCache = {};
 		for (var fileIdx in files) {
 			var fpath = files[fileIdx].path;
 			lineMappingsCache[fpath] = variables.lineMappingsCache[fpath];
 		}
-		
-		// Process each coverage line directly
+
+		// Aggregate coverage blocks by file
+		var blocksByFile = {};
 		for (var i = 1; i <= totalLines; i++) {
 			var line = fileCoverage[i];
 			var p = listToArray(line, chr(9), false, false);
 			var fileIdx = p[1];
-			
 			if (!structKeyExists(files, fileIdx)) {
 				continue; // file is blocklisted or not allowed
 			}
-			
-			var fpath = files[fileIdx].path;
-			var lineMapping = lineMappingsCache[fpath];
-			var mappingLen = arrayLen(lineMapping);
-			
-			// Convert character positions to line numbers
-			var startLine = getLineFromCharacterPosition(p[2], lineMapping, mappingLen);
-			var endLine = getLineFromCharacterPosition(p[3], lineMapping, mappingLen, startLine);
-			var execTime = p[4];
-			
-			// Skip invalid positions
-			if (startLine == 0 || endLine == 0) {
-				continue;
+			if (!structKeyExists(blocksByFile, fileIdx)) blocksByFile[fileIdx] = [];
+			arrayAppend(blocksByFile[fileIdx], [fileIdx, p[2], p[3], p[4]]);
+		}
+
+		// Exclude overlapping blocks using utils
+		var coverage = variables.utils.excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, false);
+
+		// Convert numeric keys to string for compatibility
+		for (var fileIdx in coverage) {
+			var fileCoverageMap = coverage[fileIdx];
+			var newMap = {};
+			for (var lineNum in fileCoverageMap) {
+				newMap[toString(lineNum)] = fileCoverageMap[lineNum];
 			}
-			
-			// Initialize file coverage if needed
-			if (!structKeyExists(coverage, fileIdx)) {
-				coverage[fileIdx] = {};
-			}
-			
-			// Add coverage for each line in the range
-			for (var lineNum = startLine; lineNum <= endLine; lineNum++) {
-				var lineKey = toString(lineNum);
-				if (!structKeyExists(coverage[fileIdx], lineKey)) {
-					coverage[fileIdx][lineKey] = [0, "0"]; // [count, totalTime]
-				}
-				coverage[fileIdx][lineKey][1] += 1; // increment hit count
-				coverage[fileIdx][lineKey][2] = toString(val(coverage[fileIdx][lineKey][2]) + val(execTime)); // add execution time
-			}
+			coverage[fileIdx] = newMap;
 		}
 
 		var totalTime = getTickCount() - start;
 		var timePerLine = totalLines > 0 ? numberFormat((totalTime / totalLines), "0.00") : "0";
-		logger("=== ORIGINAL PARSER: Direct processing completed in " & totalTime & "ms (" & timePerLine & "ms per line) ===");
+		//logger("=== ORIGINAL PARSER: Block filtering completed in " & totalTime & "ms (" & timePerLine & "ms per line) ===");
 
 		return coverage;
 	}
