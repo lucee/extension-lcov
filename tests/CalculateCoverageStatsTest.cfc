@@ -22,7 +22,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			var result = variables.parser.parseExlFile(file);
 
-			var resultJsonFile = replace(file, ".exl", "-fileCoverage.json", "all");
+			var resultJsonFile = replace(file, ".exl", ".json", "all");
 			expect( fileExists (resultJsonFile) ).toBeTrue();
 			expect( fileRead( resultJsonFile ) ).toBeJson();
 			var resultStruct = deserializeJson( fileRead( resultJsonFile ) );

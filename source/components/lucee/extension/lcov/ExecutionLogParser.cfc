@@ -93,7 +93,20 @@ component accessors="true" {
 			return {};
 		}
 
+		var parseStart = getTickCount();
 		coverage["coverage"] = parseCoverage( coverage );
+		var parseTime = getTickCount() - parseStart;
+
+		// Add performance metrics to main coverage structure
+		coverage["parserPerformance"] = {
+			"parserType": "original",
+			"processingTime": parseTime,
+			"timePerLine": arrayLen(coverage.fileCoverage) > 0 ? numberFormat((parseTime / arrayLen(coverage.fileCoverage)), "0.00") : "0",
+			"totalLines": arrayLen(coverage.fileCoverage),
+			"optimizationsApplied": [],
+			"memoryOptimizations": false,
+			"parallelProcessing": false
+		};
 
 		logger("parsed file: " & exlPath &
 			", Metadata lines: " & structCount( coverage.metadata ) &
@@ -102,130 +115,76 @@ component accessors="true" {
 			", Coverage lines: " & arrayLen( coverage.fileCoverage ));
 
 			// write out filecoverage as json using compact=false for debuggingg
-		fileWrite( replace( arguments.exlPath, ".exl", "-fileCoverage.json" ), serializeJson( var=coverage, compact=false ) );
+		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), serializeJson( var=coverage, compact=false ) );
 		logger( "" );
 
 		return coverage;
 	}
 
 	/**
-	* Parallel processing for large datasets using 3-stage approach
+	* DISABLED BLOCK PROCESSING - Direct line-by-line processing without utils.processBlocks
 	*/
 	private struct function parseCoverage( struct coverageData) {
-		var chunkSize = 50000; // Default chunk size
 		var totalLines = arrayLen(arguments.coverageData.fileCoverage);
 		var files = arguments.coverageData.source.files;
 		var fileCoverage = arguments.coverageData.fileCoverage;
 		var exlPath = arguments.coverageData.exeLog;
 		var start = getTickCount();
 		var coverage = {};
-		var chunks = [];
 
-		for (var i = 1; i <= totalLines; i += chunkSize) {
-			var endIdx = min(i + chunkSize - 1, totalLines);
-			arrayAppend(chunks, {
-				"startIdx": i,
-				"endIdx": endIdx,
-				"size": endIdx - i + 1,
-				"fileCoverageSlice": arraySlice(fileCoverage, i, endIdx - i + 1)
-			});
-		}
-		if (arrayLen(chunks) > 1) {
-			logger("  Split " & totalLines & " coverage lines into " & arrayLen(chunks) & " chunks of ~" & numberFormat(chunkSize) & " lines each");
-		}
-		var parallelStart = getTickCount();
-		// Process job queue in parallel - arrayEach automatically handles thread allocation
-		var chunkResults = [];
-		// Build caches for all files once before chunk processing
+		logger("=== ORIGINAL PARSER: BLOCK PROCESSING DISABLED ===");
+		logger("Processing " & totalLines & " coverage lines directly without block optimization");
+
+		// Build line mappings cache for all files
 		var lineMappingsCache = {};
-		var mappingLens = {};
 		for (var fileIdx in files) {
 			var fpath = files[fileIdx].path;
 			lineMappingsCache[fpath] = variables.lineMappingsCache[fpath];
-			mappingLens[fpath] = arrayLen(lineMappingsCache[fpath]);
 		}
-
-		// Pre-duplicate mapping caches for each thread to avoid concurrent duplication
-		var threadCaches = [];
-		var chunkCount = arrayLen(chunks);
-		for (var i = 1; i <= chunkCount; i++) {
-			threadCaches[i] = {
-				"lineMappingsCache": duplicate(lineMappingsCache),
-				"mappingLens": duplicate(mappingLens),
-				"files": duplicate(files),
-				"exlPath": exlPath,
-				"chunkCount": chunkCount
-			};
-		}
-
-		arrayEach(chunks, function(chunk, index) {
-			var chunkBlocks = [];
-			var chunkStart = getTickCount();
-
-			// Use pre-duplicated cache for this thread
-			var _lineMappingsCache = threadCaches[arguments.index].lineMappingsCache;
-			var _mappingLens = threadCaches[arguments.index].mappingLens;
-			var _files = threadCaches[arguments.index].files;
-			var _exlPath = threadCaches[arguments.index].exlPath;
-			var _chunkCount = threadCaches[arguments.index].chunkCount;
-
-			var chunkSlice = arguments.chunk.fileCoverageSlice;
+		
+		// Process each coverage line directly
+		for (var i = 1; i <= totalLines; i++) {
+			var line = fileCoverage[i];
+			var p = listToArray(line, chr(9), false, false);
+			var fileIdx = p[1];
 			
-			// Group coverage lines by file to reduce redundant mapping lookups
-			var linesByFile = {};
-			for (var j = 1; j <= arrayLen(chunkSlice); j++) {
-				var line = chunkSlice[j];
-				var p = listToArray(line, chr(9), false, false);
-				var fileIdx = p[1];
-				if (!structKeyExists(_files, fileIdx)) {
-					continue; // file is blocklistsed or not allowed
-				}
-				if (!structKeyExists(linesByFile, fileIdx)) {
-					linesByFile[fileIdx] = [];
-				}
-				arrayAppend(linesByFile[fileIdx], p);
+			if (!structKeyExists(files, fileIdx)) {
+				continue; // file is blocklisted or not allowed
 			}
 			
-			// Process all lines for each file with cached mappings
-			for (var fileIdx in linesByFile) {
-				var fpath = _files[fileIdx].path;
-				var lineMapping = _lineMappingsCache[fpath];
-				var mappingLen = _mappingLens[fpath];
-				
-				for (var fileLine in linesByFile[fileIdx]) {
-					var r = processCoverageLine(fileLine, _files, _exlPath, lineMapping, mappingLen, mappingLen);
-					if (arrayLen(r)) {
-						// r = [fileIdx, startLine, endLine, execTime]
-						arrayAppend(chunkBlocks, r);
-					}
-				}
-			}
-
-			var chunkTime = getTickCount() - chunkStart;
-			logger("  Chunk " & index & " / " & _chunkCount & " completed in " & chunkTime & "ms");
-
-			// Store result for merging
-			arrayAppend(chunkResults, chunkBlocks);
+			var fpath = files[fileIdx].path;
+			var lineMapping = lineMappingsCache[fpath];
+			var mappingLen = arrayLen(lineMapping);
 			
-			// Free memory by clearing thread-local data
-			threadCaches[arguments.index] = "";
-			chunk = "";
-		}, true); // parallel=true
+			// Convert character positions to line numbers
+			var startLine = getLineFromCharacterPosition(p[2], lineMapping, mappingLen);
+			var endLine = getLineFromCharacterPosition(p[3], lineMapping, mappingLen, startLine);
+			var execTime = p[4];
+			
+			// Skip invalid positions
+			if (startLine == 0 || endLine == 0) {
+				continue;
+			}
+			
+			// Initialize file coverage if needed
+			if (!structKeyExists(coverage, fileIdx)) {
+				coverage[fileIdx] = {};
+			}
+			
+			// Add coverage for each line in the range
+			for (var lineNum = startLine; lineNum <= endLine; lineNum++) {
+				var lineKey = toString(lineNum);
+				if (!structKeyExists(coverage[fileIdx], lineKey)) {
+					coverage[fileIdx][lineKey] = [0, "0"]; // [count, totalTime]
+				}
+				coverage[fileIdx][lineKey][1] += 1; // increment hit count
+				coverage[fileIdx][lineKey][2] = toString(val(coverage[fileIdx][lineKey][2]) + val(execTime)); // add execution time
+			}
+		}
 
-		logger("  Parallel processing completed in " & (getTickCount() - parallelStart) & "ms");
-
-		var mergeStart = getTickCount();
-
-		// Merge all chunkResults into a single array of blocks
-		var allBlocks = variables.utils.combineChunkResults( chunkResults );
-		// Pass a flag to processBlocks to indicate blocks are already line-based
-		var processStart = getTickCount();
-		var coverage = variables.utils.processBlocks( allBlocks, files, lineMappingsCache, true );
-		logger("  Processed blocks into line coverage in " & (getTickCount() - processStart) & "ms");
-
-		var totalTime = mergeStart - start;
-		logger("  Merge completed in " & (getTickCount() - mergeStart) & "ms");
-		logger("  Total parallel processing time: " & totalTime & "ms (" & decimalFormat(totalTime/totalLines) & "ms per line)");
+		var totalTime = getTickCount() - start;
+		var timePerLine = totalLines > 0 ? numberFormat((totalTime / totalLines), "0.00") : "0";
+		logger("=== ORIGINAL PARSER: Direct processing completed in " & totalTime & "ms (" & timePerLine & "ms per line) ===");
 
 		return coverage;
 	}
