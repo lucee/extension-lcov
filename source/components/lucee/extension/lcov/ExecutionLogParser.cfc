@@ -170,6 +170,9 @@ component accessors="true" {
 			var _chunkCount = threadCaches[arguments.index].chunkCount;
 
 			var chunkSlice = arguments.chunk.fileCoverageSlice;
+			
+			// Group coverage lines by file to reduce redundant mapping lookups
+			var linesByFile = {};
 			for (var j = 1; j <= arrayLen(chunkSlice); j++) {
 				var line = chunkSlice[j];
 				var p = listToArray(line, chr(9), false, false);
@@ -177,11 +180,24 @@ component accessors="true" {
 				if (!structKeyExists(_files, fileIdx)) {
 					continue; // file is blocklistsed or not allowed
 				}
+				if (!structKeyExists(linesByFile, fileIdx)) {
+					linesByFile[fileIdx] = [];
+				}
+				arrayAppend(linesByFile[fileIdx], p);
+			}
+			
+			// Process all lines for each file with cached mappings
+			for (var fileIdx in linesByFile) {
 				var fpath = _files[fileIdx].path;
-				var r = processCoverageLine(p, _files, _exlPath, _lineMappingsCache[fpath], _mappingLens[fpath]);
-				if (arrayLen(r)) {
-					// r = [fileIdx, startLine, endLine, execTime]
-					arrayAppend(chunkBlocks, r);
+				var lineMapping = _lineMappingsCache[fpath];
+				var mappingLen = _mappingLens[fpath];
+				
+				for (var fileLine in linesByFile[fileIdx]) {
+					var r = processCoverageLine(fileLine, _files, _exlPath, lineMapping, mappingLen, mappingLen);
+					if (arrayLen(r)) {
+						// r = [fileIdx, startLine, endLine, execTime]
+						arrayAppend(chunkBlocks, r);
+					}
 				}
 			}
 
@@ -218,66 +234,54 @@ component accessors="true" {
 	/**
 	* Process a single coverage line and return structured data with a valid flag
 	*/
-	private array function processCoverageLine( line, files, exlPath, lineMappings, lineMappingLen) {
+	private array function processCoverageLine( line, files, exlPath, lineMappings, lineMappingLen, fileTotalLines ) {
 		// Use listToArray with tab delimiter - more compatible than split()
-		var result = [];
-		if (arrayLen(line) != 4) {
+		
+		if (arrayLen(arguments.line) != 4) {
 			throw "Malformed coverage data line in [" & arguments.exlPath & "]: [" & arguments.line.toJson() & "]" &
 				", Detail: Line does not have 4 tab-separated values.";
 		}
 
-		if (!structKeyExists(arguments.files, line[1])) {
-			return {}; // file is not allowed due to allow / block list
-		}
-
-		var f = arguments.files[ line[ 1 ] ].path;
-
-		var startLine = getLineFromCharacterPosition( line[ 2 ], f, lineMappings, lineMappingLen);
-		var endLine = getLineFromCharacterPosition( line[ 3 ], f, lineMappings, lineMappingLen, startLine);
+		var startLine = getLineFromCharacterPosition( arguments.line[ 2 ], lineMappings, lineMappingLen );
+		var endLine = getLineFromCharacterPosition( arguments.line[ 3 ], lineMappings, lineMappingLen, startLine);
 
 		// Skip invalid positions
 		if ((startLine == 0 && endLine == 0) || endLine == 0) {
 			throw "Malformed coverage data line in [" & arguments.exlPath & "]: [" & arguments.line.toJson() & "]" &
-				", Detail: Both start and end character positions map to line 0 in file: " & f;
+				", Detail: Both start and end character positions map to line 0 in file: " 
+				& arguments.files[ arguments.line[ 1 ] ].path;
 		}
 
-		// Get total line count for this file to detect entire-file ranges
-		var fileTotalLines = arrayLen( variables.lineMappingsCache[ f ] );
-
 		// Only exclude ranges that cover the entire file (likely overhead/instrumentation)
-		if (startLine <= 1 && endLine >= fileTotalLines) {
+		if (startLine <= 1 && endLine >= arguments.fileTotalLines) {
 			// log a warning for debugging
 			// systemOutput("WARNING whole-file coverage for file: " & f & " (" & startLine & "-" & endLine & ")", true);
+			// var result = [];
 			// return result; // Skip whole-file coverage
 		}
 		// Return structured result: [fileIdx, startLine, endLine, executionTime]
-		return [ line[ 1 ], startLine, endLine, line[ 4 ] ];
+		return [ arguments.line[ 1 ], startLine, endLine, arguments.line[ 4 ] ];
 	}
-
-
 
 	/**
 	* Get the line number for a given character position in a file.
 	* Uses cached line mappings for performance.
 	*/
-	public numeric function getLineFromCharacterPosition( charPos, path, lineMapping = 0, mappingLen = 0, minLine = 1 ) {
-		// Accept a pre-cached line mapping array and its length to avoid repeated struct lookups and arrayLen calls
-		var lineStarts = isArray(lineMapping) ? lineMapping : variables.lineMappingsCache[ arguments.path ];
-		var len = mappingLen > 0 ? mappingLen : arrayLen(lineStarts);
-
+	public numeric function getLineFromCharacterPosition( charPos, lineMapping, mappingLen, minLine = 1 ) {
 		// Binary search to find the line
 		var low = arguments.minLine;
-		var high = len;
+		var high = arguments.mappingLen;
 
 		while (low <= high) {
 			var mid = int((low + high) / 2);
 
-			if (mid == len) {
+			if (mid == arguments.mappingLen) {
 				// Last line - check if charPos is beyond the start of this line
-				return lineStarts[mid] <= arguments.charPos ? mid : mid - 1;
-			} else if (lineStarts[mid] <= arguments.charPos && arguments.charPos < lineStarts[mid + 1]) {
+				return arguments.lineMapping[mid] <= arguments.charPos ? mid : mid - 1;
+			} else if (arguments.lineMapping[mid] <= arguments.charPos 
+				&& arguments.charPos < arguments.lineMapping[mid + 1]) {
 				return mid;
-			} else if (lineStarts[mid] > arguments.charPos) {
+			} else if (arguments.lineMapping[mid] > arguments.charPos) {
 				high = mid - 1;
 			} else {
 				low = mid + 1;
