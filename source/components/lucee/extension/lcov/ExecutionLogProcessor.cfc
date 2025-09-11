@@ -12,7 +12,7 @@ component {
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
 		variables.codeCoverageUtils = new codeCoverageUtils(arguments.options);
-		variables.useOptimized = false;
+		variables.useOptimized = true;
 		return this;
 	}
 
@@ -62,7 +62,9 @@ component {
 		for (var file in files) {
 			var exlPath = file.directory & "/" & file.name;
 			try {
-				logger("Processing .exl file: " & exlPath);
+				var info = getFileInfo( exlPath );
+				logger("Processing .exl file: " & exlPath 
+					& " (" & decimalFormat( info.size/1024 ) & " Kb)");
 				var result = exlParser.parseExlFile(
 					exlPath, 
 					false, // generateHtml

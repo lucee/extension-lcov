@@ -49,7 +49,7 @@ component accessors="true" {
 		array allowList=[], array blocklist=[], boolean useAstForLinesFound = true) {
 
 		var startTime = getTickCount();
-		logger("=== OPTIMIZED PARSER: Starting .exl processing ===");
+		//logger("=== OPTIMIZED PARSER: Starting .exl processing ===");
 
 		var lines = [];
 		try {
@@ -107,13 +107,12 @@ component accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("=== OPTIMIZED PARSER: Completed in " & totalTime & "ms ===");
-
-		logger("parsed file: " & exlPath &
-			", Metadata lines: " & structCount( coverage.metadata ) &
+		logger("parsed file: " & exlPath );
+		logger("Metadata lines: " & structCount( coverage.metadata ) &
 			", files lines: " & structCount( coverage.source.files ) &
 			", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
-			", Coverage lines: " & arrayLen( coverage.fileCoverage ));
+			", Coverage lines: " & arrayLen( coverage.fileCoverage ) &
+			", in " & numberFormat(totalTime, "0.00") & "ms");
 
 		// Write out filecoverage as json using compact=false for debugging
 		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), serializeJson( var=coverage, compact=false ) );
@@ -132,8 +131,8 @@ component accessors="true" {
 		var exlPath = arguments.coverageData.exeLog;
 		var start = getTickCount();
 
-		logger("=== OPTIMIZED PARSER: PRE-AGGREGATION ENABLED ===");
-		logger("Processing " & totalLines & " coverage lines with pre-aggregation optimization");
+		logger("Processing " & numberFormat(totalLines) 
+			& " lines");
 
 		// Build line mappings cache for all files
 		var lineMappingsCache = {};
@@ -179,32 +178,37 @@ component accessors="true" {
 		}
 		
 		var aggregatedEntries = structCount(aggregated);
-		var reductionPercent = totalLines > 0 ? numberFormat(((totalLines - aggregatedEntries) / totalLines) * 100, "0.0") : "0";
+		var reductionPercent = totalLines > 0 ? 
+				numberFormat(((totalLines - aggregatedEntries) 	/ totalLines) * 100, "0.0") : "0";
 		var aggregationTime = getTickCount() - aggregationStart;
-		
-		logger("Pre-aggregation: " & totalLines & " entries -> " & aggregatedEntries & " unique (" & reductionPercent & "% reduction)");
-		logger("Found " & duplicateCount & " duplicate entries to combine");
-		logger("Pre-aggregation completed in " & aggregationTime & "ms");
 
+		logger("Post merging: " & numberFormat(aggregatedEntries) 
+			& " unique (" & reductionPercent & "% reduction)"
+		    & " in " & numberFormat(aggregationTime) & "ms");
+		// logger("Found " & duplicateCount & " duplicate entries to combine");
+
+		/*
 		var exclusionStart = getTickCount();
 		if (variables.verbose) {
 			var beforeEntities = 0;
 			for (var key in aggregated) {
 				beforeEntities += structCount(aggregated[key]);
 			}
-			logger("Total aggregated entries before exclusion: " & beforeEntities);
+			logger("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
 		}
 
 		// STAGE 1.5: Exclude overlapping blocks
 		aggregated =  utils.excludeOverlappingBlocks(aggregated, files, lineMappingsCache);
-		// structCount(aggregated) doesn't quite reflect updated count after exclusion, as the changes are in the values
 		if (variables.verbose) {
 			var remaining = 0;
 			for (var key in aggregated) {
 				remaining += structCount(aggregated[key]);
 			}
-			logger("After excluding overlapping blocks, remaining aggregated entries: " & remaining & " (took " & (getTickCount() - exclusionStart) & "ms)");
+			logger("After excluding overlapping blocks, remaining aggregated entries: " 
+				& numberFormat(remaining) & " (took " 
+				& numberFormat(getTickCount() - exclusionStart) & "ms)");
 		}
+		*/
 
 		// STAGE 2: Process aggregated entries to line coverage
 		var processingStart = getTickCount();
@@ -246,9 +250,12 @@ component accessors="true" {
 		var totalTime = getTickCount() - start;
 		var timePerOriginalLine = totalLines > 0 ? numberFormat((totalTime / totalLines), "0.00") : "0";
 		var timePerAggregatedEntry = aggregatedEntries > 0 ? numberFormat((processingTime / aggregatedEntries), "0.00") : "0";
-		
-		logger("Processing " & aggregatedEntries & " aggregated entries completed in " & processingTime & "ms (" & timePerAggregatedEntry & "ms per entry)");
-		logger("=== OPTIMIZED PARSER: Total time " & totalTime & "ms (" & timePerOriginalLine & "ms per original line) ===");
+
+		logger("Processing " & numberFormat(aggregatedEntries) 
+			& " aggregated entries completed in " & numberFormat(processingTime) 
+			& "ms (" & timePerAggregatedEntry & "ms per entry)");
+		logger("=== OPTIMIZED PARSER: Total time " 
+			& numberFormat(totalTime) & "ms (" & timePerOriginalLine & "ms per original line) ===");
 
 		// Store performance data to be added at main level
 		variables.optimizedPerformanceData = {
@@ -338,9 +345,8 @@ component accessors="true" {
 		var files = {};
 		var skipped = {};
 		
-		logger("Pass -2: Pre-validating " & arrayLen(arguments.filesLines) & " files");
+		logger("Filtering " & arrayLen(arguments.filesLines) & " files");
 		
-		// PASS -2: Pre-validate all files and build mappings
 		for (var i = 1; i <= arrayLen(arguments.filesLines); i++) {
 			var line = trim(arguments.filesLines[i]);
 			if (line == "") break;
@@ -420,7 +426,7 @@ component accessors="true" {
 		
 		var validFiles = structCount(files);
 		var skippedFiles = structCount(skipped);
-		logger("Pass -2 Complete: " & validFiles & " valid files, " & skippedFiles & " skipped");
+		logger("Post Filter: " & validFiles & " valid files, " & skippedFiles & " skipped");
 		
 		return {
 			"files": files,

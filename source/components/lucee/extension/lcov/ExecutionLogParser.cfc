@@ -121,9 +121,6 @@ component accessors="true" {
 		return coverage;
 	}
 
-	/**
-	* DISABLED BLOCK PROCESSING - Direct line-by-line processing without utils.excludeOverlappingBlocks
-	*/
 	private struct function parseCoverage( struct coverageData) {
 		var totalLines = arrayLen(arguments.coverageData.fileCoverage);
 		var files = arguments.coverageData.source.files;
@@ -151,7 +148,9 @@ component accessors="true" {
 		}
 
 		// Exclude overlapping blocks using utils
+		/*
 		var coverage = variables.utils.excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, false);
+		*/
 
 		// Convert numeric keys to string for compatibility
 		for (var fileIdx in coverage) {

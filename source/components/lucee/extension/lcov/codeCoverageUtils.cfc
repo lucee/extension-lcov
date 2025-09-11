@@ -183,24 +183,6 @@ component accessors="true" {
 	}
 
 	/**
-	 * Utility: Accumulate line coverage for a file and line range
-	 */
-	public void function accumulateLineCoverage(coverage, r) {
-		for (var l = arguments.r[2]; l <= arguments.r[3]; l++) {
-			if (!structKeyExists(arguments.coverage, arguments.r[1])) {
-				arguments.coverage[arguments.r[1]] = {};
-			}
-			if (!structKeyExists(arguments.coverage[arguments.r[1]], l)) {
-				arguments.coverage[arguments.r[1]][l] = [1, int(arguments.r[4])];
-			} else {
-				var lineData = arguments.coverage[arguments.r[1]][l];
-				lineData[1] += 1;
-				lineData[2] += int(arguments.r[4]);
-			}
-		}
-	}
-
-	/**
 	 * Utility: Get the line number for a given character position in a file.
 	 * This is a copy of the parser's method for utility use.
 	 */
