@@ -3,51 +3,52 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function run() {
 		describe("Exclude Overlapping Blocks (excludeOverlappingBlocks)", function() {
 			it("should exclude large blocks that encompass smaller, more specific blocks (line-based)", function() {
-				var optimized = excludeLargeBlocksLineBased(new lucee.extension.lcov.codeCoverageUtilsOptimized());
-				var original = excludeLargeBlocksLineBased(new lucee.extension.lcov.codeCoverageUtils());
-				compareResults(optimized, original, "line-based");
-				testExcludeLargeBlocksLineBased(optimized, "optimized");
-				testExcludeLargeBlocksLineBased(original, "original");
+				var develop = excludeLargeBlocksLineBased(new lucee.extension.lcov.develop.codeCoverageUtils());
+				var stable = excludeLargeBlocksLineBased(new lucee.extension.lcov.codeCoverageUtils());
+				compareResults(develop, stable, "line-based");
+				testExcludeLargeBlocksLineBased(develop, "develop");
+				testExcludeLargeBlocksLineBased(stable, "stable");
 			});
 
 			it("should not exclude when no whole-file block exists (line-based)", function() {
-				var optimized = noWholeFileBlockLineBased(new lucee.extension.lcov.codeCoverageUtilsOptimized());
-				var original = noWholeFileBlockLineBased(new lucee.extension.lcov.codeCoverageUtils());
-				compareResults(optimized, original, "no-whole-file-block");
-				testNoWholeFileBlockLineBased(optimized, "optimized");
-				testNoWholeFileBlockLineBased(original, "original");
+				var develop = noWholeFileBlockLineBased(new lucee.extension.lcov.develop.codeCoverageUtils());
+				var stable = noWholeFileBlockLineBased(new lucee.extension.lcov.codeCoverageUtils());
+				compareResults(develop, stable, "no-whole-file-block");
+				testNoWholeFileBlockLineBased(develop, "develop");
+				testNoWholeFileBlockLineBased(stable, "stable");
 			});
 
 			it("should handle single block (line-based)", function() {
-				var optimized = singleBlockLineBased(new lucee.extension.lcov.codeCoverageUtilsOptimized());
-				var original = singleBlockLineBased(new lucee.extension.lcov.codeCoverageUtils());
-				compareResults(optimized, original, "single-block");
-				testSingleBlockLineBased(optimized, "optimized");
-				testSingleBlockLineBased(original, "original");
+				var develop = singleBlockLineBased(new lucee.extension.lcov.develop.codeCoverageUtils());
+				var stable = singleBlockLineBased(new lucee.extension.lcov.codeCoverageUtils());
+				compareResults(develop, stable, "single-block");
+				testSingleBlockLineBased(develop, "develop");
+				testSingleBlockLineBased(stable, "stable");
 			});
 
 			it("should exclude large blocks that encompass smaller, more specific blocks (char-based)", function() {
-				var optimized = excludeLargeBlocksCharBased(new lucee.extension.lcov.codeCoverageUtilsOptimized());
-				var original = excludeLargeBlocksCharBased(new lucee.extension.lcov.codeCoverageUtils());
-				compareResults(optimized, original, "char-based");
-				testExcludeLargeBlocksCharBased(optimized, "optimized");
-				testExcludeLargeBlocksCharBased(original, "original");
+				var develop = excludeLargeBlocksCharBased(new lucee.extension.lcov.develop.codeCoverageUtils());
+				var stable = excludeLargeBlocksCharBased(new lucee.extension.lcov.codeCoverageUtils());
+				compareResults(develop, stable, "char-based");
+				testExcludeLargeBlocksCharBased(develop, "develop");
+				testExcludeLargeBlocksCharBased(stable, "stable");
 			});
 			it("should not exclude all blocks (at least one block is always kept)", function() {
-				var optimized = allBlocksOverlapLineBased(new lucee.extension.lcov.codeCoverageUtilsOptimized());
-				var original = allBlocksOverlapLineBased(new lucee.extension.lcov.codeCoverageUtils());
-				compareResults(optimized, original, "all-blocks-overlap");
-				testAllBlocksOverlapLineBased(optimized, "optimized");
-				testAllBlocksOverlapLineBased(original, "original");
+				var develop = allBlocksOverlapLineBased(new lucee.extension.lcov.develop.codeCoverageUtils());
+				var stable = allBlocksOverlapLineBased(new lucee.extension.lcov.codeCoverageUtils());
+				compareResults(develop, stable, "all-blocks-overlap");
+				testAllBlocksOverlapLineBased(develop, "develop");
+				testAllBlocksOverlapLineBased(stable, "stable");
 			});
 
-			it("should match original and optimized results for real-world exception.cfm blocks (char-based)", function() {
-				var optimized = exceptionCfmRealWorldBlocks(new lucee.extension.lcov.codeCoverageUtilsOptimized());
-				var original = exceptionCfmRealWorldBlocks(new lucee.extension.lcov.codeCoverageUtils());
-				compareResults(optimized, original, "exception-cfm-real-world");
-				// Optionally, print for debugging:
-				// systemOutput("Optimized: " & serializeJSON(optimized, false));
-				// systemOutput("Original: " & serializeJSON(original, false));
+			it("should match stable and develop results for real-world exception.cfm blocks (char-based)",
+					function() {
+				var develop = exceptionCfmRealWorldBlocks(new lucee.extension.lcov.develop.codeCoverageUtils());
+				var stable = exceptionCfmRealWorldBlocks(new lucee.extension.lcov.codeCoverageUtils());
+				compareResults(develop, stable, "exception-cfm-real-world");
+				// Optionally, print stabler debugging:
+				// systemOutput("develop: " & serializeJSON(develop, false));
+				// systemOutput("stable: " & serializeJSON(stablel, false));
 			});
 		});
 	}
@@ -84,7 +85,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var lineMappingsCache = { ("exception.cfm"): lineMapping };
 		return utils.excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, false);
 	}
-	
+
 	private struct function excludeLargeBlocksLineBased(any utils) {
 		// Simulate blocks: [fileIdx, startLine, endLine, execTime]
 		var blocks = [
@@ -166,10 +167,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var l = 1; l <= 10; l++) execLines[l] = true;
 		var files = { "#fileIdx#": { "path": "test.cfm", "executableLines": execLines } };
 		var lineMappingsCache = { ("test.cfm"): lineMapping };
-		return utils.excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, false);		
+		return utils.excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, false);
 	}
 
-	
+
 	private function testExcludeLargeBlocksCharBased(result, label){
 		// systemOutput("[DEBUG] #label # result struct (testExcludeLargeBlocksCharBased): " & serializeJSON(var=result, compact=false));
 		// Should only have coverage for the two small blocks (lines 2 and 6)
@@ -199,18 +200,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	// Compare two result structs for equality and log differences
-	private void function compareResults(any optimized, any original, string label) {
-		// loop over keys and compare
+	private void function compareResults(any develop, any stable, string label) {
+		// loop over keys and stable
 		/*
 		systemOutput("", true);
 		systemOutput("[DEBUG] Comparing results for #label#", true);
-		systemOutput("Optimized: " & serializeJSON(optimized), true);
-		systemOutput("Original:  " & serializeJSON(original), true);
+		systemOutput("develop: " & serializeJSON(develop), true);
+		systemOutput("stable:  " & serializeJSON(stableal), true);
 		*/
-		var keys = structKeyArray(optimized);
+		var keys = structKeyArray(develop);
 		for (var key in keys) {
-			expect(original).toHaveKey(key);
-			expect(optimized[key]).toBe(original[key]);
+			expect(stable).toHaveKey(key);
+			expect(develop[key]).toBe(stable[key]);
 		}
 	}
 

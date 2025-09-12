@@ -4,21 +4,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function run() {
 
 		describe( "compare getLineFromCharacterPosition implementation", () => {
-			it( "should match original and optimized implementations", () => {
-				var optimizedParser = new lucee.extension.lcov.ExecutionLogParserOptimized();
-				var originalParser = new lucee.extension.lcov.ExecutionLogParser();
+			it( "should match stable and develop implementations", () => {
+				var developParser = new lucee.extension.lcov.develop.ExecutionLogParser();
+				var stableParser = new lucee.extension.lcov.ExecutionLogParser();
 				var files = directoryList( "tests/artifacts", false, "path", "*.cfm" );
 				var testCases = [];
 
 				for( var file in files ){
 					var optimised = {
-						lineMapping: optimizedParser.buildCharacterToLineMapping(fileRead(file)),
+						lineMapping: developParser.buildCharacterToLineMapping(fileRead(file)),
 						mappingLen: arrayLen(optimised.lineMapping)
 					};
 
-					var original = {
-						lineMapping: originalParser.buildCharacterToLineMapping(fileRead(file)),
-						mappingLen: arrayLen(original.lineMapping)
+					var stable = {
+						lineMapping: stableParser.buildCharacterToLineMapping(fileRead(file)),
+						mappingLen: arrayLen(stable.lineMapping)
 					};
 
 					// calculate some test positions (every 10th char up to length of file)
@@ -36,22 +36,22 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						filePath: file,
 						positions: positions,
 						optimised: optimised,
-						original: original
+						stable: stable
 					} );
 
 				}
 
 				for( var file in testCases ){
-					var testCase = testCases[file];	
+					var testCase = testCases[file];
 
 					for( var pos in testCase.positions ){
 						var optimised = testCase.optimised;
-						var original = testCase.original;
-						optimised.line = optimizedParser.getLineFromCharacterPosition(pos, optimised.lineMapping, optimised.mappingLen);
-						original.line = originalParser.getLineFromCharacterPosition(pos, original.lineMapping, original.mappingLen);	
-						expect( optimised.line ).toBe( original.line,
+						var stable = testCase.stable;
+						optimised.line = developParser.getLineFromCharacterPosition(pos, optimised.lineMapping, optimised.mappingLen);
+						stable.line = stableParser.getLineFromCharacterPosition(pos, stable.lineMapping, stable.mappingLen);
+						expect( optimised.line ).toBe( stable.line,
 							"Mismatch at position " & pos & " in file " & testCase.filePath &
-							": optimized=" & optimised.line & ", original=" & original.line
+							": develop=" & optimised.line & ", stable=" & stable.line
 						);
 					}
 				}

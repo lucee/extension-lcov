@@ -5,19 +5,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			it("test CalculateCoverageStatsTest", function() {
 				var parser = new lucee.extension.lcov.ExecutionLogParser();
 				var utils = new lucee.extension.lcov.codeCoverageUtils(options: { verbose = true } );
-				var testDataGenerator = new GenerateTestData(testName="CalculateCoverageStatsTest-original");
+				var testDataGenerator = new GenerateTestData(testName="CalculateCoverageStatsTest-stable");
 				var testData = testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 
-				testParseFiles(parser, utils, testData, "CalculateCoverageStatsTest-original");
+				testParseFiles(parser, utils, testData, "CalculateCoverageStatsTest-stable");
 			});
 
-			it("test CalculateCoverageStatsTest-optimized", function() {
-				var parser = new lucee.extension.lcov.ExecutionLogParserOptimized();
-				var utils = new lucee.extension.lcov.codeCoverageUtilsOptimized(options: { verbose = true } );
-				var testDataGenerator = new GenerateTestData(testName="CalculateCoverageStatsTest-optimized");
+			it("test CalculateCoverageStatsTest-develop", function() {
+				var parser = new lucee.extension.lcov.develop.ExecutionLogParser();
+				var utils = new lucee.extension.lcov.develop.codeCoverageUtils(options: { verbose = true } );
+				var testDataGenerator = new GenerateTestData(testName="CalculateCoverageStatsTest-develop");
 				var testData = testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 
-				testParseFiles(parser, utils, testData, "CalculateCoverageStatsTest-optimized");
+				testParseFiles(parser, utils, testData, "CalculateCoverageStatsTest-develop");
 			});
 		});
 	}

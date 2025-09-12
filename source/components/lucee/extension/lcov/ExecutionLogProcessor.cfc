@@ -12,7 +12,7 @@ component {
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
 		variables.codeCoverageUtils = new codeCoverageUtils(arguments.options);
-		variables.useOptimized = true;
+		variables.useDevelop = true;
 		return this;
 	}
 
@@ -47,9 +47,9 @@ component {
 
 		logger("Processing execution logs from: " & arguments.executionLogDir);
 
-		if (useOptimized) {
+		if (useDevelop) {
 			// Create parser with options for verbose logging
-			var exlParser = new ExecutionLogParserOptimized(arguments.options);
+			var exlParser = new develop.ExecutionLogParser(arguments.options);
 		} else {
 			var exlParser = new ExecutionLogParser(arguments.options);
 		}
