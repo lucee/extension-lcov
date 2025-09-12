@@ -4,25 +4,25 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		describe("check codeCoverage stats", function() {
 			it("test CalculateCoverageStatsTest", function() {
 				var parser = new lucee.extension.lcov.ExecutionLogParser();
-				var utils = new lucee.extension.lcov.codeCoverageUtils(options: { verbose = true } );
+				var statsComponent = new lucee.extension.lcov.CoverageStats();
 				var testDataGenerator = new GenerateTestData(testName="CalculateCoverageStatsTest-stable");
 				var testData = testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 
-				testParseFiles(parser, utils, testData, "CalculateCoverageStatsTest-stable");
+				testParseFiles(parser, statsComponent, testData, "CalculateCoverageStatsTest-stable");
 			});
 
 			it("test CalculateCoverageStatsTest-develop", function() {
 				var parser = new lucee.extension.lcov.develop.ExecutionLogParser();
-				var utils = new lucee.extension.lcov.develop.codeCoverageUtils(options: { verbose = true } );
+				var statsComponent = new lucee.extension.lcov.develop.CoverageStats();
 				var testDataGenerator = new GenerateTestData(testName="CalculateCoverageStatsTest-develop");
 				var testData = testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 
-				testParseFiles(parser, utils, testData, "CalculateCoverageStatsTest-develop");
+				testParseFiles(parser, statsComponent, testData, "CalculateCoverageStatsTest-develop");
 			});
 		});
 	}
 
-	private function testParseFiles(parser, utils, testData, testName){
+	private function testParseFiles(parser, statsComponent, testData, testName){
 		expect(directoryExists(testData.coverageDir)).toBeTrue("Coverage directory should exist");
 
 		var files = directoryList(testData.coverageDir, false, "path", "*.exl");
@@ -32,14 +32,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			var result = parser.parseExlFile(file);
 
 			var resultJsonFile = replace(file, ".exl", ".json", "all");
-			   expect( fileExists (resultJsonFile) ).toBeTrue("JSON file missing for " & file);
-			   expect( fileRead( resultJsonFile ) ).toBeJson("Invalid JSON in " & resultJsonFile & " (from " & file & ")");
+			expect( fileExists (resultJsonFile) ).toBeTrue("JSON file missing for " & file);
+			expect( fileRead( resultJsonFile ) ).toBeJson("Invalid JSON in " & resultJsonFile & " (from " & file & ")");
 			var resultStruct = deserializeJson( fileRead( resultJsonFile ) );
-			   expect( resultStruct ).toBeStruct("Result struct not valid for " & file);
+			expect( resultStruct ).toBeStruct("Result struct not valid for " & file);
 
 
-			var stats = utils.calculateCoverageStats(resultStruct);
-			   expect( stats ).toBeStruct("Stats not valid for " & file);
+			var stats = statsComponent.calculateCoverageStats(resultStruct);
+			expect( stats ).toBeStruct("Stats not valid for " & file);
 
 			var statsKeys = ["totalLinesFound", "totalLinesHit", "totalExecutions", "totalExecutionTime", "files"];
 			for (var key in statsKeys) {

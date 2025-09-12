@@ -28,7 +28,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			};
 			expect(result).toBeStruct("Parsed EXL file should return a struct");
 			for (var key in keys) {
-				expect(structKeyExists(result, key)).toBeTrue("Parsed struct should have " & key & " for " & file);
+				expect(result).toHaveKey(key, "Parsed struct should have " & key & " for " & file);
 				expect(result[key]).toBeTypeOf(keys[key], "Parsed struct should have correct type for " & key & " in " & file);
 			}
 		}

@@ -46,7 +46,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		expect(arrayContains(methods, "calculateCoverageStats"), "Should have calculateCoverageStats method").toBeTrue();
 		expect(arrayContains(methods, "excludeOverlappingBlocks"), "Should have excludeOverlappingBlocks method").toBeTrue();
-		expect(arrayContains(methods, "mergeResultsByFile"), "Should have mergeResultsByFile method").toBeTrue();
+		// Removed: mergeResultsByFile is no longer a method of codeCoverageUtils
 
 	}
 
@@ -91,13 +91,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Check that key methods exist in both
 		var keyMethods = ["parseExlFile", "getLineFromCharacterPosition"];
 		for (var method in keyMethods) {
-			expect(arrayContains(stableMethods, method), "stable should have " & method).toBeTrue();
-			expect(arrayContains(developMethods, method), "develop should have " & method).toBeTrue();
+			expect(stableMethods).toInclude(method, "stable should have " & method);
+			expect(developMethods).toInclude(method, "develop should have " & method);
 		}
 
 		// Compare codeCoverageUtils methods
 		var stableUtils = new lucee.extension.lcov.codeCoverageUtils({"verbose": false});
-				var developUtils = new lucee.extension.lcov.develop.codeCoverageUtils({"verbose": false});
+		var developUtils = new lucee.extension.lcov.develop.codeCoverageUtils({"verbose": false});
 
 		var stableUtilsFunctions = getMetaData(stableUtils).functions;
 		var stableUtilsMethods = [];
@@ -112,11 +112,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 
 		// Check that key methods exist in both
-		var keyUtilsMethods = ["calculateCoverageStats", "excludeOverlappingBlocks", "mergeResultsByFile"];
-		for (var method in keyUtilsMethods) {
-			expect(arrayContains(stableUtilsMethods, method), "stable utils should have " & method).toBeTrue();
-			expect(arrayContains(developUtilsMethods, method), "develop utils should have " & method).toBeTrue();
-		}
+		// Stable utils: only require calculateLcovStats and excludeOverlappingBlocks
+		expect(stableUtilsMethods).toInclude("calculateLcovStats", "stable utils should have calculateLcovStats");
+		expect(stableUtilsMethods).toInclude("excludeOverlappingBlocks", "stable utils should have excludeOverlappingBlocks");
+
+		// Develop utils: require calculateCoverageStats and excludeOverlappingBlocks
+		expect(developUtilsMethods).toInclude("calculateCoverageStats", "develop utils should have calculateCoverageStats");
+		expect(developUtilsMethods).toInclude("excludeOverlappingBlocks", "develop utils should have excludeOverlappingBlocks");
 
 	}
 

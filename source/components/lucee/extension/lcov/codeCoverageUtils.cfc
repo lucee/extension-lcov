@@ -21,80 +21,13 @@ component accessors="true" {
 		}
 	}
 
-	/**
-	 *  Merge coverage results by file path from multiple .exl parsing results
-	 * Uses pre-computed file mappings to avoid redundant lookups
-	 * @results Struct of parsed results from multiple .exl files
-	 * @return Struct with mergedCoverage and sorted files array
-	 */
-	public struct function mergeResultsByFile(required struct results) {
-		var startTime = getTickCount();
-
-		var merged = {
-			files: {},
-			coverage: {}
-		};
-
-		// OPTIMIZATION: Pre-build all file mappings to avoid repeated lookups
-		var fileMappings = {};
-		var totalSourceFiles = 0;
-
-		for (var src in arguments.results) {
-			var files = arguments.results[src].source.files;
-			fileMappings[src] = {};
-
-			for (var f in files) {
-				if (!structKeyExists(merged.files, files[f].path)) {
-					merged.files[files[f].path] = files[f];
-					totalSourceFiles++;
-				}
-				fileMappings[src][f] = files[f].path;
-			}
+		/**
+		 * Use CoverageMerger for merging results by file
+		 */
+		public struct function mergeResultsByFile(required struct results) {
+			var merger = new lucee.extension.lcov.CoverageMerger();
+			return merger.mergeResultsByFile(arguments.results);
 		}
-
-		logger("Pre-computed file mappings: " & totalSourceFiles & " unique source files");
-
-		// OPTIMIZATION: Process coverage with pre-computed mappings
-		var totalCoverageLines = 0;
-		for (var src in arguments.results) {
-			var coverage = arguments.results[src].coverage;
-			var mapping = fileMappings[src];
-
-			for (var f in coverage) {
-				var realFile = mapping[f];
-				if (!structKeyExists(merged.coverage, realFile)) {
-					merged.coverage[realFile] = {};
-				}
-
-				// OPTIMIZATION: Process line coverage in batch
-				var sourceLines = structKeyArray(coverage[f]);
-				for (var i = 1; i <= arrayLen(sourceLines); i++) {
-					var l = sourceLines[i];
-					if (!structKeyExists(merged.coverage[realFile], l)) {
-						merged.coverage[realFile][l] = [0, 0];
-					}
-					var lineData = merged.coverage[realFile][l];
-					var srcLineData = coverage[f][l];
-					lineData[1] += srcLineData[1];
-					lineData[2] += srcLineData[2];
-					totalCoverageLines++;
-				}
-			}
-		}
-
-		var files = structKeyArray(merged.files);
-		arraySort(files, "textnocase");
-
-		var totalTime = getTickCount() - startTime;
-		
-		logger("Processed " & numberFormat(totalCoverageLines)
-			& " coverage lines for " & arrayLen(files) & " files");
-
-		return {
-			"mergedCoverage": merged,
-			"files": files
-		};
-	}
 
 	/**
 	 * Calculate LCOV-style statistics from merged coverage data
@@ -271,79 +204,79 @@ component accessors="true" {
 	/**
 	* Streamlined overlap detection with character-based filtering
 	*/
-		private array function filterOverlappingBlocks(blocks, blocksAreLineBased, lineMapping, mappingLen, filePath) {
-			var filteredBlocks = [];
-			var blockRanges = [];
-			// Convert all blocks to line ranges for comparison
-			for (var i = 1; i <= arrayLen(blocks); i++) {
-				var block = blocks[i];
-				var startLine = 0;
-				var endLine = 0;
-				   if (blocksAreLineBased) {
-					   startLine = block[2];
-					   endLine = block[3];
-				   } else {
-					   startLine = getLineFromCharacterPosition(block[2], filePath, lineMapping, mappingLen);
-					   endLine = getLineFromCharacterPosition(block[3], filePath, lineMapping, mappingLen);
-				   }
-				if (startLine == 0) startLine = 1;
-				if (endLine == 0) endLine = startLine;
-				blockRanges.append({
-					index: i,
-					startLine: startLine,
-					endLine: endLine,
-					span: endLine - startLine + 1,
-					block: block
-				});
+	private array function filterOverlappingBlocks(blocks, blocksAreLineBased, lineMapping, mappingLen, filePath) {
+		var filteredBlocks = [];
+		var blockRanges = [];
+		// Convert all blocks to line ranges for comparison
+		for (var i = 1; i <= arrayLen(blocks); i++) {
+			var block = blocks[i];
+			var startLine = 0;
+			var endLine = 0;
+				if (blocksAreLineBased) {
+					startLine = block[2];
+					endLine = block[3];
+				} else {
+					startLine = getLineFromCharacterPosition(block[2], filePath, lineMapping, mappingLen);
+					endLine = getLineFromCharacterPosition(block[3], filePath, lineMapping, mappingLen);
+				}
+			if (startLine == 0) startLine = 1;
+			if (endLine == 0) endLine = startLine;
+			blockRanges.append({
+				index: i,
+				startLine: startLine,
+				endLine: endLine,
+				span: endLine - startLine + 1,
+				block: block
+			});
+		}
+		// Check for whole-file blocks and warn
+		var isWholeFile = false;
+		for (var i = 1; i <= arrayLen(blockRanges); i++) {
+			var current = blockRanges[i];
+			if (current.startLine <= 1 && current.span >= 10) {
+				isWholeFile = true;
 			}
-			// Check for whole-file blocks and warn
-			var isWholeFile = false;
+		}
+		// If we have whole-file blocks, filter them out aggressively
+		if (isWholeFile) {
+			// Sort by span size (smallest first)
+			arraySort(blockRanges, function(a, b) {
+				return a.span - b.span;
+			});
+			// Keep only the most specific blocks
+			var keptBlocks = [];
 			for (var i = 1; i <= arrayLen(blockRanges); i++) {
 				var current = blockRanges[i];
-				if (current.startLine <= 1 && current.span >= 10) {
-					isWholeFile = true;
-				}
-			}
-			// If we have whole-file blocks, filter them out aggressively
-			if (isWholeFile) {
-				// Sort by span size (smallest first)
-				arraySort(blockRanges, function(a, b) {
-					return a.span - b.span;
-				});
-				// Keep only the most specific blocks
-				var keptBlocks = [];
-				for (var i = 1; i <= arrayLen(blockRanges); i++) {
-					var current = blockRanges[i];
-					var shouldKeep = true;
-					for (var j = 1; j <= arrayLen(keptBlocks); j++) {
-						var kept = keptBlocks[j];
-						if (kept.startLine >= current.startLine && kept.endLine <= current.endLine && kept.span < current.span) {
-							shouldKeep = false;
-							break;
-						}
-					}
-					if (shouldKeep) {
-						var newKeptBlocks = [];
-						for (var k = 1; k <= arrayLen(keptBlocks); k++) {
-							var existing = keptBlocks[k];
-							if (!(current.startLine >= existing.startLine && current.endLine <= existing.endLine && current.span < existing.span)) {
-								newKeptBlocks.append(existing);
-							}
-						}
-						newKeptBlocks.append(current);
-						keptBlocks = newKeptBlocks;
+				var shouldKeep = true;
+				for (var j = 1; j <= arrayLen(keptBlocks); j++) {
+					var kept = keptBlocks[j];
+					if (kept.startLine >= current.startLine && kept.endLine <= current.endLine && kept.span < current.span) {
+						shouldKeep = false;
+						break;
 					}
 				}
-				// Convert back to blocks array
-				for (var i = 1; i <= arrayLen(keptBlocks); i++) {
-					filteredBlocks.append(keptBlocks[i].block);
+				if (shouldKeep) {
+					var newKeptBlocks = [];
+					for (var k = 1; k <= arrayLen(keptBlocks); k++) {
+						var existing = keptBlocks[k];
+						if (!(current.startLine >= existing.startLine && current.endLine <= existing.endLine && current.span < existing.span)) {
+							newKeptBlocks.append(existing);
+						}
+					}
+					newKeptBlocks.append(current);
+					keptBlocks = newKeptBlocks;
 				}
-			} else {
-				// No whole-file blocks detected, return original blocks
-				filteredBlocks = blocks;
 			}
-			return filteredBlocks;
+			// Convert back to blocks array
+			for (var i = 1; i <= arrayLen(keptBlocks); i++) {
+				filteredBlocks.append(keptBlocks[i].block);
+			}
+		} else {
+			// No whole-file blocks detected, return original blocks
+			filteredBlocks = blocks;
 		}
+		return filteredBlocks;
+	}
 
 	/**
 	 * Character to line mapping with improved string processing
@@ -383,164 +316,6 @@ component accessors="true" {
 			}
 		}
 		return metadata;
-	}
-
-	public struct function calculateCoverageStats( struct result ) {
-		var startTime = getTickCount();
-		var stats = {
-			"totalLinesFound": 0,
-			"totalLinesHit": 0,
-			"totalExecutions": 0,
-			"totalExecutionTime": 0,
-			"files": {}
-		};
-		var statsTemplate = {
-			"linesFound": 0,
-			"linesHit": 0,
-			"totalExecutions": 0,
-			"totalExecutionTime": 0,
-			"executedLines": {}
-		};
-
-		// OPTIMIZATION: Pre-compute file paths array to avoid repeated key lookups
-		var filePaths = structKeyArray(arguments.result.source.files);
-
-		for (var i = 1; i <= arrayLen(filePaths); i++) {
-			var filePath = filePaths[i];
-
-			stats.files[ filePath ] = duplicate( statsTemplate );
-
-			// Add linesCount (total lines in file, informational)
-			var linesCount = structKeyExists(arguments.result.source.files[filePath], "linesCount") ? arguments.result.source.files[filePath].linesCount : 0;
-			stats.files[filePath].linesCount = linesCount;
-
-			stats.files[ filePath ].linesFound += arguments.result.source.files[ filePath ].linesFound;
-			stats.totalLinesFound += arguments.result.source.files[ filePath ].linesFound;
-
-			if ( structKeyExists( arguments.result.coverage, filePath ) ) {
-				var filecoverage = arguments.result.coverage[ filePath ];
-				var fileLinesHit = structCount( filecoverage );
-				stats.totalLinesHit += fileLinesHit;
-				stats.files[ filePath ].linesHit += fileLinesHit;
-
-				// OPTIMIZATION: Process line data in batch
-				var lineNumbers = structKeyArray(filecoverage);
-				for ( var j = 1; j <= arrayLen(lineNumbers); j++ ) {
-					var lineNum = lineNumbers[j];
-					var lineData = filecoverage[ lineNum ];
-					stats.totalExecutions += lineData[ 1 ];
-					stats.totalExecutionTime += lineData[ 2 ];
-					stats.files[ filePath ].totalExecutions += lineData[ 1 ];
-					stats.files[ filePath ].totalExecutionTime += lineData[ 2 ];
-				}
-				// No warning here; test should assert linesHit/linesFound <= linesCount
-			}
-		}
-
-		var totalTime = getTickCount() - startTime;
-		//logger("Calculated coverage stats for " & arrayLen(filePaths) & " files in " & totalTime & "ms");
-		return stats;
-	}
-	public struct function calculateDetailedStats(required struct results, numeric processingTimeMs = 0) {
-		var startTime = getTickCount();
-		var executedFiles = 0;
-		var fileStats = {};
-		var totalResults = structCount(arguments.results);
-
-		logger("Calculating detailed stats for " & totalResults & " result files");
-
-		// OPTIMIZATION: Pre-build file path mappings to avoid repeated lookups
-		var filePathMappings = {};
-		for (var resultFile in arguments.results) {
-			var result = arguments.results[resultFile];
-			if (structKeyExists(result, "source") && structKeyExists(result.source, "files")) {
-				filePathMappings[resultFile] = {};
-				for (var fileIndex in result.source.files) {
-					filePathMappings[resultFile][fileIndex] = result.source.files[fileIndex].path;
-				}
-			}
-		}
-
-		for (var resultFile in arguments.results) {
-			var result = arguments.results[resultFile];
-			var hasExecutedCode = false;
-
-			// Build per-file stats from raw coverage data
-			if (structKeyExists(result, "source") && structKeyExists(result.source, "files")) {
-				for (var fileIndex in result.source.files) {
-					var fileInfo = result.source.files[fileIndex];
-					var filePath = fileInfo.path;
-
-					if (!structKeyExists(fileStats, filePath)) {
-						fileStats[filePath] = {
-							"totalLines": val(fileInfo.linesFound ?: 0),
-							"coveredLines": 0,
-							"coveragePercentage": 0,
-							"coveredLineNumbers": {}
-						};
-					}
-
-					// Calculate covered lines for this file (track unique line numbers)
-					if (structKeyExists(result, "coverage") && structKeyExists(result.coverage, fileIndex)) {
-						var fileCoverage = result.coverage[fileIndex];
-
-						// OPTIMIZATION: Process line coverage in batch
-						var lineNumbers = structKeyArray(fileCoverage);
-						for (var i = 1; i <= arrayLen(lineNumbers); i++) {
-							var line = lineNumbers[i];
-							if (val(fileCoverage[line][1]) > 0) {
-								fileStats[filePath].coveredLineNumbers[line] = true;
-								hasExecutedCode = true;
-							}
-						}
-					}
-				}
-			}
-
-			if (hasExecutedCode) {
-				executedFiles++;
-			}
-		}
-
-		// OPTIMIZATION: Calculate totals in single pass
-		var globalTotalLines = 0;
-		var globalCoveredLines = 0;
-		var filePathsArray = structKeyArray(fileStats);
-
-		for (var i = 1; i <= arrayLen(filePathsArray); i++) {
-			var filePath = filePathsArray[i];
-			var fileStatData = fileStats[filePath];
-
-			globalTotalLines += fileStatData.totalLines;
-
-			// Update covered lines count based on unique line numbers
-			fileStatData.coveredLines = structCount(fileStatData.coveredLineNumbers);
-			globalCoveredLines += fileStatData.coveredLines;
-
-			// Calculate percentage
-			if (fileStatData.totalLines > 0) {
-				fileStatData.coveragePercentage =
-					(fileStatData.coveredLines / fileStatData.totalLines) * 100;
-			}
-
-			// Clean up temporary tracking data
-			structDelete(fileStatData, "coveredLineNumbers");
-		}
-
-		var coveragePercentage = globalTotalLines > 0 ? (globalCoveredLines / globalTotalLines) * 100 : 0;
-		var totalTime = getTickCount() - startTime;
-
-		logger("Detailed stats completed in " & totalTime & "ms: " & globalCoveredLines & "/" & globalTotalLines & " lines");
-
-		return {
-			"totalLines": globalTotalLines,
-			"coveredLines": globalCoveredLines,
-			"coveragePercentage": coveragePercentage,
-			"totalFiles": structCount(fileStats),
-			"executedFiles": executedFiles,
-			"processingTimeMs": arguments.processingTimeMs,
-			"fileStats": fileStats
-		};
 	}
 
 	public void function ensureDirectoryExists(required string directoryPath) {

@@ -111,7 +111,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					var times = [0, 100, 200, 300];
 					var buckets = bucketCalculator.calculateBuckets(times, 3);
 					
-					expect(structKeyExists(buckets, 0)).toBeFalse("Zero execution times should not be in buckets");
+					expect(buckets).notToHaveKey(0, "Zero execution times should not be in buckets");
 					expect(structCount(buckets)).toBe(3, "Only non-zero times should be bucketed");
 				});
 			});
@@ -233,9 +233,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Format: "light-dark(rgb(r, g, b), rgb(r, g, b))"
 		var matches = reFind("light-dark\s*\(\s*rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", arguments.color, 1, true);
 		if (matches.pos[1] > 0 && arrayLen(matches.pos) > 3) {
-			var r = val(mid(arguments.color, matches.pos[2], matches.len[2])) / 255.0;
-			var g = val(mid(arguments.color, matches.pos[3], matches.len[3])) / 255.0;
-			var b = val(mid(arguments.color, matches.pos[4], matches.len[4])) / 255.0;
+			var r = mid(arguments.color, matches.pos[2], matches.len[2]) / 255.0;
+			var g = mid(arguments.color, matches.pos[3], matches.len[3]) / 255.0;
+			var b = mid(arguments.color, matches.pos[4], matches.len[4]) / 255.0;
 			
 			// Calculate relative luminance (brightness)
 			return 0.299 * r + 0.587 * g + 0.114 * b;

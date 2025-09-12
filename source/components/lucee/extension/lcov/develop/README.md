@@ -2,6 +2,8 @@
 
 This folder contains the `ExecutionLogParser.cfc` and `codeCoverageUtils.cfc` components, which are designed as extension points for experimental and in-development logic within the LCOV extension for Lucee.
 
+All new experimental logic should go here, so it can be tested against the existing logic.
+
 ## Purpose
 
 - **Isolation for Experimentation:**
@@ -9,13 +11,12 @@ This folder contains the `ExecutionLogParser.cfc` and `codeCoverageUtils.cfc` co
   - You can override or add methods here to test new algorithms, bug fixes, or performance improvements without affecting production logic.
 
 - **Safe Testing:**
-  - All test references to the optimized/experimental logic now point to these `develop` components.
+  - All test references to the develop/experimental logic now point to these `develop` components.
   - This allows you to run the full test suite against experimental changes, ensuring correctness and performance before merging into the mainline code.
 
 ## Usage
 
 - To experiment, simply override methods in `develop/ExecutionLogParser.cfc` or `develop/codeCoverageUtils.cfc`.
-- All tests that previously referenced "Optimized" components now use these develop components.
 - No changes to the original components are required for experimentation.
 
 ## Testing Approach

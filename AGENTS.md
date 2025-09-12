@@ -5,6 +5,14 @@
 - produces an LCOV file, json data files and html reports about line coverage
 - this vs code extension supports the LCOV files produced https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
 
+
+
+### Code Quality Policies
+
+- Always use tabs for indentation. Never use spaces for indentation in any CFML, Java, or script files in this project.
+
+- Never use `val()`; it is a code smell that hides errors and should be avoided. Always handle type conversion explicitly and fail fast on invalid input.
+
 ### Tests
 
 - tests go in the /tests folder
@@ -15,15 +23,21 @@
 - tests can be run using script-runner, read the d:\work\script-runner\README.md
 - refer to https://docs.lucee.org/guides/working-with-source/build-from-source.html#build-performance-tips for how the lucee test runner works
 - don't repeat logic in tests, use a private method
-- use matchers https://testbox.ortusbooks.com/digging-deeper/expectations/matchers
-- avoid try catch, if a test fails, let error, the lucee exception is more meaningful
-- if you are catching an error to add useful info the the error, throw don't systemOutput and use e.stacktrace instead of e.message and the cause attribute
-- avoid long tests, split them into smaller tests if they get too large
-- when running tests and an error occurs, always show me the error
-- after running tests, always provide a summary of any errors or warnings produced
-- accessibility is important - ensure sufficient color contrast for readability
-- admin password is stored in `request.SERVERADMINPASSWORD`
-- only check for the existance of public methods, as in the public API, not private methods
+- use matchers https://apidocs.ortussolutions.com/testbox/3.2.0/testbox/system/Expectation.html READ this file, don't imagine it's contents from the url!
+- when writing expect statements, pass in the object, le tthe matcher to the work, no arraylen(), or stuctKeyExists, or isNumeric in the argument for expect
+
+- Never add defensive code to mask errors or inconsistencies. Always fail early and fail hard.
+- Never use an elvis expression (?:) without explicit permission; it usually hides an underlying error. Always prefer explicit error handling and fail fast.
+- Avoid try/catch unless you are adding useful info to the error; always rethrow, never swallow errors.
+- If a test fails, let it error—Lucee exceptions are more meaningful than custom error handling.
+- Do not cap, clamp, or auto-correct values in core logic or tests. All mismatches and invalid states should result in immediate failure.
+- If you are catching an error to add useful info, use `throw` and include `e.stacktrace` instead of `e.message` and the cause attribute.
+- Avoid long tests; split them into smaller tests if they get too large.
+- When running tests and an error occurs, always show the error.
+- After running tests, always provide a summary of any errors or warnings produced.
+- Accessibility is important—ensure sufficient color contrast for readability.
+- Admin password is stored in `request.SERVERADMINPASSWORD`.
+- Only check for the existence of public methods, as in the public API, not private methods.
 
 ### Running Tests
 

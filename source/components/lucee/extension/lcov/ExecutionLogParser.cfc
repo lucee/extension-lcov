@@ -143,7 +143,7 @@ component accessors="true" {
 			var fileIdx = p[1];
 			var startPos = p[2];
 			var endPos = p[3];
-			var execTime = val(p[4]);
+			var execTime = p[4];
 
 			if (!structKeyExists(files, fileIdx)) {
 				continue; // file is blocklisted or not allowed
@@ -253,17 +253,17 @@ component accessors="true" {
 		// Store performance data to be added at main level
 		variables.performanceData = {
 			"processingTime": totalTime,
-			"timePerLine": val(timePerOriginalLine),
+			"timePerLine": timePerOriginalLine,
 			"totalLines": totalLines,
 			"optimizationsApplied": ["pre-aggregation"],
 			"preAggregation": {
 				"originalEntries": totalLines,
 				"aggregatedEntries": aggregatedEntries,
 				"duplicatesFound": duplicateCount,
-				"reductionPercent": val(reductionPercent),
+				"reductionPercent": reductionPercent,
 				"aggregationTime": aggregationTime,
 				"processingTime": processingTime,
-				"timePerAggregatedEntry": val(timePerAggregatedEntry)
+				"timePerAggregatedEntry": timePerAggregatedEntry
 			},
 			"memoryOptimizations": true,
 			"parallelProcessing": false

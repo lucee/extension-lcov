@@ -38,7 +38,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 					expect(arrayLen(stableFiles)).toBeGT(0);
 					expect(arrayLen(developFiles)).toBeGT(0);
-					expect(arrayLen(stableFiles)).toBe(arrayLen(developFiles));
+					expect(stableFiles).toHaveLength(arrayLen(developFiles));
 				});
 			});
 
@@ -86,7 +86,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 					expect(arrayLen(stableJsonFiles)).toBeGT(0);
 					expect(arrayLen(developJsonFiles)).toBeGT(0);
-					expect(arrayLen(stableJsonFiles)).toBe(arrayLen(developJsonFiles));
+					expect(stableJsonFiles).toHaveLength(arrayLen(developJsonFiles));
 				});
 
 				it("should process all JSON files and create script mappings", function() {
@@ -245,8 +245,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(structCount(stableData.source.files)).toBe(structCount(developData.source.files));
 
 		// Coverage array lengths should match
-		expect(arrayLen(stableData.coverage)).toBe(arrayLen(developData.coverage));
-		expect(arrayLen(stableData.fileCoverage)).toBe(arrayLen(developData.fileCoverage));
+		expect(stableData.coverage).toHaveLength(arrayLen(developData.coverage));
+		expect(stableData.fileCoverage).toHaveLength(arrayLen(developData.fileCoverage));
 	}
 
 	private function compareMetadata(required struct stableMeta, required struct developMeta) {
@@ -287,7 +287,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			expect(structCount(stableFile.executableLines)).toBe(structCount(devFile.executableLines));
 
 			// Source code line arrays should match
-			expect(arrayLen(stableFile.lines)).toBe(arrayLen(devFile.lines));
+			expect(stableFile.lines).toHaveLength(arrayLen(devFile.lines));
 		}
 	}
 
@@ -336,8 +336,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Both should be arrays with 2 elements: [hitCount, executionTime]
 				expect(stableLineData).toBeArray();
 				expect(devLineData).toBeArray();
-				expect(arrayLen(stableLineData)).toBe(2);
-				expect(arrayLen(devLineData)).toBe(2);
+				expect(stableLineData).toHaveLength(2);
+				expect(devLineData).toHaveLength(2);
 
 				// Hit counts should match (Lucee will handle string/number conversion)
 				expect(stableLineData[1]).toBe(devLineData[1]);

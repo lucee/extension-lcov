@@ -224,7 +224,7 @@ component {
 				if (mergedOptions.verbose) {
 					systemOutput("Original results count: " & structCount(results), true);
 				}
-				processedResults = logProcessor.mergeResultsBySourceFile(results, mergedOptions.verbose);
+				processedResults = new lucee.extension.lcov.CoverageMerger().mergeResultsBySourceFile(results, mergedOptions.verbose);
 				if (mergedOptions.verbose) {
 					systemOutput("Processed results count: " & structCount(processedResults), true);
 				}
@@ -238,8 +238,8 @@ component {
 					
 					// Accumulate stats
 					if (structKeyExists(result, "stats")) {
-						totalStats.totalLines += val(result.stats.totalLines ?: 0);
-						totalStats.coveredLines += val(result.stats.coveredLines ?: 0);
+						totalStats.totalLines += result.stats.totalLines;
+						totalStats.coveredLines += result.stats.coveredLines;
 						totalStats.totalFiles++;
 					}
 				}
@@ -312,7 +312,7 @@ component {
 			jsonFiles.results = resultsFile;
 
 			// Create merged coverage data
-			var merged = variables.codeCoverageUtils.mergeResultsByFile(results);
+			var merged = new lucee.extension.lcov.CoverageMerger().mergeResultsByFile(results);
 			var mergedFile = arguments.outputDir & "/merged.json"; 
 			fileWrite(mergedFile, serializeJSON(var=merged, compact=mergedOptions.compact));
 			jsonFiles.merged = mergedFile;
@@ -321,8 +321,8 @@ component {
 			for (var exlPath in results) {
 				var result = results[exlPath];
 				if (structKeyExists(result, "stats")) {
-					totalStats.totalLines += val(result.stats.totalLines ?: 0);
-					totalStats.coveredLines += val(result.stats.coveredLines ?: 0);
+					totalStats.totalLines += result.stats.totalLines;
+					totalStats.coveredLines += result.stats.coveredLines;
 					totalStats.totalFiles++;
 				}
 			}
@@ -376,7 +376,7 @@ component {
 			// Parse execution logs for stats only using ExecutionLogProcessor
 			var logProcessor = new ExecutionLogProcessor(mergedOptions);
 			var results = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
-			var stats = variables.codeCoverageUtils.calculateDetailedStats(results, getTickCount() - startTime);
+			var stats = new lucee.extension.lcov.CoverageStats().calculateDetailedStats(results, getTickCount() - startTime);
 
 			if (mergedOptions.verbose) {
 				systemOutput("Summary complete: " & stats.coveragePercentage & "% coverage", true);
@@ -405,7 +405,7 @@ component {
 
 	private string function buildLcovContent(required struct results, required struct options) {
 		// Merge results by file
-		var merged = variables.codeCoverageUtils.mergeResultsByFile(arguments.results);
+		var merged = new lucee.extension.lcov.CoverageMerger().mergeResultsByFile(arguments.results);
 		
 		// Create LCOV writer with options and build LCOV format
 		var lcovWriter = new reporter.LcovWriter(arguments.options);

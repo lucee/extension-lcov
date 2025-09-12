@@ -218,7 +218,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	// Assert that the result[fileIdx] contains exactly the expected lines
 	private void function assertCoveredLines(struct result, numeric fileIdx, array expectedLines) {
 		var coveredLines = structKeyArray(result[fileIdx]);
-		expect(arrayLen(coveredLines)).toBe(arrayLen(expectedLines));
+		expect(coveredLines).toHaveLength(arrayLen(expectedLines));
 		for (var line in expectedLines) {
 			expect(coveredLines).toInclude(line);
 		}

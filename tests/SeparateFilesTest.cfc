@@ -162,18 +162,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var expectedFields = ["scriptName", "htmlFile", "totalLinesFound", "totalLinesHit"];
 		
 		for (var field in expectedFields) {
-			expect(structKeyExists(firstReport, field)).toBeTrue("Report entry should have '" & field & "' field");
+			expect(firstReport).toHaveKey(field, "Report entry should have '" & field & "' field");
 		}
 
 		// Check that we have coverage data with non-zero values
-		expect(structKeyExists(firstReport, "totalLinesFound")).toBeTrue("Should have totalLinesFound");
-		expect(structKeyExists(firstReport, "totalLinesHit")).toBeTrue("Should have totalLinesHit");  
+		expect(firstReport).toHaveKey("totalLinesFound", "Should have totalLinesFound");
+		expect(firstReport).toHaveKey("totalLinesHit", "Should have totalLinesHit");  
 		
 		// At least one report should have meaningful coverage data (not all zeros)
 		var hasNonZeroCoverage = false;
 		for (var report in indexData) {
-			if (val(report.totalLinesFound ?: 0) > 0 && 
-				val(report.totalLinesHit ?: 0) > 0) {
+			expect(report).toHaveKey("totalLinesFound");
+			expect(report.totalLinesFound).toBeNumber();
+			expect(report).toHaveKey("totalLinesHit");
+			expect(report.totalLinesHit).toBeNumber();
+			if (report.totalLinesFound > 0 && report.totalLinesHit > 0) {
 				hasNonZeroCoverage = true;
 				var coveragePercent = report.totalLinesFound > 0 ? (report.totalLinesHit / report.totalLinesFound) * 100 : 0;
 				systemOutput("Found report with coverage: " & report.scriptName & " - " & 
@@ -182,7 +185,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				break;
 			}
 		}
-		
 		expect(hasNonZeroCoverage).toBeTrue("At least one report should have non-zero coverage data");
 	}
 }

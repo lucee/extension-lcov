@@ -44,9 +44,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				}
 				
 				var fileIdx = parts[1];
-				var startPos = val(parts[2]);
-				var endPos = val(parts[3]);
-				var execTime = val(parts[4]);
+				expect(parts[2]).toBeNumeric("Start position should be numeric");
+				expect(parts[3]).toBeNumeric("End position should be numeric");
+				expect(parts[4]).toBeNumeric("Execution time should be numeric");
+				var startPos = parts[2];
+				var endPos = parts[3];
+				var execTime = parts[4];
 				
 				// Skip if file not in parsed results (blocked/not allowed)
 				if (!structKeyExists(result.source.files, fileIdx)) {
@@ -130,16 +133,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			var firstLine = result.fileCoverage[1];
 			var parts = listToArray(firstLine, chr(9), false, false);
 			
-			expect(arrayLen(parts)).toBe(4, "Coverage line should have exactly 4 tab-separated parts");
+			expect(parts).toHaveLength(4, "Coverage line should have exactly 4 tab-separated parts");
 			
 			// Test that parts are in expected format
-			expect(isNumeric(parts[1])).toBeTrue("File index should be numeric");
-			expect(isNumeric(parts[2])).toBeTrue("Start position should be numeric");
-			expect(isNumeric(parts[3])).toBeTrue("End position should be numeric");
-			expect(isNumeric(parts[4])).toBeTrue("Execution time should be numeric");
+			expect(parts[1]).toBeNumeric("File index should be numeric");
+			expect(parts[2]).toBeNumeric("Start position should be numeric");
+			expect(parts[3]).toBeNumeric("End position should be numeric");
+			expect(parts[4]).toBeNumeric("Execution time should be numeric");
 			
 			// Test position ordering
-			expect(val(parts[3])).toBeGTE(val(parts[2]), "End position should be >= start position");
+			expect(parts[3]).toBeNumeric("End position should be numeric");
+			expect(parts[2]).toBeNumeric("Start position should be numeric");
+			expect(parts[3]).toBeGTE(parts[2], "End position should be >= start position");
 			
 			// Sample coverage line structure verified
 		}
