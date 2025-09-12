@@ -1,4 +1,4 @@
-component accessors="true" {
+component displayname="CoverageBlockProcessor" accessors="true" {
 
 	/**
 	* Initialize the utils component with options
@@ -19,80 +19,6 @@ component accessors="true" {
 		if (variables.verbose) {
 			systemOutput(arguments.message, true);
 		}
-	}
-
-		/**
-		 * Use CoverageMerger for merging results by file
-		 */
-		public struct function mergeResultsByFile(required struct results) {
-			var merger = new lucee.extension.lcov.CoverageMerger();
-			return merger.mergeResultsByFile(arguments.results);
-		}
-
-	/**
-	 * Calculate LCOV-style statistics from merged coverage data
-	 * Uses batch processing and reduced function calls
-	 * @fileCoverage Struct containing files and coverage data (merged format)
-	 * @return Struct with stats per file path
-	 */
-	public struct function calculateLcovStats(required struct fileCoverage) {
-		var startTime = getTickCount();
-		var fileCount = structCount(arguments.fileCoverage.files);
-
-		var files = arguments.fileCoverage.files;
-		var coverage = arguments.fileCoverage.coverage;
-		var stats = {};
-
-		// OPTIMIZATION: Process all files in batch with minimal function calls
-		for (var file in files) {
-			var data = coverage[file];
-			var lineNumbers = structKeyArray(data);
-
-			// OPTIMIZATION: Count hits in single pass
-			var linesHit = 0;
-			for (var i = 1; i <= arrayLen(lineNumbers); i++) {
-				if (data[lineNumbers[i]][1] > 0) {
-					linesHit++;
-				}
-			}
-
-			var linesFoundValue = structKeyExists(files[file], "linesFound") ? files[file].linesFound : arrayLen(lineNumbers);
-			stats[files[file].path] = {
-				"linesFound": linesFoundValue,
-				"linesHit": linesHit,
-				"lineCount": structKeyExists(files[file], "lineCount") ? files[file].lineCount : 0
-			};
-		}
-
-		var totalTime = getTickCount() - startTime;
-		logger("LCOV calculated: Completed " & structCount(stats)
-			& " files in " & numberFormat(totalTime) & "ms");
-		return stats;
-	}
-
-	/**
-	 * Group blocks by fileIdx with reduced overhead
-	 */
-	public function combineChunkResults(chunkResults) {
-		var startTime = getTickCount();
-		var blocksByFile = {};
-		var totalBlocks = 0;
-
-		// OPTIMIZATION: Single pass with batch processing
-		for (var c = 1; c <= arrayLen(chunkResults); c++) {
-			var chunkBlocks = chunkResults[c];
-			for (var b = 1; b <= arrayLen(chunkBlocks); b++) {
-				var block = chunkBlocks[b];
-				var fileIdx = block[1];
-				if (!structKeyExists(blocksByFile, fileIdx)) blocksByFile[fileIdx] = [];
-				arrayAppend(blocksByFile[fileIdx], block);
-				totalBlocks++;
-			}
-		}
-
-		var totalTime = getTickCount() - startTime;
-		logger("Combined " & totalBlocks & " blocks for " & structCount(blocksByFile) & " files in " & totalTime & "ms");
-		return blocksByFile;
 	}
 
 	/**
@@ -307,16 +233,6 @@ component accessors="true" {
 		return lineStarts;
 	}
 
-	public struct function parseMetadata(array lines) {
-		var metadata = {};
-		for (var metaLine in arguments.lines) {
-			var parts = listToArray(metaLine, ":", true, true);
-			if (arrayLen(parts) >= 2) {
-				metadata[parts[1]] = listRest(metaLine, ":");
-			}
-		}
-		return metadata;
-	}
 
 	public void function ensureDirectoryExists(required string directoryPath) {
 		if (!directoryExists(arguments.directoryPath)) {

@@ -1,7 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
-		variables.utils = new lucee.extension.lcov.codeCoverageUtils();
+		variables.utils = new lucee.extension.lcov.CoverageBlockProcessor();
 	}
 	
 	function testParseMetadata() {

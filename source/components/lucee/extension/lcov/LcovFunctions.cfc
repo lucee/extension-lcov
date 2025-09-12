@@ -4,7 +4,7 @@ component {
 		if (len(arguments.adminPassword)) {
 			variables.exeLogger = new exeLogger(arguments.adminPassword);
 		}
-		variables.codeCoverageUtils = new codeCoverageUtils();
+		variables.CoverageBlockProcessor = new lucee.extension.lcov.CoverageBlockProcessor();
 		return this;
 	}
 
@@ -161,7 +161,7 @@ component {
 
 			// Write to file if outputFile provided
 			if (len(arguments.outputFile)) {
-				variables.codeCoverageUtils.ensureDirectoryExists(getDirectoryFromPath(arguments.outputFile));
+				variables.CoverageBlockProcessor.ensureDirectoryExists(getDirectoryFromPath(arguments.outputFile));
 				fileWrite(arguments.outputFile, lcovContent);
 				if (mergedOptions.verbose) {
 					systemOutput("LCOV file written to: " & arguments.outputFile, true);
@@ -200,7 +200,7 @@ component {
 				systemOutput("Generating HTML reports from: " & arguments.executionLogDir, true);
 			}
 
-			variables.codeCoverageUtils.ensureDirectoryExists(arguments.outputDir);
+			variables.CoverageBlockProcessor.ensureDirectoryExists(arguments.outputDir);
 
 			// Parse execution logs using ExecutionLogProcessor
 			var logProcessor = new ExecutionLogProcessor(mergedOptions);
@@ -290,7 +290,7 @@ component {
 				systemOutput("Generating JSON reports from: " & arguments.executionLogDir, true);
 			}
 
-			variables.codeCoverageUtils.ensureDirectoryExists(arguments.outputDir);
+			variables.CoverageBlockProcessor.ensureDirectoryExists(arguments.outputDir);
 
 			// Parse execution logs using ExecutionLogProcessor
 			var logProcessor = new ExecutionLogProcessor(mergedOptions);

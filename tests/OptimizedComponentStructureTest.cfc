@@ -27,13 +27,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	/**
-	 * Test that develop codeCoverageUtils can be instantiated and has expected methods
+	 * Test that develop CoverageBlockProcessor can be instantiated and has expected methods
 	 */
-	function testCodeCoverageUtilsDevelopExists() {
+	function testCoverageBlockProcessorDevelopExists() {
 
 		// Test instantiation
 		var options = {"verbose": true};
-		var developUtils = new lucee.extension.lcov.develop.codeCoverageUtils(options);
+		var developUtils = new lucee.extension.lcov.develop.CoverageBlockProcessor(options);
 
 		expect(isObject(developUtils), "Should create develop utils object").toBeTrue();
 
@@ -46,7 +46,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		expect(arrayContains(methods, "calculateCoverageStats"), "Should have calculateCoverageStats method").toBeTrue();
 		expect(arrayContains(methods, "excludeOverlappingBlocks"), "Should have excludeOverlappingBlocks method").toBeTrue();
-		// Removed: mergeResultsByFile is no longer a method of codeCoverageUtils
+		// Removed: mergeResultsByFile is no longer a method of CoverageBlockProcessor
 
 	}
 
@@ -62,7 +62,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(isObject(developParser), "develop parser should instantiate").toBeTrue();
 
 		// Test develop utils has optimization logging
-		var developUtils = new lucee.extension.lcov.develop.codeCoverageUtils(options);
+		var developUtils = new lucee.extension.lcov.develop.CoverageBlockProcessor(options);
 		expect(isObject(developUtils), "develop utils should instantiate").toBeTrue();
 
 	}
@@ -95,9 +95,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			expect(developMethods).toInclude(method, "develop should have " & method);
 		}
 
-		// Compare codeCoverageUtils methods
-		var stableUtils = new lucee.extension.lcov.codeCoverageUtils({"verbose": false});
-		var developUtils = new lucee.extension.lcov.develop.codeCoverageUtils({"verbose": false});
+		// Compare CoverageBlockProcessor methods
+		var stableUtils = new lucee.extension.lcov.CoverageBlockProcessor({"verbose": false});
+		var developUtils = new lucee.extension.lcov.develop.CoverageBlockProcessor({"verbose": false});
 
 		var stableUtilsFunctions = getMetaData(stableUtils).functions;
 		var stableUtilsMethods = [];

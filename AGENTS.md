@@ -21,6 +21,12 @@
 
 - Accessibility is important—ensure sufficient color contrast for readability.
 
+### the /develop folder
+
+The parser is complex, we have tests which allow comparing the current implementation, with proposed changes
+
+Refer to [develop/README.md](source\components\lucee\extension\lcov\develop\README.md)
+
 ### Tests
 
 - tests go in the `/tests` folder

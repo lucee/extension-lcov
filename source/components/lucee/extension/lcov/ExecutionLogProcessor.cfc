@@ -11,7 +11,7 @@ component {
 		// Store options and extract verbose flag
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
-		variables.codeCoverageUtils = new codeCoverageUtils(arguments.options);
+		variables.CoverageBlockProcessor = new lucee.extension.lcov.CoverageStats();
 		variables.useDevelop = true;
 		return this;
 	}
@@ -72,7 +72,7 @@ component {
 					arguments.options.blocklist ?: []
 				);
 				if (len(result)) {
-					result["stats"] = variables.codeCoverageUtils.calculateCoverageStats(result);
+					result["stats"] = variables.CoverageBlockProcessor.calculateCoverageStats(result);
 					results[exlPath] = result;
 					///logger("Successfully processed: " & exlPath);
 				} else {
@@ -86,51 +86,6 @@ component {
 
 		logger("Completed processing " & structCount(results) & " valid .exl files");
 		return results;
-	}
-
-	/**
-	 * Validate that an execution log directory exists and contains .exl files
-	 * @executionLogDir Directory to validate
-	 * @return Boolean indicating if directory is valid
-	 */
-	public boolean function validateExecutionLogDirectory(required string executionLogDir) {
-		if (!directoryExists(arguments.executionLogDir)) {
-			return false;
-		}
-
-		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl");
-		return files.recordCount > 0;
-	}
-
-	/**
-	 * Get summary information about an execution log directory
-	 * @executionLogDir Directory to analyze
-	 * @return Struct with directory summary info
-	 */
-	public struct function getExecutionLogDirectoryInfo(required string executionLogDir) {
-		var info = {
-			"exists": directoryExists(arguments.executionLogDir),
-			"exlFileCount": 0,
-			"totalSizeBytes": 0,
-			"files": []
-		};
-
-		if (info.exists) {
-			var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
-			info.exlFileCount = files.recordCount;
-			
-			for (var file in files) {
-				var fileInfo = {
-					"name": file.name,
-					"size": file.size,
-					"dateModified": file.dateLastModified
-				};
-				info.files.append(fileInfo);
-				info.totalSizeBytes += file.size;
-			}
-		}
-
-		return info;
 	}
 
 }

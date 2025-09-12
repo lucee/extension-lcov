@@ -18,7 +18,7 @@ component accessors="true" {
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
 
 		// Always instantiate the utility component for code coverage helpers
-		variables.utils = new codeCoverageUtils(arguments.options);
+		variables.utils = new lucee.extension.lcov.CoverageBlockProcessor(arguments.options);
 		variables.ast = new ExecutableLineCounter(arguments.options);
 		return this;
 	}
@@ -82,12 +82,12 @@ component accessors="true" {
 			}
 		}
 
-		var coverage = {
-			"metadata": variables.utils.parseMetadata( metadata ),
-			"source": parseFiles( files, exlPath, allowList, blocklist, arguments.useAstForLinesFound ),
-			"fileCoverage": fileCoverage,
-			"exeLog": exlPath
-		};
+		   var coverage = {
+			   "metadata": parseMetadata( metadata ),
+			   "source": parseFiles( files, exlPath, allowList, blocklist, arguments.useAstForLinesFound ),
+			   "fileCoverage": fileCoverage,
+			   "exeLog": exlPath
+		   };
 
 		if ( structCount( coverage.source.files ) == 0 && arrayLen( coverage.fileCoverage ) == 0 ) {
 			logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
@@ -451,6 +451,20 @@ component accessors="true" {
 			variables.fileContentsCache[ arguments.path ] = fileRead( arguments.path );
 		}
 		return listToArray( variables.fileContentsCache[ arguments.path ], chr(10), true, false );
+	}
+
+	/**
+	 * Parse metadata lines from EXL file
+	 */
+	public struct function parseMetadata(array lines) {
+		var metadata = {};
+		for (var metaLine in arguments.lines) {
+			var parts = listToArray(metaLine, ":", true, true);
+			if (arrayLen(parts) >= 2) {
+				metadata[parts[1]] = listRest(metaLine, ":");
+			}
+		}
+		return metadata;
 	}
 
 }

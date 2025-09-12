@@ -94,7 +94,7 @@ var options = {
 ### Core Components
 
 - **ExecutionLogParser** - Parses Lucee .exl execution log files with verbose logging
-- **codeCoverageUtils** - Utility functions for coverage calculations and data processing
+- **CoverageBlockProcessor** - Utility functions for coverage calculations and data processing
 - **HtmlReporter** - Generates HTML coverage reports with dependency checks
 - **HtmlWriter** - Handles HTML content generation with customizable time units
 - **ExecutableLineCounter** - AST-based source code analysis for line counting
