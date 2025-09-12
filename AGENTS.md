@@ -5,37 +5,44 @@
 - produces an LCOV file, json data files and html reports about line coverage
 - this vs code extension supports the LCOV files produced https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
 
-
-
 ### Code Quality Policies
 
-- Always use tabs for indentation. Never use spaces for indentation in any CFML, Java, or script files in this project.
+- Avoid using the elvis operator (`?:`) unless explicitly permitted. Its use often hides technical debt, masks underlying errors, and makes code harder to reason about. Prefer explicit error handling and fail fast on invalid or missing values.
+
+- Avoid defensive coding. Let code fail fast and loudly on invalid input or unexpected state. Defensive checks often hide real problems and make technical debt harder to detect and fix.
+
+- Always use tabs for indentation. Never use spaces for indentation in any CFML, Java, or script files in this project, for .yml it's allowed
 
 - Never use `val()`; it is a code smell that hides errors and should be avoided. Always handle type conversion explicitly and fail fast on invalid input.
 
+- Avoid using the elvis operator (`?:`) unless explicitly permitted. Its use often hides technical debt, masks underlying errors, and makes code harder to reason about. Prefer explicit error handling and fail fast on invalid or missing values.
+
+- Avoid using too many try/catch blocks. Only use try/catch when you are adding useful context to the error. When you do, always use the `catch` attribute to include the original exception (e.g., `cause=e`) so the full stack trace and context are preserved.
+
+- Accessibility is important—ensure sufficient color contrast for readability.
+
 ### Tests
 
-- tests go in the /tests folder
-- use testbox for testings
+- tests go in the `/tests` folder
+- use testbox for tests, prefer BDD style
 - all tests should extend  org.lucee.cfml.test.LuceeTestCase
 - all tests should use the label "lcov", when running tests, always pass in the filter -DtestLables="lcov"
-- as a general approach to testing, always leave any generated artifacts in place for review afterwards, simply clean them in the beforeAll steps
-- tests can be run using script-runner, read the d:\work\script-runner\README.md
+- as a general approach to testing, leave any generated artifacts in place for review afterwards, simply clean the target folder them in the `beforeAll` steps next time the test is run
+- tests can be run using [script-runner](https://github.com/lucee/script-runner/tree/main), read the d:\work\script-runner\README.md
 - refer to https://docs.lucee.org/guides/working-with-source/build-from-source.html#build-performance-tips for how the lucee test runner works
-- don't repeat logic in tests, use a private method
+- don't repeat logic in tests, create and re-use private methods
 - use matchers https://apidocs.ortussolutions.com/testbox/3.2.0/testbox/system/Expectation.html READ this file, don't imagine it's contents from the url!
-- when writing expect statements, pass in the object, le tthe matcher to the work, no arraylen(), or stuctKeyExists, or isNumeric in the argument for expect
+- when writing `expect()` statements, pass in the object, i.e. the matcher to the work, no `arraylen()`, or `stuctKeyExists()`, or `isNumeric()` in the argument for `expect()`
 
 - Never add defensive code to mask errors or inconsistencies. Always fail early and fail hard.
-- Never use an elvis expression (?:) without explicit permission; it usually hides an underlying error. Always prefer explicit error handling and fail fast.
+- Never use an elvis expression (`?:`) without explicit permission; it usually hides an underlying error. Always prefer explicit error handling and fail fast.
 - Avoid try/catch unless you are adding useful info to the error; always rethrow, never swallow errors.
 - If a test fails, let it error—Lucee exceptions are more meaningful than custom error handling.
 - Do not cap, clamp, or auto-correct values in core logic or tests. All mismatches and invalid states should result in immediate failure.
-- If you are catching an error to add useful info, use `throw` and include `e.stacktrace` instead of `e.message` and the cause attribute.
-- Avoid long tests; split them into smaller tests if they get too large.
-- When running tests and an error occurs, always show the error.
+- If you are catching an error to add useful info, use `throw` and include `e.stacktrace` instead of `e.message` and the `cause` attribute.
+- Avoid long tests; split them into smaller tests if they get too large, but ask first
+- When running tests and an error occurs, always show the error before actioning the error, propose changes.
 - After running tests, always provide a summary of any errors or warnings produced.
-- Accessibility is important—ensure sufficient color contrast for readability.
 - Admin password is stored in `request.SERVERADMINPASSWORD`.
 - Only check for the existence of public methods, as in the public API, not private methods.
 
