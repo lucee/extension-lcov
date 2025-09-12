@@ -4,7 +4,7 @@ component extends="testbox.system.BaseSpec" {
 		variables.adminPassword = server.system.environment.LUCEE_ADMIN_PASSWORD ?: "admin";
 		
 		// Create test generator instance with test name - handles directory creation and cleanup
-		variables.testGenerator = new GenerateTestData(testName="AstComparisonTest");
+	variables.testGenerator = new "../GenerateTestData"(testName="AstComparisonTest");
 		variables.testOutputDir = variables.testGenerator.getGeneratedArtifactsDir();
 	}
 	

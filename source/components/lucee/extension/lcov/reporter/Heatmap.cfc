@@ -67,7 +67,8 @@ component output="false" {
 				var countVal = lineData[1] ?: 0;
 				var timeVal = lineData[2] ?: 0;
 				if (countVal > 0) arrayAppend(countValues, countVal);
-				if (timeVal > 0) arrayAppend(timeValues, timeVal);
+				// Include zero execution times in heatmap range calculation
+				if (isNumeric(lineData[2])) arrayAppend(timeValues, timeVal);
 			}
 		}
 		
@@ -100,13 +101,14 @@ component output="false" {
 			if (len > 0) {
 				var countVal = lineData[1] ?: 0;
 				var timeVal = lineData[2] ?: 0;
-				
+
 				if (countVal > 0) {
 					var countLevel = variables.bucketCalculator.getValueLevel(countVal, arguments.countRanges);
 					countClass = "count-level-" & countLevel;
 				}
-				
-				if (timeVal > 0) {
+
+				// Include zero execution times in heatmap (assign to lowest level)
+				if (len >= 2 && isNumeric(lineData[2]) && arrayLen(arguments.timeRanges) > 0) {
 					var timeLevel = variables.bucketCalculator.getValueLevel(timeVal, arguments.timeRanges);
 					timeClass = "time-level-" & timeLevel;
 				}

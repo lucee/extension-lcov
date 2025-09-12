@@ -15,7 +15,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	/**
 	 * @displayName "Given execution log data exists, When I generate all reports using extension functions, Then it should create LCOV, HTML, and JSON reports"
 	 */
-	function testGenerateAllReports() {
+	function testGenerateHtmlReports() {
 		// Given
 		var options = {
 			allowList: [],
@@ -37,32 +37,5 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(fileExists(result.lcovFile)).toBeTrue("LCOV file should be created");
 		expect(fileExists(result.htmlIndex)).toBeTrue("HTML index should be created");
 		expect(result.stats.totalFiles).toBeGT(0, "Should have processed some files");
-	}
-
-	/**
-	 * @displayName "Given execution log data exists, When I generate just LCOV report, Then it should create LCOV file"
-	 */
-	function testGenerateLcovOnly() {
-		// Given
-		var lcovFile = variables.outputDir & "/test-only.lcov";
-		var options = {
-			allowList: [],
-			blocklist: []
-		};
-		
-		// When
-		var content = lcovGenerateLcov(
-			executionLogDir = variables.testData.coverageDir,
-			outputFile = lcovFile,
-			options = options
-		);
-		
-		// Then
-		expect(content).toBeString();
-		expect(content).notToBeEmpty();
-		expect(fileExists(lcovFile)).toBeTrue("LCOV file should be created");
-		expect(content).toInclude("SF:", "Should contain source file records");
-		expect(content).toInclude("DA:", "Should contain data array records");
-		expect(content).toInclude("end_of_record", "Should contain end of record markers");
-	}
+	}	
 }

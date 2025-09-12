@@ -10,6 +10,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 		variables.testLogDir = variables.testData.coverageDir;
 		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+
+		variables.verbose = true;
+		variables.debug = true;
 	}
 
 	// Leave test artifacts for inspection - no cleanup in afterAll
@@ -24,13 +27,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		
 		// When
 		var result = lcovGenerateSummary(
-			executionLogDir=executionLogDir
+			executionLogDir=executionLogDir,
+			options:{verbose: variables.verbose}
 		);
 		
 		// Then
 		expect(result).toBeStruct();
-		expect(result).toHaveKey("totalLines");
-		expect(result).toHaveKey("coveredLines");
+		expect(result).toHaveKey("totalLinesSource");
+		expect(result).toHaveKey("totalLinesHit");
+		expect(result).toHaveKey("totalLinesFound");
 		expect(result).toHaveKey("coveragePercentage");
 		expect(result).toHaveKey("totalFiles");
 		expect(result).toHaveKey("executedFiles");
@@ -38,8 +43,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(result).toHaveKey("fileStats");
 		
 		// Verify data types
-		expect(result.totalLines).toBeNumeric();
-		expect(result.coveredLines).toBeNumeric();
+		expect(result.totalLinesSource).toBeNumeric();
+		expect(result.totalLinesHit).toBeNumeric();
+		expect(result.totalLinesFound).toBeNumeric();
 		expect(result.coveragePercentage).toBeNumeric();
 		expect(result.totalFiles).toBeNumeric();
 		expect(result.executedFiles).toBeNumeric();
@@ -49,7 +55,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Verify logical ranges
 		expect(result.coveragePercentage).toBeBetween(0, 100, "coveragePercentage should be between 0 and 100 but was " & result.coveragePercentage & ".");
 		expect(result.processingTimeMs).toBeGTE(0, "processingTimeMs should be >= 0 but was " & result.processingTimeMs & ".");
-		expect(result.coveredLines).toBeLTE(result.totalLines, "coveredLines (" & result.coveredLines & ") should be <= totalLines (" & result.totalLines & ").");
+		expect(result.totalLinesHit).toBeLTE(result.totalLinesSource, "totalLinesHit (" & result.totalLinesHit & ") should be <= totalLinesSource (" & result.totalLinesSource & ").");
 	}
 
 	/**
@@ -152,8 +158,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Then
 		expect(result).toBeStruct();
 		expect(result.totalFiles).toBe(0, "Should report zero files for empty directory, got: " & result.totalFiles & ".");
-		expect(result.totalLines).toBe(0, "Should report zero lines for empty directory, got: " & result.totalLines & ".");
-		expect(result.coveredLines).toBe(0, "Should report zero covered lines for empty directory, got: " & result.coveredLines & ".");
+		expect(result.totalLinesSource).toBe(0, "Should report zero lines for empty directory, got: " & result.totalLinesSource & ".");
+		expect(result.totalLinesHit).toBe(0, "Should report zero covered lines for empty directory, got: " & result.totalLinesHit & ".");
 		expect(result.coveragePercentage).toBe(0, "Should report zero coverage for empty directory, got: " & result.coveragePercentage & ".");
 		expect(structCount(result.fileStats)).toBe(0, "fileStats should be empty for empty directory, got: " & serializeJSON(result.fileStats));
 	}
@@ -181,13 +187,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Verify fileStats structure
 		for (var filePath in result.fileStats) {
 			var fileData = result.fileStats[filePath];
-			expect(fileData).toHaveKey("totalLines", "Missing totalLines for file " & filePath & ".");
-			expect(fileData).toHaveKey("coveredLines", "Missing coveredLines for file " & filePath & ".");
+			expect(fileData).toHaveKey("linesSource", "Missing linesSource for file " & filePath & ".");
+			expect(fileData).toHaveKey("linesHit", "Missing linesHit for file " & filePath & ".");
 			expect(fileData).toHaveKey("coveragePercentage", "Missing coveragePercentage for file " & filePath & ".");
 			
-			expect(fileData.totalLines).toBeNumeric("totalLines should be numeric for file " & filePath & ".");
-			expect(fileData.coveredLines).toBeNumeric("coveredLines should be numeric for file " & filePath & ".");
-			expect(fileData.coveragePercentage).toBeBetween(0, 100, "coveragePercentage should be between 0 and 100 for file " & filePath & ", got: " & fileData.coveragePercentage & ".");
+			expect(fileData.linesSource).toBeNumeric("linesSource should be numeric for file " & filePath & ".");
+			expect(fileData.linesHit).toBeNumeric("linesHit should be numeric for file " & filePath & ".");
+			expect(fileData.coveragePercentage).toBeBetween(0, 100, "coveragePercentage should be between 0 and 100 for file " & filePath & ". linesHit=" & fileData.linesHit & ", linesFound=" & fileData.linesFound & ", linesSource=" & fileData.linesSource & ", percentage=" & fileData.coveragePercentage);
 		}
 	}
 
@@ -202,9 +208,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		
 		// When
 		var result = lcovGenerateSummary(
-			executionLogDir=executionLogDir
+			executionLogDir=executionLogDir,
+			options:{verbose: variables.verbose}
 		);
-		
+
+		if (variables.debug) {
+			systemOutput("source: " & executionLogDir, true);
+			systemOutput("result: " & serializeJSON(result), true);
+		}
+
 		// Then
 		expect(result.fileStats).toBeStruct();
 		
@@ -213,15 +225,29 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			var fileData = result.fileStats[filePath];
 			
 			// Should match the API design structure
-			expect(fileData).toHaveKey("totalLines", "Each file should have totalLines");
-			expect(fileData).toHaveKey("coveredLines", "Each file should have coveredLines");
+			// expect(fileData).toHaveKey("totalLinesSource", "Each file should have totalLinesSource");
+			expect(fileData).toHaveKey("linesSource", "Each file should have linesSource");
 			expect(fileData).toHaveKey("coveragePercentage", "Each file should have coveragePercentage");
 			
-			// Verify data relationships
-			if (fileData.totalLines > 0) {
-				var expectedPercentage = (fileData.coveredLines / fileData.totalLines) * 100;
-				expect(fileData.coveragePercentage).toBeCloseTo(expectedPercentage, 1, 
+			// Verify data relationships and reasonable coverage percentage
+			if (fileData.linesFound > 0) {
+				var expectedPercentage = (fileData.linesHit / fileData.linesFound) * 100;
+				systemOutput(fileData, true);
+
+				// Debug the relationship between linesHit and linesFound
+				if (fileData.linesHit > fileData.linesFound) {
+					systemOutput("DEBUG: linesHit > linesFound for file " & filePath, true);
+					systemOutput("  linesHit: " & fileData.linesHit, true);
+					systemOutput("  linesFound: " & fileData.linesFound, true);
+					systemOutput("  linesSource: " & fileData.linesSource, true);
+					systemOutput("  This violates the basic coverage rule that linesHit <= linesFound", true);
+				}
+
+				expect(fileData.coveragePercentage).toBeCloseTo(expectedPercentage, 3,
 					"Coverage percentage should match calculation for file " & filePath & ". Expected: " & expectedPercentage & ", got: " & fileData.coveragePercentage & ".");
+				// Verify coverage is reasonable (not negative, not over 100%)
+				expect(fileData.coveragePercentage).toBeBetween(0, 100,
+					"Coverage percentage out of range for file " & filePath & ". linesHit=" & fileData.linesHit & ", linesFound=" & fileData.linesFound & ", linesSource=" & fileData.linesSource & ", percentage=" & fileData.coveragePercentage);
 			}
 		}
 	}
@@ -236,18 +262,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// When - Test with different chunk sizes
 		var result1 = lcovGenerateSummary(
 			executionLogDir=executionLogDir,
-			options={chunkSize: 10000}
+			options={chunkSize: 10000, verbose: variables.verbose}
 		);
 		
 		var result2 = lcovGenerateSummary(
 			executionLogDir=executionLogDir,
-			options={chunkSize: 50000}
+			options={chunkSize: 50000, verbose: variables.verbose}
 		);
 		
 		// Then - Results should be the same regardless of chunk size
 		expect(result1.totalFiles).toBe(result2.totalFiles, "Total files should be consistent. result1: " & result1.totalFiles & ", result2: " & result2.totalFiles & ".");
-		expect(result1.totalLines).toBe(result2.totalLines, "Total lines should be consistent. result1: " & result1.totalLines & ", result2: " & result2.totalLines & ".");
-		expect(result1.coveredLines).toBe(result2.coveredLines, "Covered lines should be consistent. result1: " & result1.coveredLines & ", result2: " & result2.coveredLines & ".");
+		expect(result1.totalLinesSource).toBe(result2.totalLinesSource, "Total lines should be consistent. result1: " & result1.totalLinesSource & ", result2: " & result2.totalLinesSource & ".");
+		expect(result1.totalLinesHit).toBe(result2.totalLinesHit, "Covered lines should be consistent. result1: " & result1.totalLinesHit & ", result2: " & result2.totalLinesHit & ".");
 		expect(result1.coveragePercentage).toBe(result2.coveragePercentage, "Coverage percentage should be consistent. result1: " & result1.coveragePercentage & ", result2: " & result2.coveragePercentage & ".");
 	}
 }

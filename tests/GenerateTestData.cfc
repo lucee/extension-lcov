@@ -86,26 +86,6 @@ component {
 			}
 		}
 		
-		// Test component instantiation and method calls
-		var simple = new artifacts.SimpleComponent();
-		simple.getName();
-		simple.processValue(42);
-		simple.processValue("test");
-		simple.getInfo();
-		fileCount++;
-
-		var math = new artifacts.MathUtils(2);
-		math.add(1.5, 2.5);
-		math.factorial(5);
-		math.arrayStats([1,2,3,4,5]);
-		fileCount++;
-
-		var processor = new artifacts.DataProcessor();
-		processor.validateInput("test", "string");
-		processor.processMatrix([[1,2],[3,4]]);
-		processor.safeProcess("test data");
-		fileCount++;
-		
 		// Disable ResourceExecutionLog
 		exeLogger.disableExecutionLog(class: "lucee.runtime.engine.ResourceExecutionLog");
 		

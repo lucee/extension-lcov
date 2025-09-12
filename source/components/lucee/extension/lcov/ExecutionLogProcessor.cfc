@@ -11,8 +11,9 @@ component {
 		// Store options and extract verbose flag
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
-		variables.CoverageBlockProcessor = new lucee.extension.lcov.CoverageStats();
-		variables.useDevelop = true;
+		variables.componentFactory = new lucee.extension.lcov.CoverageComponentFactory();
+		// Optionally allow per-instance override
+		variables.useDevelop = structKeyExists(arguments.options, "useDevelop") ? arguments.options.useDevelop : variables.componentFactory.getUseDevelop();
 		return this;
 	}
 
@@ -47,12 +48,8 @@ component {
 
 		logger("Processing execution logs from: " & arguments.executionLogDir);
 
-		if (useDevelop) {
-			// Create parser with options for verbose logging
-			var exlParser = new develop.ExecutionLogParser(arguments.options);
-		} else {
-			var exlParser = new ExecutionLogParser(arguments.options);
-		}
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var exlParser = factory.getComponent(name="ExecutionLogParser", initArgs=arguments.options);
 
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
 		var results = {};
@@ -61,27 +58,27 @@ component {
 
 		for (var file in files) {
 			var exlPath = file.directory & "/" & file.name;
-			try {
-				var info = getFileInfo( exlPath );
-				logger("Processing .exl file: " & exlPath 
-					& " (" & decimalFormat( info.size/1024 ) & " Kb)");
-				var result = exlParser.parseExlFile(
-					exlPath, 
-					false, // generateHtml
-					arguments.options.allowList ?: [], 
-					arguments.options.blocklist ?: []
-				);
-				if (len(result)) {
-					result["stats"] = variables.CoverageBlockProcessor.calculateCoverageStats(result);
-					results[exlPath] = result;
-					///logger("Successfully processed: " & exlPath);
-				} else {
-					logger("Skipped empty result for: " & exlPath);
-				}
-			} catch (any e) {
-				logger("Warning: Failed to parse " & exlPath & " - " & e.message);
-				// Continue processing other files
-			}
+			var info = getFileInfo( exlPath );
+			logger("Processing .exl file: " & exlPath 
+				& " (" & decimalFormat( info.size/1024 ) & " Kb)");
+			var result = exlParser.parseExlFile(
+				exlPath, 
+				false, // generateHtml
+				arguments.options.allowList ?: [], 
+				arguments.options.blocklist ?: []
+			);
+			result = factory.getComponent(name="CoverageStats").calculateCoverageStats(result);
+			// Set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
+			// Use the same logic as in LcovFunctions.cfc for request-based outputs
+			var fileName = getFileFromPath(exlPath);
+			var numberPrefix = listFirst(fileName, "-");
+			var scriptName = result.getMetadataProperty("script-name");
+			scriptName = reReplace(scriptName, "[^a-zA-Z0-9_-]", "_", "all");
+			var outputFilename = "request-" & numberPrefix & "-" & scriptName;
+			result.setOutputFilename(outputFilename);
+			results[exlPath] = result;
+			///logger("Successfully processed: " & exlPath);
+			
 		}
 
 		logger("Completed processing " & structCount(results) & " valid .exl files");

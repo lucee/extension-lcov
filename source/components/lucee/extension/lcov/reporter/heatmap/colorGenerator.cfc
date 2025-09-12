@@ -53,17 +53,35 @@ component output="false" {
 	/**
 	 * Generate RGB values that produce a specific brightness level
 	 * @param baseColor Base color struct with r, g, b values (0-255)
-	 * @param targetBrightness Target brightness (0-1) 
+	 * @param targetBrightness Target brightness (0-1)
 	 * @return struct with r, g, b values that produce the target brightness
 	 */
 	private struct function generateRGBFromBrightness(struct baseColor, numeric targetBrightness) {
-		// For pure red, directly calculate red value from target brightness
-		// brightness = 0.299 * (r/255), so r = brightness * 255 / 0.299
-		var redValue = int(arguments.targetBrightness * 255 / 0.299);
-		
-		// Ensure we stay within valid range
-		redValue = max(0, min(255, redValue));
-		
-		return {r: redValue, g: 0, b: 0};
+		// Calculate luminance weights: 0.299*R + 0.587*G + 0.114*B = brightness
+		var rWeight = 0.299;
+		var gWeight = 0.587;
+		var bWeight = 0.114;
+
+		// Normalize the base color to get the color ratios
+		var totalBase = arguments.baseColor.r + arguments.baseColor.g + arguments.baseColor.b;
+		if (totalBase == 0) {
+			// If base color is black, default to equal distribution
+			return {r: 0, g: 0, b: 0};
+		}
+
+		var rRatio = arguments.baseColor.r / totalBase;
+		var gRatio = arguments.baseColor.g / totalBase;
+		var bRatio = arguments.baseColor.b / totalBase;
+
+		// Scale the color to achieve target brightness
+		// We need to solve: brightness = (rWeight*r + gWeight*g + bWeight*b) / 255
+		// Where r, g, b maintain the same ratios as the base color
+		var scaleFactor = arguments.targetBrightness * 255 / (rWeight * rRatio + gWeight * gRatio + bWeight * bRatio);
+
+		var r = max(0, min(255, int(rRatio * scaleFactor)));
+		var g = max(0, min(255, int(gRatio * scaleFactor)));
+		var b = max(0, min(255, int(bRatio * scaleFactor)));
+
+		return {r: r, g: g, b: b};
 	}
 }

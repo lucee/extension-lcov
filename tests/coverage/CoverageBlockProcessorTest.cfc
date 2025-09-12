@@ -3,40 +3,45 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function run() {
 		describe("Exclude Overlapping Blocks (excludeOverlappingBlocks)", function() {
 			it("should exclude large blocks that encompass smaller, more specific blocks (line-based)", function() {
-				var develop = excludeLargeBlocksLineBased(new lucee.extension.lcov.develop.coverageBlockProcessor());
-				var stable = excludeLargeBlocksLineBased(new lucee.extension.lcov.coverageBlockProcessor());
+				var factory = new lucee.extension.lcov.CoverageComponentFactory();
+				var develop = excludeLargeBlocksLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true));
+				var stable = excludeLargeBlocksLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false));
 				compareResults(develop, stable, "line-based");
 				testExcludeLargeBlocksLineBased(develop, "develop");
 				testExcludeLargeBlocksLineBased(stable, "stable");
 			});
 
 			it("should not exclude when no whole-file block exists (line-based)", function() {
-				var develop = noWholeFileBlockLineBased(new lucee.extension.lcov.develop.coverageBlockProcessor());
-				var stable = noWholeFileBlockLineBased(new lucee.extension.lcov.coverageBlockProcessor());
+				var factory = new lucee.extension.lcov.CoverageComponentFactory();
+				var develop = noWholeFileBlockLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true));
+				var stable = noWholeFileBlockLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false));
 				compareResults(develop, stable, "no-whole-file-block");
 				testNoWholeFileBlockLineBased(develop, "develop");
 				testNoWholeFileBlockLineBased(stable, "stable");
 			});
 
 			it("should handle single block (line-based)", function() {
-				var develop = singleBlockLineBased(new lucee.extension.lcov.develop.coverageBlockProcessor());
-				var stable = singleBlockLineBased(new lucee.extension.lcov.coverageBlockProcessor());
+				var factory = new lucee.extension.lcov.CoverageComponentFactory();
+				var develop = singleBlockLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true));
+				var stable = singleBlockLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false));
 				compareResults(develop, stable, "single-block");
 				testSingleBlockLineBased(develop, "develop");
 				testSingleBlockLineBased(stable, "stable");
 			});
 
 			it("should exclude large blocks that encompass smaller, more specific blocks (char-based)", function() {
-				var develop = excludeLargeBlocksCharBased(new lucee.extension.lcov.develop.coverageBlockProcessor());
-				var stable = excludeLargeBlocksCharBased(new lucee.extension.lcov.coverageBlockProcessor());
+				var factory = new lucee.extension.lcov.CoverageComponentFactory();
+				var develop = excludeLargeBlocksCharBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true));
+				var stable = excludeLargeBlocksCharBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false));
 				compareResults(develop, stable, "char-based");
 				testExcludeLargeBlocksCharBased(develop, "develop");
 				testExcludeLargeBlocksCharBased(stable, "stable");
 			});
 
 			it("should not exclude all blocks (at least one block is always kept)", function() {
-				var develop = allBlocksOverlapLineBased(new lucee.extension.lcov.develop.coverageBlockProcessor());
-				var stable = allBlocksOverlapLineBased(new lucee.extension.lcov.coverageBlockProcessor());
+				var factory = new lucee.extension.lcov.CoverageComponentFactory();
+				var develop = allBlocksOverlapLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true));
+				var stable = allBlocksOverlapLineBased(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false));
 				compareResults(develop, stable, "all-blocks-overlap");
 				testAllBlocksOverlapLineBased(develop, "develop");
 				testAllBlocksOverlapLineBased(stable, "stable");
@@ -44,8 +49,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			it("should match stable and develop results for real-world exception.cfm blocks (char-based)",
 					function() {
-				var develop = exceptionCfmRealWorldBlocks(new lucee.extension.lcov.develop.coverageBlockProcessor());
-				var stable = exceptionCfmRealWorldBlocks(new lucee.extension.lcov.coverageBlockProcessor());
+				var factory = new lucee.extension.lcov.CoverageComponentFactory();
+				var develop = exceptionCfmRealWorldBlocks(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true));
+				var stable = exceptionCfmRealWorldBlocks(factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false));
 				compareResults(develop, stable, "exception-cfm-real-world");
 				// Optionally, print stabler debugging:
 				// systemOutput("develop: " & serializeJSON(develop, false));

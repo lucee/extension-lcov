@@ -4,7 +4,9 @@ component {
 		if (len(arguments.adminPassword)) {
 			variables.exeLogger = new exeLogger(arguments.adminPassword);
 		}
-		variables.CoverageBlockProcessor = new lucee.extension.lcov.CoverageBlockProcessor();
+		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var useDev = structKeyExists(arguments, "useDevelop") ? arguments.useDevelop : false;
+		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=useDev);
 		return this;
 	}
 
@@ -73,61 +75,57 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateAllReports(required string executionLogDir, required string outputDir, struct options = {}) {
-		try {
-			// Set default options
-			var defaultOptions = {
-				verbose: false,
-				chunkSize: 50000,
-				allowList: [],
-				blocklist: [],
-				displayUnit: "milli"
-			};
-			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+		// Set default options
+		var defaultOptions = {
+			verbose: false,
+			chunkSize: 50000,
+			allowList: [],
+			blocklist: [],
+			displayUnit: "milli"
+		};
+		var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
 
-			var startTime = getTickCount();
+		var startTime = getTickCount();
 
-			// Generate LCOV report
-			var lcovFile = arguments.outputDir & "/lcov.info";
-			var lcovContent = lcovGenerateLcov(
-				executionLogDir = arguments.executionLogDir,
-				outputFile = lcovFile,
-				options = mergedOptions
-			);
+		// Generate LCOV report
+		var lcovFile = arguments.outputDir & "/lcov.info";
+		var lcovContent = lcovGenerateLcov(
+			executionLogDir = arguments.executionLogDir,
+			outputFile = lcovFile,
+			options = mergedOptions
+		);
 
-			// Generate HTML reports
-			var htmlResult = lcovGenerateHtml(
-				executionLogDir = arguments.executionLogDir,
-				outputDir = arguments.outputDir & "/html",
-				options = mergedOptions
-			);
+		// Generate HTML reports
+		var htmlResult = lcovGenerateHtml(
+			executionLogDir = arguments.executionLogDir,
+			outputDir = arguments.outputDir & "/html",
+			options = mergedOptions
+		);
 
-			// Generate JSON reports
-			var jsonResult = lcovGenerateJson(
-				executionLogDir = arguments.executionLogDir,
-				outputDir = arguments.outputDir & "/json",
-				options = mergedOptions
-			);
+		// Generate JSON reports
+		var jsonResult = lcovGenerateJson(
+			executionLogDir = arguments.executionLogDir,
+			outputDir = arguments.outputDir & "/json",
+			options = mergedOptions
+		);
 
-			// Calculate overall stats
-			var processingTime = getTickCount() - startTime;
-			
-			return {
-				"lcovFile": lcovFile,
-				"htmlIndex": htmlResult.htmlIndex,
-				"htmlFiles": structKeyExists(htmlResult, "htmlFiles") ? htmlResult.htmlFiles : [],
-				"jsonFiles": jsonResult.jsonFiles,
-				"stats": {
-					"totalLines": htmlResult.stats.totalLines,
-					"coveredLines": htmlResult.stats.coveredLines,
-					"coveragePercentage": htmlResult.stats.coveragePercentage,
-					"totalFiles": htmlResult.stats.totalFiles,
-					"processingTimeMs": processingTime
-				}
-			};
-
-		} catch (any e) {
-			throw(message="Failed to generate all reports: " & e.message, detail=e.detail, cause=e);
-		}
+		// Calculate overall stats
+		var processingTime = getTickCount() - startTime;
+		
+		return {
+			"lcovFile": lcovFile,
+			"htmlIndex": htmlResult.htmlIndex,
+			"htmlFiles": structKeyExists(htmlResult, "htmlFiles") ? htmlResult.htmlFiles : [],
+			"jsonFiles": jsonResult.jsonFiles,
+			"stats": {
+				"totalLinesFound": htmlResult.stats.totalLinesFound,
+				"totalLinesSource": htmlResult.stats.totalLinesSource,
+				"totalLinesHit": htmlResult.stats.totalLinesHit,
+				"coveragePercentage": htmlResult.stats.coveragePercentage,
+				"totalFiles": htmlResult.stats.totalFiles,
+				"processingTimeMs": processingTime
+			}
+		};
 	}
 
 	/**
@@ -138,41 +136,37 @@ component {
 	 * @return String containing LCOV file content
 	 */
 	public string function lcovGenerateLcov(required string executionLogDir, string outputFile = "", struct options = {}) {
-		try {
-			// Set default options
-			var defaultOptions = {
-				verbose: false,
-				allowList: [],
-				blocklist: [],
-				useRelativePath: false
-			};
-			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+		// Set default options
+		var defaultOptions = {
+			verbose: false,
+			allowList: [],
+			blocklist: [],
+			useRelativePath: false
+		};
+		var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
 
-			if (mergedOptions.verbose) {
-				systemOutput("Generating LCOV report from: " & arguments.executionLogDir, true);
-			}
-
-			// Parse .exl files using ExecutionLogProcessor
-			var logProcessor = new ExecutionLogProcessor(mergedOptions);
-			var results = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
-			
-			// Generate LCOV content
-			var lcovContent = buildLcovContent(results, mergedOptions);
-
-			// Write to file if outputFile provided
-			if (len(arguments.outputFile)) {
-				variables.CoverageBlockProcessor.ensureDirectoryExists(getDirectoryFromPath(arguments.outputFile));
-				fileWrite(arguments.outputFile, lcovContent);
-				if (mergedOptions.verbose) {
-					systemOutput("LCOV file written to: " & arguments.outputFile, true);
-				}
-			}
-
-			return lcovContent;
-
-		} catch (any e) {
-			throw(message="Failed to generate LCOV report: " & e.message, detail=e.detail, cause=e);
+		if (mergedOptions.verbose) {
+			systemOutput("Generating LCOV report from: " & arguments.executionLogDir, true);
 		}
+
+		// Parse .exl files using ExecutionLogProcessor
+		var logProcessor = new ExecutionLogProcessor(mergedOptions);
+		var results = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
+		
+		// Generate LCOV content
+		var lcovContent = buildLcovContent(results, mergedOptions);
+
+		// Write to file if outputFile provided
+		if (len(arguments.outputFile)) {
+			var factory = new lucee.extension.lcov.CoverageComponentFactory();
+			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(getDirectoryFromPath(arguments.outputFile));
+			fileWrite(arguments.outputFile, lcovContent);
+			if (mergedOptions.verbose) {
+				systemOutput("LCOV file written to: " & arguments.outputFile, true);
+			}
+		}
+
+		return lcovContent;
 	}
 
 	/**
@@ -183,84 +177,118 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateHtml(required string executionLogDir, required string outputDir, struct options = {}) {
-		try {
-			// Set default options
-			var defaultOptions = {
-				verbose: false,
-				displayUnit: "milli",
-				allowList: [],
-				blocklist: [],
-				separateFiles: false
-			};
-			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+		// Set default options
+		var defaultOptions = {
+			verbose: false,
+			displayUnit: "milli",
+			allowList: [],
+			blocklist: [],
+			separateFiles: false
+		};
+		var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
 
-			var startTime = getTickCount();
+		var startTime = getTickCount();
 
-			if (mergedOptions.verbose) {
-				systemOutput("Generating HTML reports from: " & arguments.executionLogDir, true);
-			}
-
-			variables.CoverageBlockProcessor.ensureDirectoryExists(arguments.outputDir);
-
-			// Parse execution logs using ExecutionLogProcessor
-			var logProcessor = new ExecutionLogProcessor(mergedOptions);
-			var results = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
-
-			// Generate HTML reports using focused HTML reporter
-			var htmlReporter = new reporter.HtmlReporter(mergedOptions.displayUnit, mergedOptions.verbose);
-			htmlReporter.setOutputDir(arguments.outputDir); // Set output directory for individual HTML files
-			var htmlIndex = "";
-			var totalStats = {
-				totalLines: 0,
-				coveredLines: 0,
-				coveragePercentage: 0,
-				totalFiles: 0,
-				processingTimeMs: 0
-			};
-
-			// Post-process results if separateFiles is true - merge by source file
-			var processedResults = results;
-			if (mergedOptions.separateFiles) {
-				if (mergedOptions.verbose) {
-					systemOutput("Original results count: " & structCount(results), true);
-				}
-				processedResults = new lucee.extension.lcov.CoverageMerger().mergeResultsBySourceFile(results, mergedOptions.verbose);
-				if (mergedOptions.verbose) {
-					systemOutput("Processed results count: " & structCount(processedResults), true);
-				}
-			}
-
-			// Generate individual HTML reports for each result
-			for (var resultKey in processedResults) {
-				var result = processedResults[resultKey];
-				if (structKeyExists(result, "coverage") && !structIsEmpty(result.coverage)) {
-					htmlReporter.generateHtmlReport(result);
-					
-					// Accumulate stats
-					if (structKeyExists(result, "stats")) {
-						totalStats.totalLines += result.stats.totalLines;
-						totalStats.coveredLines += result.stats.coveredLines;
-						totalStats.totalFiles++;
-					}
-				}
-			}
-
-			// Generate index HTML
-			htmlIndex = htmlReporter.generateIndexHtml(arguments.outputDir);
-
-			// Calculate overall coverage percentage and processing time
-			totalStats.coveragePercentage = totalStats.totalLines > 0 ? 
-				(totalStats.coveredLines / totalStats.totalLines) * 100 : 0;
-			totalStats.processingTimeMs = getTickCount() - startTime;
-
-			return {
-				"htmlIndex": htmlIndex,
-				"stats": totalStats
-			};
-
-		} catch (any e) {
-			throw(message="Failed to generate HTML reports: " & e.message, detail=e.detail, cause=e);
+		if (mergedOptions.verbose) {
+			systemOutput("Generating HTML reports from: " & arguments.executionLogDir, true);
 		}
+
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
+
+		// Parse execution logs using ExecutionLogProcessor
+		var logProcessor = new ExecutionLogProcessor(mergedOptions);
+		var results = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
+
+		// Generate HTML reports using focused HTML reporter
+		var htmlReporter = new reporter.HtmlReporter(mergedOptions.displayUnit, mergedOptions.verbose);
+		htmlReporter.setOutputDir(arguments.outputDir); // Set output directory for individual HTML files
+		var htmlIndex = "";
+
+		// Process results based on separateFiles option
+		if (mergedOptions.separateFiles) {
+			// Merge by source file and write directly to file-*.json files
+			if (mergedOptions.verbose) {
+				systemOutput("Merging " & structCount(results) & " execution logs by source file", true);
+			}
+			var merger = new lucee.extension.lcov.CoverageMerger();
+					   var mergedResults = merger.mergeResults(results, arguments.outputDir, mergedOptions.verbose); // now returns mergedResults
+			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, mergedOptions.verbose);
+
+			// Generate HTML reports for each source file JSON
+			if (mergedOptions.verbose) {
+				systemOutput("Processing " & arrayLen(sourceFileJsons) & " source file JSONs for HTML generation", true);
+			}
+			var resultFactory = new lucee.extension.lcov.model.result();
+			for (var jsonFile in sourceFileJsons) {
+				// Use result model's fromJson to ensure all required fields and validation
+				var sourceResult = resultFactory.fromJson(fileRead(jsonFile), true);
+				sourceResult.validate();
+
+				// Set exeLog to the source file path for separated files mode
+				// This tells HtmlReporter to use source file naming instead of request-based naming
+				var sourceFilePath = getFileFromPath(jsonFile);
+				sourceFilePath = reReplace(sourceFilePath, "^file-[^-]+-", ""); // Remove file-{hash}- prefix
+				sourceFilePath = reReplace(sourceFilePath, "\.json$", ""); // Remove .json extension
+				sourceResult.setExeLog(sourceFilePath);
+
+				if (mergedOptions.verbose) {
+					systemOutput("Processing JSON file: " & jsonFile, true);
+					systemOutput("  - Set exeLog to: " & sourceFilePath, true);
+					systemOutput("  - Attempting HTML report generation", true);
+				}
+				var htmlPath = htmlReporter.generateHtmlReport(sourceResult);
+				if (mergedOptions.verbose) {
+					systemOutput("  - HTML report generated: " & htmlPath, true);
+				}
+			}
+		}
+
+		// For regular mode, generate HTML reports for each request-based result
+		if (!mergedOptions.separateFiles) {
+			// Write request-based JSON files and generate HTML reports
+			for (var resultKey in results) {
+				var result = results[resultKey];
+				// Always use fileIndex (typically 0) for coverage and files
+				var coverage = result.getCoverage();
+				if (structKeyExists(coverage, "0") && !structIsEmpty(coverage["0"])) {
+					// Write request JSON file
+					var fileName = getFileFromPath(resultKey);
+					var numberPrefix = listFirst(fileName, "-");
+					var scriptName = result.getMetadataProperty("script-name");
+					scriptName = reReplace(scriptName, "[^a-zA-Z0-9_-]", "_", "all");
+					var jsonFileName = "request-" & numberPrefix & "-" & scriptName & ".json";
+					fileWrite(arguments.outputDir & "/" & jsonFileName, serializeJSON(var=result, compact=false));
+
+					// Generate HTML report
+					htmlReporter.generateHtmlReport(result);
+				}
+			}
+		}
+
+		// Generate index HTML
+		htmlIndex = htmlReporter.generateIndexHtml(arguments.outputDir);
+
+
+		// Calculate aggregated stats from all results
+		var statsComponent = variables.factory.getComponent(name="CoverageStats");
+		var totalStats = statsComponent.calculateDetailedStats(results, getTickCount() - startTime);
+
+		// Get list of generated HTML files (excluding index.html)
+		var generatedHtmlFiles = [];
+		var allHtmlFiles = directoryList(arguments.outputDir, false, "name", "*.html");
+		for (var htmlFile in allHtmlFiles) {
+			if (htmlFile != "index.html") {
+				arrayAppend(generatedHtmlFiles, htmlFile);
+			}
+		}
+
+		return {
+			"htmlIndex": htmlIndex,
+			"htmlFiles": generatedHtmlFiles,
+			"stats": totalStats
+		};
+
 	}
 
 
@@ -290,7 +318,8 @@ component {
 				systemOutput("Generating JSON reports from: " & arguments.executionLogDir, true);
 			}
 
-			variables.CoverageBlockProcessor.ensureDirectoryExists(arguments.outputDir);
+			var factory = new lucee.extension.lcov.CoverageComponentFactory();
+			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
 
 			// Parse execution logs using ExecutionLogProcessor
 			var logProcessor = new ExecutionLogProcessor(mergedOptions);
@@ -299,8 +328,9 @@ component {
 			// Generate JSON files directly from parsed results
 			var jsonFiles = {};
 			var totalStats = {
-				totalLines: 0,
-				coveredLines: 0,
+				totalLinesSource: 0,
+				totalLinesHit: 0,
+				totalLinesFound: 0,
 				coveragePercentage: 0,
 				totalFiles: 0,
 				processingTimeMs: 0
@@ -317,27 +347,36 @@ component {
 			fileWrite(mergedFile, serializeJSON(var=merged, compact=mergedOptions.compact));
 			jsonFiles.merged = mergedFile;
 
-			// Calculate and create stats
-			for (var exlPath in results) {
-				var result = results[exlPath];
-				if (structKeyExists(result, "stats")) {
-					totalStats.totalLines += result.stats.totalLines;
-					totalStats.coveredLines += result.stats.coveredLines;
-					totalStats.totalFiles++;
-				}
-			}
-			
-			totalStats.coveragePercentage = totalStats.totalLines > 0 ? 
-				(totalStats.coveredLines / totalStats.totalLines) * 100 : 0;
-			totalStats.processingTimeMs = getTickCount() - startTime;
+			// Calculate aggregated stats from all results using CoverageStats
+			var statsComponent = variables.factory.getComponent(name="CoverageStats");
+			var totalStats = statsComponent.calculateDetailedStats(results, getTickCount() - startTime);
 
-			var statsFile = arguments.outputDir & "/stats.json";
+			var statsFile = arguments.outputDir & "/summary-stats.json";
 			fileWrite(statsFile, serializeJSON(var=totalStats, compact=mergedOptions.compact));
 			jsonFiles.stats = statsFile;
 
 			// Generate separate files if requested
 			if (mergedOptions.separateFiles) {
-				// TODO: Implement separate file generation
+				// Merge by source file and write directly to file-*.json files
+				var merger = new lucee.extension.lcov.CoverageMerger();
+				var mergedResults = merger.mergeResults(results, arguments.outputDir, mergedOptions.verbose); // now returns mergedResults
+				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, mergedOptions.verbose);
+				for (var jsonFile in sourceFileJsons) {
+					jsonFiles[getFileFromPath(jsonFile)] = jsonFile;
+				}
+			} else {
+				// Write request-based JSON files
+				for (var resultKey in results) {
+					var result = results[resultKey];
+					if (structKeyExists(result, "coverage") && !structIsEmpty(result.coverage)) {
+						var fileName = getFileFromPath(resultKey);
+						// Use outputFilename property set by the log processor
+						var jsonFileName = result.getOutputFilename() & ".json";
+						var jsonFilePath = arguments.outputDir & "/" & jsonFileName;
+						fileWrite(jsonFilePath, serializeJSON(var=result, compact=mergedOptions.compact));
+						jsonFiles[jsonFileName] = jsonFilePath;
+					}
+				}
 			}
 
 			return {
@@ -376,7 +415,8 @@ component {
 			// Parse execution logs for stats only using ExecutionLogProcessor
 			var logProcessor = new ExecutionLogProcessor(mergedOptions);
 			var results = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
-			var stats = new lucee.extension.lcov.CoverageStats().calculateDetailedStats(results, getTickCount() - startTime);
+			var statsComponent = variables.factory.getComponent(name="CoverageStats");
+			var stats = statsComponent.calculateDetailedStats(results, getTickCount() - startTime);
 
 			if (mergedOptions.verbose) {
 				systemOutput("Summary complete: " & stats.coveragePercentage & "% coverage", true);

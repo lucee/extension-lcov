@@ -1,13 +1,13 @@
 component extends="lucee.extension.lcov.CoverageBlockProcessor" {
 
 	/*
-	* Override: Calculate coverage stats, only count hits for executable lines
+		* Override: Calculate coverage stats, only count hits for executable lines
 	*/
-	public struct function calculateCoverageStats(struct result) {
+	public struct function zzzzcalculateCoverageStats(struct result) {
 		var startTime = getTickCount();
 		var stats = {
-			"totalLinesFound": 0,
-			"totalLinesHit": 0,
+			"linesFound": 0,
+			"linesHit": 0,
 			"totalExecutions": 0,
 			"totalExecutionTime": 0,
 			"files": {}
@@ -20,19 +20,22 @@ component extends="lucee.extension.lcov.CoverageBlockProcessor" {
 			"executedLines": {}
 		};
 
-		var filePaths = structKeyArray(arguments.result.source.files);
+		var filesStruct = arguments.result.getFiles();
+		var filePaths = structKeyArray(filesStruct);
 		for (var i = 1; i <= arrayLen(filePaths); i++) {
 			var filePath = filePaths[i];
 			stats.files[filePath] = duplicate(statsTemplate);
-			var linesCount = structKeyExists(arguments.result.source.files[filePath], "linesCount") ? arguments.result.source.files[filePath].linesCount : 0;
-			stats.files[filePath].linesCount = linesCount;
-			var executableLines = arguments.result.source.files[filePath].executableLines ?: [];
+			   var fileStruct = arguments.result.getFileItem(filePath);
+			var totalLinesSource = fileStruct.linesSource;
+			stats.files[filePath].totalLinesSource = totalLinesSource;
+			var executableLines = fileStruct.executableLines ?: [];
 			stats.files[filePath].linesFound = arrayLen(executableLines);
-			stats.totalLinesFound += stats.files[filePath].linesFound;
+			stats.linesFound += stats.files[filePath].linesFound;
 
 			var uniqueHitLines = {};
-			if (structKeyExists(arguments.result.coverage, filePath)) {
-				var filecoverage = arguments.result.coverage[filePath];
+			var coverageData = arguments.result.getCoverage();
+			if (structKeyExists(coverageData, filePath)) {
+				var filecoverage = coverageData[filePath];
 				for (var k = 1; k <= arrayLen(executableLines); k++) {
 					var execLine = executableLines[k];
 					if (!structKeyExists(filecoverage, execLine)) {
@@ -60,7 +63,7 @@ component extends="lucee.extension.lcov.CoverageBlockProcessor" {
 					}
 				}
 				stats.files[filePath].linesHit = structCount(uniqueHitLines);
-				stats.totalLinesHit += stats.files[filePath].linesHit;
+				stats.linesHit += stats.files[filePath].linesHit;
 			}
 		}
 		var totalTime = getTickCount() - startTime;

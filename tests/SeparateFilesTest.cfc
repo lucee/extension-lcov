@@ -1,21 +1,42 @@
-component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
+component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
+		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new GenerateTestData(testName="SeparateFilesTest");
 		
 		// Generate test data using kitchen-sink-example.cfm to get multiple source files
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
-			fileFilter = "kitchen-sink-example.cfm"
+			fileFilter = "loops.cfm"
 		);
 	}
 
 	// Leave test artifacts for inspection - no cleanup in afterAll
 
+	function run() {
+		describe("mergeResults BDD steps", function() {
+			it("test separateFiles: false", function() {
+				testSeparateFilesFalse();
+			});
+
+			it("test separateFiles: true", function() {
+				testSeparateFilesTrue();
+			});
+
+			it("test separateFiles behavior comparison", function() {
+				testSeparateFilesBehaviorComparison();
+			});
+
+			it("test index.json content with separateFiles: true", function() {
+				testIndexJsonContent();
+			});
+		})
+	}
+
 	public function testSeparateFilesFalse() {
 		// Given
-		var outputDir = variables.testData.coverageDir & "/by-request/";
+		var outputDir = variables.testData.coverageDir & "/false/";
 		var options = {
 			separateFiles: false,
 			verbose: true
@@ -33,20 +54,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		
 		// Count HTML files (excluding index.html)
 		var htmlFiles = directoryList(outputDir, false, "query", "*.html");
-		var nonIndexFiles = 0;
+		var nonIndexFiles = [];
 		for (var file in htmlFiles) {
 			if (file.name != "index.html") {
-				nonIndexFiles++;
+				arrayAppend(nonIndexFiles, file.name);
 			}
 		}
-		
-		//systemOutput("separateFiles: false - Generated " & nonIndexFiles & " HTML files", true);
-		expect(nonIndexFiles).toBeGT(0, "Should have generated HTML report files");
+		// dumb test!!
+		expect(nonIndexFiles).NotToBeEmpty("no Html files produced in " & outputDir);
 	}
 
-	public function testSeparateFilesTrue() {
-		// Given  
-		var outputDir = variables.testData.coverageDir & "/by-source-file/";
+	private function testSeparateFilesTrue() {
+		// Given
+		var outputDir = variables.testData.coverageDir & "/true/";
 		var options = {
 			separateFiles: true,
 			verbose: true
@@ -97,7 +117,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 	}
 
-	public function testSeparateFilesBehaviorComparison() {
+	private function testSeparateFilesBehaviorComparison() {
 		// Given
 		var combinedDir = variables.testData.coverageDir & "/by-request-comparison/";
 		var separateDir = variables.testData.coverageDir & "/by-source-file-comparison/";
@@ -128,7 +148,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(arrayLen(separateFiles)).toBeGTE(arrayLen(combinedFiles), "Should generate at least as many files");
 	}
 
-	public function testIndexJsonContent() {
+	private function testIndexJsonContent() {
 		// Given
 		var outputDir = variables.testData.coverageDir & "/json-validation/";
 		var options = {
@@ -160,22 +180,22 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Check that each report entry has the expected fields
 		var firstReport = indexData[1];
 		var expectedFields = ["scriptName", "htmlFile", "totalLinesFound", "totalLinesHit"];
-		
+
 		for (var field in expectedFields) {
-			expect(firstReport).toHaveKey(field, "Report entry should have '" & field & "' field");
+			expect(firstReport).toHaveKey( field );
 		}
 
 		// Check that we have coverage data with non-zero values
 		expect(firstReport).toHaveKey("totalLinesFound", "Should have totalLinesFound");
-		expect(firstReport).toHaveKey("totalLinesHit", "Should have totalLinesHit");  
-		
+		expect(firstReport).toHaveKey("totalLinesHit", "Should have totalLinesHit");
+
 		// At least one report should have meaningful coverage data (not all zeros)
 		var hasNonZeroCoverage = false;
 		for (var report in indexData) {
 			expect(report).toHaveKey("totalLinesFound");
-			expect(report.totalLinesFound).toBeNumber();
+			expect(report.totalLinesFound).toBeTypeOf("numeric");
 			expect(report).toHaveKey("totalLinesHit");
-			expect(report.totalLinesHit).toBeNumber();
+			expect(report.totalLinesHit).toBeTypeOf("numeric");
 			if (report.totalLinesFound > 0 && report.totalLinesHit > 0) {
 				hasNonZeroCoverage = true;
 				var coveragePercent = report.totalLinesFound > 0 ? (report.totalLinesHit / report.totalLinesFound) * 100 : 0;
@@ -185,6 +205,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				break;
 			}
 		}
-		expect(hasNonZeroCoverage).toBeTrue("At least one report should have non-zero coverage data");
+		   expect(hasNonZeroCoverage).toBeTrue("At least one report in " & outputDir & " should have non-zero coverage data: " 
+			   & serializeJSON(indexData));
 	}
 }

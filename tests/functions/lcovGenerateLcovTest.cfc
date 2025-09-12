@@ -262,7 +262,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			}
 		}
 		
-	expect(arrayLen(sfLines)).toBeGT(0, "Should have at least one SF record");
+		expect(arrayLen(sfLines)).toBeGT(0, "Should have at least one SF record");
 		
 		// Check that all SF lines contain relative paths (should not contain the full directory structure)
 		var allRelativePaths = true;

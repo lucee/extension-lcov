@@ -10,9 +10,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Test instantiation
 		var options = {"verbose": true};
-		var developParser = new lucee.extension.lcov.develop.ExecutionLogParser(options);
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var developParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true, initArgs=options);
 
-		expect(isObject(developParser), "Should create develop parser object").toBeTrue();
+		expect(developParser, "Should create develop parser object").toBeTypeOf("object");
 
 		// Test it has the expected methods
 		var functions = getMetaData(developParser).functions;
@@ -33,9 +34,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Test instantiation
 		var options = {"verbose": true};
-		var developUtils = new lucee.extension.lcov.develop.CoverageBlockProcessor(options);
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var developUtils = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true, initArgs=options);
 
-		expect(isObject(developUtils), "Should create develop utils object").toBeTrue();
+		expect(developUtils, "Should create develop utils object").toBeTypeOf("object");
 
 		// Test it has the expected methods
 		var functions = getMetaData(developUtils).functions;
@@ -44,10 +46,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			arrayAppend(methods, func.name);
 		}
 
-		expect(arrayContains(methods, "calculateCoverageStats"), "Should have calculateCoverageStats method").toBeTrue();
-		expect(arrayContains(methods, "excludeOverlappingBlocks"), "Should have excludeOverlappingBlocks method").toBeTrue();
-		// Removed: mergeResultsByFile is no longer a method of CoverageBlockProcessor
-
+		expect(methods).toInclude("excludeOverlappingBlocks");
 	}
 
 	/**
@@ -58,12 +57,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var options = {"verbose": true};
 
 		// Test develop parser has optimization logging
-		var developParser = new lucee.extension.lcov.develop.ExecutionLogParser(options);
-		expect(isObject(developParser), "develop parser should instantiate").toBeTrue();
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var developParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true, initArgs=options);
+		expect(developParser).toBeTypeOf("object");
 
 		// Test develop utils has optimization logging
-		var developUtils = new lucee.extension.lcov.develop.CoverageBlockProcessor(options);
-		expect(isObject(developUtils), "develop utils should instantiate").toBeTrue();
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var developUtils = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true, initArgs=options);
+		expect(developUtils).toBeTypeOf("object");
 
 	}
 
@@ -73,8 +74,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testMethodSignatureCompatibility() {
 
 		// Compare ExecutionLogParser methods
-		var stablelParser = new lucee.extension.lcov.ExecutionLogParser({"verbose": false});
-		var developParser = new lucee.extension.lcov.develop.ExecutionLogParser({"verbose": false});
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var stablelParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false, initArgs={"verbose": false});
+		var developParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true, initArgs={"verbose": false});
 
 		var stableFunctions = getMetaData(stablelParser).functions;
 		var stableMethods = [];
@@ -96,29 +98,44 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 
 		// Compare CoverageBlockProcessor methods
-		var stableUtils = new lucee.extension.lcov.CoverageBlockProcessor({"verbose": false});
-		var developUtils = new lucee.extension.lcov.develop.CoverageBlockProcessor({"verbose": false});
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var stableBlock = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false);
+		var developBlock = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true);
 
-		var stableUtilsFunctions = getMetaData(stableUtils).functions;
-		var stableUtilsMethods = [];
-		for (var func in stableUtilsFunctions) {
-			arrayAppend(stableUtilsMethods, func.name);
+		var stableBlockFunctions = getMetaData(stableBlock).functions;
+		var stableBlockMethods = [];
+		for (var func in stableBlockFunctions) {
+			arrayAppend(stableBlockMethods, func.name);
 		}
 
-		var developUtilsFunctions = getMetaData(developUtils).functions;
-		var developUtilsMethods = [];
-		for (var func in developUtilsFunctions) {
-			arrayAppend(developUtilsMethods, func.name);
+		var developBlockFunctions = getMetaData(developBlock).functions;
+		var developBlockMethods = [];
+		for (var func in developBlockFunctions) {
+			arrayAppend(developBlockMethods, func.name);
 		}
 
-		// Check that key methods exist in both
-		// Stable utils: only require calculateLcovStats and excludeOverlappingBlocks
-		expect(stableUtilsMethods).toInclude("calculateLcovStats", "stable utils should have calculateLcovStats");
-		expect(stableUtilsMethods).toInclude("excludeOverlappingBlocks", "stable utils should have excludeOverlappingBlocks");
+		expect(stableBlockMethods).toInclude("excludeOverlappingBlocks");
+		expect(developBlockMethods).toInclude("excludeOverlappingBlocks");
 
-		// Develop utils: require calculateCoverageStats and excludeOverlappingBlocks
-		expect(developUtilsMethods).toInclude("calculateCoverageStats", "develop utils should have calculateCoverageStats");
-		expect(developUtilsMethods).toInclude("excludeOverlappingBlocks", "develop utils should have excludeOverlappingBlocks");
+		// Compare CoverageStats methods
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var stableStats = factory.getComponent(name="CoverageStats", overrideUseDevelop=false);
+		var developStats = factory.getComponent(name="CoverageStats", overrideUseDevelop=true);
+
+		var stableStatsFunctions = getMetaData(stableStats).functions;
+		var stableStatsMethods = [];
+		for (var func in stableStatsFunctions) {
+			arrayAppend(stableStatsMethods, func.name);
+		}
+
+		var developStatsFunctions = getMetaData(developStats).functions;
+		var developStatsMethods = [];
+		for (var func in developStatsFunctions) {
+			arrayAppend(developStatsMethods, func.name);
+		}
+
+		expect(stableStatsMethods).toInclude("calculateLcovStats");
+		expect(developStatsMethods).toInclude("calculateCoverageStats");
 
 	}
 

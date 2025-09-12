@@ -2,7 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
 		variables.parser = new lucee.extension.lcov.ExecutionLogParser();
-		variables.testDataGenerator = new GenerateTestData(testName="ExlCoverageDataFormatTest");
+	variables.testDataGenerator = new "../GenerateTestData"(testName="ExlCoverageDataFormatTest");
 		
 		// Generate test data if needed
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
@@ -27,13 +27,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			var result = variables.parser.parseExlFile(file);
 			
 			// Skip files with no coverage data
-			if (!structKeyExists(result, "fileCoverage") || arrayLen(result.fileCoverage) == 0) {
+			var fileCoverage = result.getFileCoverage();
+			if (arrayLen(fileCoverage) == 0) {
 				systemOutput("  Skipping file with no coverage data", true);
 				continue;
 			}
 			
 			// Analyze each coverage line in the file
-			for (var coverageLine in result.fileCoverage) {
+			for (var coverageLine in fileCoverage) {
 				totalCoverageLines++;
 				
 				// Parse tab-separated values: fileIdx, startPos, endPos, execTime
@@ -129,8 +130,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var sampleFile = files[1];
 		var result = variables.parser.parseExlFile(sampleFile);
 		
-		if (arrayLen(result.fileCoverage) > 0) {
-			var firstLine = result.fileCoverage[1];
+		var fileCoverage = result.getFileCoverage();
+		if (arrayLen(fileCoverage) > 0) {
+			var firstLine = fileCoverage[1];
 			var parts = listToArray(firstLine, chr(9), false, false);
 			
 			expect(parts).toHaveLength(4, "Coverage line should have exactly 4 tab-separated parts");

@@ -17,8 +17,9 @@ component accessors="true" {
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
 
-		// Always instantiate the utility component for code coverage helpers
-		variables.utils = new lucee.extension.lcov.CoverageBlockProcessor(arguments.options);
+		// Use factory for code coverage helpers, support useDevelop override
+		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor");
 		variables.ast = new ExecutableLineCounter(arguments.options);
 		return this;
 	}
@@ -40,10 +41,10 @@ component accessors="true" {
 	* @needSingleFileCoverage Whether to return isolated coverage data for this file (for HTML generation)
 	* @allowList Array of allowed file patterns/paths
 	* @blocklist Array of blocked file patterns/paths
-	* @return Struct containing sections and fileCoverage data
+	* @return Result object containing sections and fileCoverage data
 	*/
-	public struct function parseExlFile(string exlPath, boolean needSingleFileCoverage = false,
-		array allowList=[], array blocklist=[], boolean useAstForLinesFound = true) {
+	public result function parseExlFile(string exlPath, boolean needSingleFileCoverage = false,
+		array allowList=[], array blocklist=[], boolean useAstForLinesFound = false) {
 
 		var startTime = getTickCount();
 
@@ -58,6 +59,7 @@ component accessors="true" {
 
 		var section = 0; // 0=metadata, 1=files, 2=coverage
 		var emptyLineCount = 0;
+	// ...existing code...
 		var metadata = [];
 		var files = [];
 		var fileCoverage = [];
@@ -82,35 +84,33 @@ component accessors="true" {
 			}
 		}
 
-		   var coverage = {
-			   "metadata": parseMetadata( metadata ),
-			   "source": parseFiles( files, exlPath, allowList, blocklist, arguments.useAstForLinesFound ),
-			   "fileCoverage": fileCoverage,
-			   "exeLog": exlPath
-		   };
+		var coverage = new lucee.extension.lcov.model.result();
 
-		if ( structCount( coverage.source.files ) == 0 && arrayLen( coverage.fileCoverage ) == 0 ) {
-			logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
-			return {};
-		}
+			coverage.setMetadata(parseMetadata( metadata ));
+			// Parse files and assign to canonical files struct
+			var parsedFiles = parseFiles( files, exlPath, allowList, blocklist, arguments.useAstForLinesFound );
+			coverage.setFiles(parsedFiles.files);
+			coverage.setFileCoverage(fileCoverage);
+			coverage.setExeLog(exlPath);
+
+			if ( structCount( coverage.getFiles() ) == 0 && arrayLen( coverage.getFileCoverage() ) == 0 ) {
+				logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
+				return {};
+			}
 
 		// OPTIMIZATION: Pre-aggregate coverage data before expensive processing
-		coverage["coverage"] = parseCoverage( coverage );
-
-		// Add performance metrics from the optimization processing
-		if (structKeyExists(variables, "performanceData")) {
-			coverage["parserPerformance"] = variables.performanceData;
-		}
+		parseCoverage( coverage );
 
 		var totalTime = getTickCount() - startTime;
-		logger("Files: " & structCount( coverage.source.files ) &
-		//	", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
-			", raw rows: " & numberFormat(arrayLen( coverage.fileCoverage )) &
-			", in " & numberFormat(totalTime ) & "ms");
+			logger("Files: " & structCount( coverage.getFiles() ) &
+				//", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
+				", raw rows: " & numberFormat(arrayLen( coverage.getFileCoverage() )) &
+				", in " & numberFormat(totalTime ) & "ms");
 
 		// Write out filecoverage as json using compact=false for debugging
-		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), serializeJson( var=coverage, compact=false ) );
+		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), coverage.toJson(pretty=true) );
 		logger( "" );
+
 
 		return coverage;
 	}
@@ -118,11 +118,11 @@ component accessors="true" {
 	/**
 	* Combine identical coverage entries before line processing
 	*/
-	private struct function parseCoverage( struct coverageData) {
-		var totalLines = arrayLen(arguments.coverageData.fileCoverage);
-		var files = arguments.coverageData.source.files;
-		var fileCoverage = arguments.coverageData.fileCoverage;
-		var exlPath = arguments.coverageData.exeLog;
+	private struct function parseCoverage( result coverageData) {
+		var totalLines = arrayLen(arguments.coverageData.getFileCoverage());
+		var files = arguments.coverageData.getFiles();
+		var fileCoverage = arguments.coverageData.getFileCoverage();
+		var exlPath = arguments.coverageData.getExeLog();
 		var start = getTickCount();
 
 		// Build line mappings cache for all files
@@ -175,7 +175,7 @@ component accessors="true" {
 
 		logger("Post merging: " & numberFormat(aggregatedEntries)
 			& " unique (" & reductionPercent & "% reduction)"
-		    & " in " & numberFormat(aggregationTime) & "ms");
+			& " in " & numberFormat(aggregationTime) & "ms");
 		// logger("Found " & duplicateCount & " duplicate entries to combine");
 
 		/*
@@ -251,7 +251,7 @@ component accessors="true" {
 		*/
 
 		// Store performance data to be added at main level
-		variables.performanceData = {
+		coverageData.setParserPerformance({
 			"processingTime": totalTime,
 			"timePerLine": timePerOriginalLine,
 			"totalLines": totalLines,
@@ -267,8 +267,8 @@ component accessors="true" {
 			},
 			"memoryOptimizations": true,
 			"parallelProcessing": false
-		};
-
+		});
+		coverageData.setCoverage(coverage);
 		return coverage;
 	}
 
@@ -288,7 +288,7 @@ component accessors="true" {
 
 			// Get line mappings once per file
 			if (!structKeyExists(variables.lineMappingsCache, fpath)) {
-				variables.lineMappingsCache[fpath] = variables.utils.buildCharacterToLineMapping(
+				variables.lineMappingsCache[fpath] = variables.CoverageBlockProcessor.buildCharacterToLineMapping(
 					variables.fileContentsCache[fpath]
 				);
 			}
@@ -323,7 +323,7 @@ component accessors="true" {
 	* File parsing with early validation
 	*/
 	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blocklist, boolean useAstForLinesFound = true) {
+			array allowList, array blocklist, boolean useAstForLinesFound = false) {
 
 		var files = {};
 		var skipped = {};
@@ -383,7 +383,7 @@ component accessors="true" {
 
 				// Build line mapping cache if not exists
 				if ( !structKeyExists( variables.lineMappingsCache, path) ) {
-					variables.lineMappingsCache[ path] = variables.utils.buildCharacterToLineMapping(
+					variables.lineMappingsCache[ path] = variables.CoverageBlockProcessor.buildCharacterToLineMapping(
 						variables.fileContentsCache[ path]
 					);
 				}
@@ -398,13 +398,13 @@ component accessors="true" {
 					lineInfo = variables.ast.countExecutableLinesSimple( sourceLines );
 				}
 
-				files[ num ] = {
-					"path": path,
-					"lineCount": arrayLen( variables.lineMappingsCache[ path] ),
-					"linesFound": lineInfo.count,
-					"lines": sourceLines,
-					"executableLines": lineInfo.executableLines
-				};
+				   files[ num ] = {
+					   "path": path,
+					   "linesSource": arrayLen( variables.lineMappingsCache[ path] ),
+					   "linesFound": lineInfo.count,
+					   "lines": sourceLines,
+					   "executableLines": lineInfo.executableLines
+				   };
 			}
 		}
 

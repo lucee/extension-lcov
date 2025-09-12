@@ -3,15 +3,32 @@
 */
 component {
 
-	// Instance variable to store display unit
-	variables.displayUnit = "micro";
-	variables.outputDir = "";
+    // Instance variable to store display unit struct
+    variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
+    variables.outputDir = "";
 	
 	/**
 	* Constructor/init function
 	*/
-	public function init(string displayUnit = "micro", boolean verbose = false) {
-		variables.displayUnit = arguments.displayUnit;
+	public function init(any displayUnit = { symbol: "μs", name: "micro", factor: 1 }, boolean verbose = false) {
+		// Accept either a struct or a string for displayUnit
+		if (isStruct(arguments.displayUnit)) {
+			variables.displayUnit = arguments.displayUnit;
+		} else if (isSimpleValue(arguments.displayUnit)) {
+			var unit = lcase(arguments.displayUnit);
+			switch (unit) {
+				case "ms":
+					variables.displayUnit = { symbol: "ms", name: "ms", factor: 1000 };
+					break;
+				case "s":
+					variables.displayUnit = { symbol: "s", name: "s", factor: 1000000 };
+					break;
+				default:
+					variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
+			}
+		} else {
+			variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
+		}
 		variables.verbose = arguments.verbose;
 		return this;
 	}
@@ -34,18 +51,20 @@ component {
 	}
 
 	/**
-	 * Generates an HTML report using the new result struct format
-	 * @result The parsed result struct from the new parser (should contain metadata, files, fileCoverage, coverage, source)
+	 * Generates an HTML report using the result model instance (must be lucee.extension.lcov.model.result)
+	 * @result The parsed result model instance (must have getMetadataProperty, getStatsProperty, etc.)
 	 */
-	public string function generateHtmlReport(struct result) {
-		if (!structKeyExists(arguments.result, "coverage") || structIsEmpty(arguments.result.coverage)) {
-			logger("No coverage data found in " & arguments.result.exeLog & ", skipping HTML report generation");
+	public string function generateHtmlReport(required result result) {
+		if (!isInstanceOf(arguments.result, "lucee.extension.lcov.model.result")) {
+			throw(message="generateHtmlReport requires a lucee.extension.lcov.model.result instance, got: " & getMetaData(arguments.result).name);
+		}
+		if (!isStruct(arguments.result.getCoverage()) || structIsEmpty(arguments.result.getCoverage())) {
+			logger("No coverage data found in " & arguments.result.getExeLog() & ", skipping HTML report generation");
 			return; // Skip empty files
 		}
 
-
 		var htmlWriter = new HtmlWriter(variables.displayUnit);
-		var html = htmlWriter.generateHtmlContent(result);
+		var html = htmlWriter.generateHtmlContent(result, variables.displayUnit);
 		var htmlPath = createHtmlPath(result);
 		fileWrite(htmlPath, html);
 
@@ -72,15 +91,19 @@ component {
 			}
 		}
 
-		// Sort by coverage, totalLines / totalLinesFound (highest first)
+		// Sort by coverage, linesHit / linesFound (highest first, fail-fast)
 		if (arrayLen(indexData) > 0) {
 			arraySort(indexData, function(a, b) {
-				var coverageA = a.totalLinesHit / a.totalLinesFound;
-				var coverageB = b.totalLinesHit / b.totalLinesFound;
-				if (coverageA != coverageB) {
-					return coverageB - coverageA;
-				}
-				return 0;
+				   if (!structKeyExists(a, "totalLinesHit") || !structKeyExists(a, "totalLinesFound") || !structKeyExists(b, "totalLinesHit") || !structKeyExists(b, "totalLinesFound")) {
+					   throw "Missing totalLinesHit/totalLinesFound in index entry during sort.";
+				   }
+				   var coverageA = (a.totalLinesFound > 0) ? (a.totalLinesHit / a.totalLinesFound) : -1;
+				   var coverageB = (b.totalLinesFound > 0) ? (b.totalLinesHit / b.totalLinesFound) : -1;
+				   // Sort entries with zero linesFound to the end
+				   if (coverageA != coverageB) {
+					   return coverageB - coverageA;
+				   }
+				   return 0;
 			});
 		}
 
@@ -100,17 +123,21 @@ component {
 	*/
 	private struct function trackReportInIndex( string htmlPath, struct result ) {
 
+		// Use explicit, fail-fast coverage stats
+		if (!isNumeric(result.getStatsProperty("totalLinesFound")) || !isNumeric(result.getStatsProperty("totalLinesHit"))) {
+			throw "Missing totalLinesFound/totalLinesHit in result stats for " & arguments.htmlPath;
+		}
 		var reportEntry = {
 			"htmlFile": getFileFromPath( arguments.htmlPath ),
-			"scriptName": result.metadata[ "script-name" ] ?: "unknown",
-			"executionTime": result.metadata[ "execution-time" ] ?: "N/A",
-			"unit": result.metadata[ "unit" ] ?: "μs",
+			"scriptName": result.getMetadataProperty("script-name") ?: "unknown",
+			"executionTime": result.getMetadataProperty("execution-time") ?: "N/A",
+			"unit": result.getMetadataProperty("unit") ?: "bcs",
 			"timestamp": now(),
 			"fullPath": expandPath(arguments.htmlPath),
-			"totalLinesFound": arguments.result.stats.totalLinesFound,
-			"totalLinesHit": arguments.result.stats.totalLinesHit,
-			"totalExecutions": arguments.result.stats.totalExecutions,
-			"totalExecutionTime": arguments.result.stats.totalExecutionTime
+			"totalLinesFound": result.getStatsProperty("totalLinesFound"),
+			"totalLinesHit": result.getStatsProperty("totalLinesHit"),
+			"totalExecutions": result.getStatsProperty("totalExecutions"),
+			"totalExecutionTime": result.getStatsProperty("totalExecutionTime")
 		};
 
 		var indexJsonPath = getDirectoryFromPath( arguments.htmlPath ) & "index.json";
@@ -132,46 +159,26 @@ component {
 	* Creates a human-friendly HTML filename from the .exl path and metadata
 	*/
 	private string function createHtmlPath(struct result) {
-		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.exeLog );
+		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.getExeLog() );
+		// Ensure parent directory exists before writing file
+		if (!directoryExists(directory)) {
+			// Recursively create parent directories
+			directoryCreate(directory);
+		}
 		// Ensure directory ends with separator
 		if (len(directory) && !right(directory, 1) == "/" && !right(directory, 1) == "\") {
 			directory = directory & "/";
 		}
-		
-		var baseFileName = "";
-		
-		// Check if this is a source file path (separateFiles mode) or .exl execution file
-		if (right(result.exeLog, 4) == ".exl") {
-			// Original .exl execution file mode - extract number prefix
-			var fileName = getFileFromPath( result.exeLog );
-			var numberPrefix = listFirst( fileName, "-" );
-			var scriptName = result.metadata[ "script-name" ] ?: "unknown";
-			// Clean up script name for use as filename
-			scriptName = cleanScriptNameForFilename(scriptName);
-			baseFileName = numberPrefix & "-" & scriptName;
-		} else {
-			// Source file mode (separateFiles: true) - use source file name
-			var sourceFileName = getFileFromPath( result.exeLog );
-			// Remove file extension and clean up for HTML filename
-			var cleanName = reReplace(sourceFileName, "\.(cfm|cfc)$", "");
-			cleanName = cleanScriptNameForFilename(cleanName);
-			baseFileName = cleanName;
+		var newFileName = result.getOutputFilename();
+		// Require outputFilename to be set, fail fast if not present
+		if (len(newFileName) eq 0) {
+			throw(message="Result model must have outputFilename set for HTML report generation.");
+		}		
+		// Ensure .html extension
+		if (!right(newFileName, 5) == ".html") {
+			newFileName &= ".html";
 		}
-		var newFileName = baseFileName & ".html";
 		var fullPath = expandPath(directory & newFileName);
-
-		// Check for filename conflicts and add suffix if needed
-		var suffix = 1;
-		while (fileExists( fullPath )) {
-			newFileName = baseFileName & "-" & suffix & ".html";
-			fullPath = expandPath(directory & newFileName);
-			suffix++;
-			// Safety check to prevent infinite loop
-			if ( suffix > 1000 ) {
-				break;
-			}
-		}
-
 		return fullPath;
 	}
 

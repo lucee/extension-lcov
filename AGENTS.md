@@ -7,32 +7,52 @@
 
 ### Code Quality Policies
 
-- Avoid using the elvis operator (`?:`) unless explicitly permitted. Its use often hides technical debt, masks underlying errors, and makes code harder to reason about. Prefer explicit error handling and fail fast on invalid or missing values.
+- When a component has `accessors=true`, getters and setters are automatically generated for all properties. Always use these methods (e.g., `getSource()`, `setSource()`) instead of direct property access (e.g., `result.source`).
+
+- Fail fast and loudly if required properties are missing or invalid:
+    - Never use defensive checks (e.g., `structKeyExists` with fallback/defaults) or default to 0 or any other value for missing stats.
+    - Never use the elvis operator (`?:`) to provide fallback values for required properties.
+    - If a required property is missing or invalid, throw an error immediately.
 
 - Avoid defensive coding. Let code fail fast and loudly on invalid input or unexpected state. Defensive checks often hide real problems and make technical debt harder to detect and fix.
 
-- Always use tabs for indentation. Never use spaces for indentation in any CFML, Java, or script files in this project, for .yml it's allowed
+- Always use tabs for indentation. Never use spaces for indentation in any CFML, Java, or script files in this project, for .yml it's allowed.
 
 - Never use `val()`; it is a code smell that hides errors and should be avoided. Always handle type conversion explicitly and fail fast on invalid input.
 
-- Avoid using the elvis operator (`?:`) unless explicitly permitted. Its use often hides technical debt, masks underlying errors, and makes code harder to reason about. Prefer explicit error handling and fail fast on invalid or missing values.
+
+- Never use `evaluate`. It is unsafe, can hide errors, and should be avoided in all code and tests. Always use explicit, safe alternatives for dynamic logic.
 
 - Avoid using too many try/catch blocks. Only use try/catch when you are adding useful context to the error. When you do, always use the `catch` attribute to include the original exception (e.g., `cause=e`) so the full stack trace and context are preserved.
 
 - Accessibility is important—ensure sufficient color contrast for readability.
 
-### the /develop folder
 
-The parser is complex, we have tests which allow comparing the current implementation, with proposed changes
+### The /develop Folder and Component Swapping Pattern
 
-Refer to [develop/README.md](source\components\lucee\extension\lcov\develop\README.md)
+The `/develop` folder contains experimental or optimized versions of core components (such as `CoverageBlockProcessor`, `CoverageStats`, etc). To support seamless switching between the stable and develop implementations, the codebase uses a **factory pattern**:
+
+- The `CoverageComponentFactory` component provides methods to obtain either the stable or develop version of a component.
+- The factory supports both a global flag (`useDevelop`) and a per-call override (e.g., `getCoverageBlockProcessor(useDevelop=true)`).
+- All core logic and tests must use the factory to instantiate these components, never directly with `new`.
+- This ensures that tests can compare stable and develop implementations side-by-side, and that the main code can be switched globally or per-call for experiments or rollouts.
+
+**Example usage:**
+
+```cfml
+var factory = new lucee.extension.lcov.CoverageComponentFactory();
+var stableBlockProcessor = factory.getCoverageBlockProcessor(useDevelop=false);
+var developBlockProcessor = factory.getCoverageBlockProcessor(useDevelop=true);
+```
+
+Refer to [develop/README.md](source\components\lucee\extension\lcov\develop\README.md) for more details on the develop branch and its usage.
 
 ### Tests
 
 - tests go in the `/tests` folder
 - use testbox for tests, prefer BDD style
 - all tests should extend  org.lucee.cfml.test.LuceeTestCase
-- all tests should use the label "lcov", when running tests, always pass in the filter -DtestLables="lcov"
+- all tests must include labels="lcov" on the component declaration, when running tests, always pass in the filter -DtestLabels="lcov"
 - as a general approach to testing, leave any generated artifacts in place for review afterwards, simply clean the target folder them in the `beforeAll` steps next time the test is run
 - tests can be run using [script-runner](https://github.com/lucee/script-runner/tree/main), read the d:\work\script-runner\README.md
 - refer to https://docs.lucee.org/guides/working-with-source/build-from-source.html#build-performance-tips for how the lucee test runner works
@@ -40,6 +60,7 @@ Refer to [develop/README.md](source\components\lucee\extension\lcov\develop\READ
 - use matchers https://apidocs.ortussolutions.com/testbox/3.2.0/testbox/system/Expectation.html READ this file, don't imagine it's contents from the url!
 - when writing `expect()` statements, pass in the object, i.e. the matcher to the work, no `arraylen()`, or `stuctKeyExists()`, or `isNumeric()` in the argument for `expect()`
 
+- **CFML function calls:** Never mix named and unnamed (positional) arguments in a single function call. All arguments must be either positional or all named, matching the function signature. Mixing them will cause a runtime error
 - Never add defensive code to mask errors or inconsistencies. Always fail early and fail hard.
 - Never use an elvis expression (`?:`) without explicit permission; it usually hides an underlying error. Always prefer explicit error handling and fail fast.
 - Avoid try/catch unless you are adding useful info to the error; always rethrow, never swallow errors.
@@ -49,12 +70,16 @@ Refer to [develop/README.md](source\components\lucee\extension\lcov\develop\READ
 - Avoid long tests; split them into smaller tests if they get too large, but ask first
 - When running tests and an error occurs, always show the error before actioning the error, propose changes.
 - After running tests, always provide a summary of any errors or warnings produced.
-- Admin password is stored in `request.SERVERADMINPASSWORD`.
+
+- Admin password is stored in `request.SERVERADMINPASSWORD`, but only when using script-runner and the lucee bootstrap-tests.cfm runner
 - Only check for the existence of public methods, as in the public API, not private methods.
 
 ### Running Tests
 
 ⚠️ **CRITICAL**: Never use a leading slash in the -Dexecute parameter. It can cause path conversion issues.
+
+
+- When tests fail, always show the concise CFML stacktrace (with file paths and line numbers in your code). If both are present, prioritize showing the CFML stacktrace for clarity.
 
 #### Using run-tests.bat
 The simplest way to run tests is using the `tests\run-tests.bat` script:
@@ -117,3 +142,22 @@ ant -f "d:/work/script-runner/build.xml" \
 ```
 
 This allows running multiple tests in parallel without conflicts
+
+### CFML serializeJSON usage
+
+> **Note:** The `compact` argument for `serializeJSON` is NOT the second argument. Always use named arguments for clarity and correctness. For pretty-printed JSON, use:
+
+
+```cfml
+// CORRECT: Use all named arguments (do not mix positional and named)
+var json = serializeJSON(var=data, compact=false); // pretty print
+```
+
+> **Important:** You cannot mix named and unnamed arguments in a single function call. All arguments must be either positional or all named, matching the function signature. Mixing them will cause a runtime error.
+
+Do **not** use positional arguments for `compact`:
+
+```cfml
+// INCORRECT: This does NOT control pretty print
+var json = serializeJSON(data, true);
+```

@@ -7,7 +7,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	public function init(struct options = {}) {
 		// Store options and extract verbose flag
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;		
 		return this;
 	}
 
@@ -34,7 +34,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 			totalBlocks += arrayLen(arguments.blocksByFile[fileIdx]);
 		}
 
-		var coverage = {};
+		var coverage = [=];
 		var executableLinesCache = {};
 		for (var fileIdx in arguments.files) {
 			executableLinesCache[fileIdx] = structKeyExists(arguments.files[fileIdx], "executableLines") ?
@@ -103,7 +103,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	public numeric function getLineFromCharacterPosition(charPos, filePath, lineMapping, mappingLen, minLine = 1) {
 		// Fail fast if mapping is invalid
 		if (!isArray(arguments.lineMapping) || arguments.mappingLen == 0) {
-			throw 'getLineFromCharacterPosition: Invalid lineMapping or mappingLen=0. Args: charPos=' & arguments.charPos & ', mappingLen=' & arguments.mappingLen & ', minLine=' & arguments.minLine & ', lineMappingType=' & (isArray(arguments.lineMapping) ? 'array' : typeOf(arguments.lineMapping));
+			throw 'getLineFromCharacterPosition: Invalid lineMapping or mappingLen=0. ' & serializeJSON(var=arguments);
 		}
 		// Use minLine hint for sequential processing, i.e. startLine when processing endline
 		var low = arguments.minLine;

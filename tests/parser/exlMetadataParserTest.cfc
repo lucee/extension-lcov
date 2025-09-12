@@ -1,7 +1,8 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
-		variables.utils = new lucee.extension.lcov.CoverageBlockProcessor();
+		var factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.utils = factory.getComponent(name="ExecutionLogParser");
 	}
 	
 	function testParseMetadata() {

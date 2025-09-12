@@ -1,4 +1,135 @@
+/**
+ * CoverageMerger.cfc
+ *
+ * Responsible for merging code coverage data from multiple execution log files (.exl files)
+ * and producing consolidated, per-file coverage reports.
+ *
+ * Responsibilities:
+ * - Parses and combines coverage data from multiple sources, mapping file indices to real file paths.
+ * - Merges line-by-line execution counts for each source file across all runs.
+ * - Builds a unified result model for each file, including statistics and metadata.
+ * - Writes per-file JSON result files, each containing coverage data and the file path as a property.
+ * - Ensures only valid files (with a real path) are included in the output, skipping or erroring on bogus indices.
+ *
+ * File Index Handling:
+ * - File indices are assigned based on the order or mapping of files in the parsed data.
+ * - Only indices that exist in source.files or filesData and have a valid path are considered valid.
+ * - If an index does not map to a real file, it is skipped to prevent bogus entries in the output.
+ *
+ * Single File Case:
+ * - If only one source file is processed, the only valid file index is 0.
+ * - All coverage data, file stats, and JSON output will be keyed by 0, and the file mapping will associate index 0 with the real file path.
+ * - There are no other indices to map or merge in this case.
+ */
 component {
+
+	// Import CoverageMergerUtils for private utility logic
+	variables.utils = new CoverageMergerUtils();
+	variables.debug = false;
+
+
+	/**
+	 * Merge execution results by source file and write them directly to JSON files
+	 * When separateFiles: true, this combines coverage data from multiple .exl runs
+	 * that executed the same source files, creating one JSON file per source file
+	 * @results Struct of results keyed by .exl file path
+	 * @outputDir Directory to write the file-*.json files to
+	 * @verbose Boolean flag for verbose logging
+	 * @return Array of written file paths
+	 */
+	public struct function mergeResults(required struct results, required string outputDir, boolean verbose=false) {
+		// Merge the result structs (all logic moved to private function)
+		var mergedResults = mergeResultStructs(arguments.results, arguments.verbose);
+		// Recalculate and synchronize all per-file stats (linesFound, linesHit, etc.) in mergedResults
+		new CoverageStats().calculateStatsForMergedResults(mergedResults);
+		if (variables.debug) {
+			systemOutput("Merged Results: " & serializeJSON(var=mergedResults, compact=false), true);
+		}
+		return mergedResults;
+	}
+
+	/**
+	 * Private: Merges all result structs into a single mergedResults struct
+	 * @results Struct of results keyed by .exl file path
+	 * @verbose Boolean flag for verbose logging
+	 * @return mergedResults struct
+	 */
+	public struct function mergeResultStructs(required struct results, boolean verbose=false) {
+		var validResults = utils.filterValidResults(arguments.results);
+		var mappings = utils.buildFileIndexMappings(validResults);
+		if (variables.debug) {
+			systemOutput("File Mappings: " & serializeJSON(var=mappings, compact=false), true);
+			systemOutput("Source Results: " & serializeJSON(var=validResults, compact=false), true);
+		}
+		var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+		var sourceFileStats = createSourceFileStats(mappings.indexToFilePath);
+		var totalMergeOperations = 0;
+		mergedResults = mergeAllCoverageDataFromResults(validResults, mergedResults, mappings, sourceFileStats, totalMergeOperations);
+
+		if (variables.debug) {
+			systemOutput("Total merge operations: " & totalMergeOperations, true);
+			systemOutput("Merged Results before calc Stats: " & serializeJSON(var=mergedResults, compact=false), true);
+		}
+		return mergedResults;
+	}
+
+	/**
+	* Public: Merges all coverage data from validResults into mergedResults using mappings and sourceFileStats.
+	* Extracted from mergeResultStructs for clarity and testability.
+	* @validResults Struct of filtered valid results keyed by exlPath
+	* @mergedResults Struct of initialized merged results (by canonical index)
+	* @mappings Struct with filePathToIndex and indexToFilePath
+	* @sourceFileStats Struct for tracking exlFiles per canonical index
+	* @totalMergeOperations Numeric, running total of merge operations (will be updated)
+	* @return mergedResults struct
+	*/
+	public struct function mergeAllCoverageDataFromResults(
+		required struct validResults,
+		required struct mergedResults,
+		required struct mappings,
+		required struct sourceFileStats,
+		numeric totalMergeOperations = 0
+	) {
+		// Track which exlPath/fileIndex was used to initialize each merged entry
+		var initializedBy = {};
+		for (var canonicalIndex in arguments.mergedResults) {
+			var mergedEntry = arguments.mergedResults[canonicalIndex];
+			var files = mergedEntry.getFiles();
+			for (var fileIndex in files) {
+				var filePath = files[fileIndex].path;
+				// Find the result and fileIndex that was used to initialize this merged entry
+				for (var exlPath in arguments.validResults) {
+					var result = arguments.validResults[exlPath];
+					var resultFiles = result.getFiles();
+					if (structKeyExists(resultFiles, fileIndex) && resultFiles[fileIndex].path == filePath) {
+						initializedBy[canonicalIndex] = { exlPath: exlPath, fileIndex: fileIndex };
+						break;
+					}
+				}
+			}
+		}
+
+		for (var exlPath in arguments.validResults) {
+			var result = arguments.validResults[exlPath];
+			var exlFileName = listLast(exlPath, "/\\");
+			var coverageData = result.getCoverage();
+			for (var fileIndex in coverageData) {
+				var sourceFilePath = result.getFileItem(fileIndex).path;
+				var canonicalIndex = arguments.mappings.filePathToIndex[sourceFilePath];
+				var sourceFileCoverage = coverageData[fileIndex];
+				// Only merge if this exlPath/fileIndex was NOT used to initialize the merged entry
+				if (!(structKeyExists(initializedBy, canonicalIndex) && initializedBy[canonicalIndex].exlPath == exlPath 
+						&& initializedBy[canonicalIndex].fileIndex == fileIndex)) {
+					var mergedLines = mergeCoverageData(arguments.mergedResults[canonicalIndex], sourceFileCoverage, sourceFilePath, 0);
+					arguments.totalMergeOperations += mergedLines;
+				}
+				mergeFileCoverageArray(arguments.mergedResults[canonicalIndex], result, fileIndex, 0, sourceFilePath);
+				arrayAppend(arguments.sourceFileStats[canonicalIndex].exlFiles, exlFileName);
+			}
+		}
+		return arguments.mergedResults;
+	}
+
 	/**
 	 *  Merge coverage results by file path from multiple .exl parsing results
 	 * Uses pre-computed file mappings to avoid redundant lookups
@@ -6,185 +137,108 @@ component {
 	 * @return Struct with mergedCoverage and sorted files array
 	 */
 	public struct function mergeResultsByFile(required struct results) {
-		var startTime = getTickCount();
+		var mappingResult = buildFileMappingsAndInitMerged(arguments.results);
+		var merged = mappingResult.merged;
+		var fileMappings = mappingResult.fileMappings;
 
-		var merged = {
-			files: {},
-			coverage: {}
+		mergeCoverageLines(merged, fileMappings, arguments.results);
+		// Stats calculation moved to CoverageStats component
+
+		return {
+			"mergedCoverage": merged,
+			"files": duplicate(merged.files)
 		};
+	}
 
-		// OPTIMIZATION: Pre-build all file mappings to avoid repeated lookups
+	public struct function buildFileMappingsAndInitMerged(required struct results) {
+		var merged = { files: {}, coverage: {} };
 		var fileMappings = {};
-		var totalSourceFiles = 0;
-
 		for (var src in arguments.results) {
-			var files = arguments.results[src].source.files;
+			var files = arguments.results[src].getFiles();
 			fileMappings[src] = {};
-
-			for (var f in files) {
-				if (!structKeyExists(merged.files, files[f].path)) {
-					merged.files[files[f].path] = files[f];
-					totalSourceFiles++;
+			for (var fKey in files) {
+				if (!structKeyExists(merged.files, files[fKey].path)) {
+					merged.files[files[fKey].path] = files[fKey];
+				} else {
+					// Merge executableLines from multiple runs of the same file
+					if (structKeyExists(files[fKey], "executableLines") && structKeyExists(merged.files[files[fKey].path], "executableLines")) {
+						var existingExecLines = merged.files[files[fKey].path].executableLines;
+						var newExecLines = files[fKey].executableLines;
+						for (var lineNum in newExecLines) {
+							if (!structKeyExists(existingExecLines, lineNum)) {
+								existingExecLines[lineNum] = newExecLines[lineNum];
+							}
+						}
+					}
 				}
-				fileMappings[src][f] = files[f].path;
+				fileMappings[src][fKey] = files[fKey].path;
 			}
 		}
+		return { merged: merged, fileMappings: fileMappings };
+	}
 
-		// OPTIMIZATION: Process coverage with pre-computed mappings
+	public void function mergeCoverageLines(required struct merged, required struct fileMappings, required struct results) {
 		var totalCoverageLines = 0;
 		for (var src in arguments.results) {
-			var coverage = arguments.results[src].coverage;
-			var mapping = fileMappings[src];
-
-			for (var f in coverage) {
-				var realFile = mapping[f];
-				if (!structKeyExists(merged.coverage, realFile)) {
-					merged.coverage[realFile] = {};
+			var coverage = arguments.results[src].getCoverage();
+			var mapping = arguments.fileMappings[src];
+			for (var fKey in coverage) {
+				var realFile = mapping[fKey];
+				if (!structKeyExists(arguments.merged.coverage, realFile)) {
+					arguments.merged.coverage[realFile] = {};
 				}
-
-				// OPTIMIZATION: Process line coverage in batch
-				var sourceLines = structKeyArray(coverage[f]);
-				// Get the max line for this file if available
+				var sourceLines = structKeyArray(coverage[fKey]);
 				var maxLine = 0;
-				if (structKeyExists(merged.files, realFile) && structKeyExists(merged.files[realFile], "lineCount")) {
-					maxLine = merged.files[realFile].lineCount;
+				if (structKeyExists(arguments.merged.files, realFile) && structKeyExists(arguments.merged.files[realFile], "linesSource")) {
+					maxLine = arguments.merged.files[realFile].linesSource;
 				}
-				for (var i = 1; i <= arrayLen(sourceLines); i++) {
-					var l = sourceLines[i];
+				for (var l in coverage[fKey]) {
 					if (maxLine > 0 && (l < 1 || l > maxLine)) {
 						throw(
 							"Invalid coverage data: line " & l & " is out of range for file " & realFile & " (max line: " & maxLine & ") in mergeResultsByFile. All lines: " & serializeJSON(sourceLines),
 							"CoverageDataError"
 						);
 					}
-					if (!structKeyExists(merged.coverage[realFile], l)) {
-						merged.coverage[realFile][l] = [0, 0];
+					if (!structKeyExists(arguments.merged.coverage[realFile], l)) {
+						arguments.merged.coverage[realFile][l] = [0, 0];
 					}
-					var lineData = merged.coverage[realFile][l];
-					var srcLineData = coverage[f][l];
+					var lineData = arguments.merged.coverage[realFile][l];
+					var srcLineData = coverage[fKey][l];
 					lineData[1] += srcLineData[1];
 					lineData[2] += srcLineData[2];
 					totalCoverageLines++;
 				}
 			}
 		}
+		if(variables.debug)
+			systemOutput("Merged " & totalCoverageLines & " coverage lines. merged: " & serializeJSON(arguments.merged));
+	}
 
-		var files = structKeyArray(merged.files);
-		arraySort(files, "textnocase");
 
-		return {
-			"mergedCoverage": merged,
-			"files": files
-		};
+	public struct function createSourceFileStats(required struct indexToFilePath) {
+		var sourceFileStats = {};
+		for (var canonicalIndex in indexToFilePath) {
+			sourceFileStats[canonicalIndex] = {"exlFiles": [], "totalLines": 0};
+		}
+		return sourceFileStats;
 	}
 
 	/**
-	 * Merge execution results by source file instead of by execution run
-	 * When separateFiles: true, this combines coverage data from multiple .exl runs
-	 * that executed the same source files, creating one result per source file
-	 * @results Struct of results keyed by .exl file path
-	 * @verbose Boolean flag for verbose logging
-	 * @return Struct of merged results keyed by source file path
+	 * mergedFileIndex: The canonical file index for the merged result model. In the current design, this should always be 0,
+	 * as all per-file data in the merged result is keyed by 0. This argument is retained for compatibility with previous logic
+	 * and for possible future multi-file support, but all access and writes should use 0 as the file index.
 	 */
-	public struct function mergeResultsBySourceFile(required struct results, boolean verbose = false) {
-		var mergeStart = getTickCount();
-		var mergedResults = {};
-		var sourceFileStats = {};
-		var totalFilesProcessed = 0;
-		var totalSourceFilesFound = 0;
-		var validResults = {};
-		for (var exlPath in arguments.results) {
-			var result = arguments.results[exlPath];
-			if (!structKeyExists(result, "coverage") || structIsEmpty(result.coverage)) {
-				continue;
-			}
-			validResults[exlPath] = result;
-			totalFilesProcessed++;
-		}
-		for (var exlPath in validResults) {
-			var result = validResults[exlPath];
-			for (var fileIndex in result.coverage) {
-				var sourceFilePath = resolveSourceFilePath(result, fileIndex);
-				if (!structKeyExists(mergedResults, sourceFilePath)) {
-					mergedResults[sourceFilePath] = initializeSourceFileEntry(sourceFilePath, result, fileIndex);
-					totalSourceFilesFound++;
-				}
-				if (!structKeyExists(sourceFileStats, sourceFilePath)) {
-					sourceFileStats[sourceFilePath] = {"exlFiles": [], "totalLines": 0};
-				}
-				arrayAppend(sourceFileStats[sourceFilePath].exlFiles, listLast(exlPath, "/\\"));
-			}
-		}
-		var totalMergeOperations = 0;
-		for (var exlPath in validResults) {
-			var result = validResults[exlPath];
-			var exlFileName = listLast(exlPath, "/\\");
-			for (var fileIndex in result.coverage) {
-				var sourceFilePath = resolveSourceFilePath(result, fileIndex);
-				var sourceFileCoverage = result.coverage[fileIndex];
-				var mergedLines = mergeCoverageData(mergedResults[sourceFilePath], sourceFileCoverage, sourceFilePath);
-				totalMergeOperations += mergedLines;
-				mergeFileCoverageArray(mergedResults[sourceFilePath], result, fileIndex);
-			}
-		}
-		for (var sourceFilePath in mergedResults) {
-			var startTime = getTickCount();
-			mergedResults[sourceFilePath].stats = new lucee.extension.lcov.CoverageStats().calculateCoverageStats(mergedResults[sourceFilePath]);
-			var calcTime = getTickCount() - startTime;
-			if (structKeyExists(mergedResults[sourceFilePath].stats, "totalExecutionTime")) {
-				mergedResults[sourceFilePath].metadata["execution-time"] = mergedResults[sourceFilePath].stats.totalExecutionTime;
-			}
-		}
-		return mergedResults;
-	}
-
-	private string function resolveSourceFilePath(required struct result, required string fileIndex) {
-		if (structKeyExists(arguments.result, "source") && 
-			structKeyExists(arguments.result.source, "files") && 
-			structKeyExists(arguments.result.source.files, arguments.fileIndex)) {
-			return arguments.result.source.files[arguments.fileIndex].path ?: arguments.fileIndex;
-		}
-		return arguments.fileIndex;
-	}
-
-	private struct function initializeSourceFileEntry(required string sourceFilePath, required struct sourceResult, required string fileIndex) {
-		var entry = {
-			"exeLog": arguments.sourceFilePath,
-			"metadata": {
-				"script-name": contractPath(arguments.sourceFilePath),
-				"execution-time": "0",
-				"unit": arguments.sourceResult.metadata.unit ?: "μs"
-			},
-			"files": {},
-			"fileCoverage": [],
-			"coverage": {},
-			"source": { "files": {} },
-			"stats": {
-				"totalLinesFound": 0,
-				"totalLinesHit": 0,
-				"totalExecutions": 0,
-				"totalExecutionTime": 0
-			}
-		};
-		entry.coverage[arguments.sourceFilePath] = {};
-		if (structKeyExists(arguments.sourceResult, "source") && 
-			structKeyExists(arguments.sourceResult.source, "files") && 
-			structKeyExists(arguments.sourceResult.source.files, arguments.fileIndex)) {
-			entry.source.files[arguments.sourceFilePath] = arguments.sourceResult.source.files[arguments.fileIndex];
-		}
-		if (structKeyExists(arguments.sourceResult, "files") && 
-			structKeyExists(arguments.sourceResult.files, arguments.fileIndex)) {
-			entry.files[arguments.sourceFilePath] = arguments.sourceResult.files[arguments.fileIndex];
-		}
-		return entry;
-	}
-
-	private numeric function mergeCoverageData(required struct targetResult, required struct sourceFileCoverage, required string sourceFilePath) {
-		var targetCoverage = arguments.targetResult.coverage[arguments.sourceFilePath];
+	public numeric function mergeCoverageData(required struct targetResult, required struct sourceFileCoverage,
+			required string sourceFilePath, numeric mergedFileIndex = 0) {
+		var coverageData = arguments.targetResult.getCoverage();
+		// Ensure coverageData is a struct, not an array
+		if (!isStruct(coverageData)) coverageData = {};
+		var fileIndex = toString(arguments.mergedFileIndex);
+		var targetCoverage = structKeyExists(coverageData, fileIndex) ? coverageData[fileIndex] : {};
 		var linesMerged = 0;
 		if ( structIsEmpty( targetCoverage ) ) {
-			arguments.targetResult.coverage[ arguments.sourceFilePath ]  
-				= duplicate( arguments.sourceFileCoverage );
+			coverageData[fileIndex] = duplicate( arguments.sourceFileCoverage );
+			arguments.targetResult.setCoverage(coverageData);
 			return structCount( arguments.sourceFileCoverage );
 		}
 		for (var lineNumber in arguments.sourceFileCoverage) {
@@ -193,24 +247,54 @@ component {
 				targetCoverage[ lineNumber ] = duplicate( sourceLine );
 			} else {
 				var targetLine = targetCoverage[ lineNumber ];
-				for (var key in sourceLine) {
+				// Fail-fast: ensure both arrays are the same length and valid
+				if (!isArray(targetLine) || !isArray(sourceLine)) {
+					throw("Coverage line data is not an array at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
+				}
+				if (arrayLen(targetLine) != arrayLen(sourceLine)) {
+					throw("Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
+				}
+				for (var key=1; key <= arrayLen(sourceLine); key++) {
+					if (key > arrayLen(targetLine)) {
+						throw("Array index [" & key & "] out of range for targetLine (size=" & arrayLen(targetLine) & ") at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
+					}
 					targetLine[ key ] += sourceLine[ key ];
 				}
 			}
 			linesMerged++;
 		}
+		coverageData[fileIndex] = targetCoverage;
+		arguments.targetResult.setCoverage(coverageData);
 		return linesMerged;
 	}
 
-	private void function mergeFileCoverageArray(required struct targetResult, required struct sourceResult, required string fileIndex) {
-		if (!structKeyExists(arguments.sourceResult, "fileCoverage") || !isArray(arguments.sourceResult.fileCoverage)) {
+	/**
+	 * Remap fileCoverage array lines to canonical file path for downstream consumers.
+	 * Only lines matching the canonical fileIndex (always 0 internally) are allowed.
+	 * Fails fast if any line has an unexpected fileIndex value.
+	 */
+	public void function mergeFileCoverageArray(required result targetResult, required result sourceResult,
+			required string fileIndex, numeric mergedFileIndex = 0, string sourceFilePath = "") {
+		if (!isArray(sourceResult.getFileCoverage())) {
 			return;
 		}
-		for (var coverageLine in arguments.sourceResult.fileCoverage) {
+		for (var coverageLine in sourceResult.getFileCoverage()) {
 			var parts = listToArray(coverageLine, chr(9), false, false);
-			if (arrayLen(parts) >= 2 && parts[1] == arguments.fileIndex) {
-				arrayAppend(arguments.targetResult.fileCoverage, coverageLine);
+			if (arrayLen(parts) != 4) {
+				throw(
+					"Malformed fileCoverage line: [" & coverageLine & "]. " &
+					"Expected format: <fileIndex>\\t<startLine>\\t<endLine>\\t<hitCount> (4 columns). " &
+					"Found [" & arrayLen(parts) & "] columns. Parsed parts: [" & serializeJSON(parts) & "]",
+					"CoverageDataError"
+				);
 			}
+			// Always remap fileIndex to 0 for canonical merged result (column 1)
+			parts[1] = "0";
+			var remappedLine = arrayToList(parts, chr(9));
+			var targetArray = targetResult.getFileCoverage();
+			arrayAppend(targetArray, remappedLine);
+			targetResult.setFileCoverage(targetArray);
 		}
 	}
+
 }

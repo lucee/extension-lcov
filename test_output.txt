@@ -1,0 +1,624 @@
+Running LCOV Extension Tests
+
+Building extension first...
+[INFO] Scanning for projects...
+[INFO] Inspecting build with total of 1 modules
+[INFO] Installing Central Publishing features
+[INFO] 
+[INFO] ----------------------< org.lucee:lcov-extension >----------------------
+[INFO] Building LCOV Code Coverage Extension 1.0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- antrun:1.8:run (default) @ lcov-extension ---
+[INFO] Executing tasks
+
+main:
+
+init:
+   [delete] Deleting directory D:\work\lucee-extensions\extension-lcov\temp
+   [delete] Deleting directory D:\work\lucee-extensions\extension-lcov\target
+    [mkdir] Created dir: D:\work\lucee-extensions\extension-lcov\temp
+    [mkdir] Created dir: D:\work\lucee-extensions\extension-lcov\target
+
+createManifest:
+
+zip:
+     [copy] Copying 1 file to D:\work\lucee-extensions\extension-lcov\temp\META-INF
+     [copy] Copying 17 files to D:\work\lucee-extensions\extension-lcov\temp\components
+     [copy] Copying 7 files to D:\work\lucee-extensions\extension-lcov\temp\functions
+      [zip] Building zip: D:\work\lucee-extensions\extension-lcov\target\lcov-extension-1.0.0.1-SNAPSHOT.lex
+
+clean:
+     [echo] Deploying to URL: https://oss.sonatype.org/content/repositories/snapshots/
+[INFO] Executed tasks
+[INFO] 
+[INFO] --- build-helper:3.2.0:attach-artifact (attach-artifacts) @ lcov-extension ---
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.168 s
+[INFO] Finished at: 2025-09-10T12:29:59+02:00
+[INFO] ------------------------------------------------------------------------
+
+Extension built successfully. Running tests...
+Buildfile: d:\work\script-runner\build.xml
+
+setEnv:
+     [echo] 7/all/jar
+
+use-local-jar:
+
+use-version:
+
+query-version:
+     [echo] Getting latest Lucee version for 7/all/jar
+      [get] Getting: https://update.lucee.org/rest/update/provider/latest/7/all/jar/filename
+      [get] To: d:\work\script-runner\lucee-version-query1758380709.txt
+      [get] .
+     [echo] Lucee version: lucee-7.0.0.377-SNAPSHOT.jar
+
+set-unique-working-dir:
+
+check-lucee-jar:
+
+download-lucee-jar:
+
+run-cfml:
+     [echo] Java: 21.0.7, C:\Program Files\Eclipse Adoptium\jdk-21.0.7.6-hotspot
+     [echo] Lucee: lucee-7.0.0.377-SNAPSHOT.jar
+     [echo] Working Dir: d:\work\script-runner\temp
+     [echo] Webroot: d:\work\lucee7\test
+     [echo] Execute: bootstrap-tests.cfm
+     [echo] ExtensionDir: D:\work\lucee-extensions\extension-lcov\target
+     [echo] Extensions: 
+     [echo] executeScriptByInclude: 
+     [echo] luceeCFConfig: 
+     [echo] javaDebugger: 
+     [echo] jvmProperties: 
+     [echo] 
+   [delete] Deleting directory d:\work\script-runner\temp
+    [mkdir] Created dir: d:\work\script-runner\temp
+    [mkdir] Created dir: d:\work\script-runner\temp\lucee
+    [mkdir] Created dir: d:\work\script-runner\temp\lucee\web
+    [mkdir] Created dir: d:\work\script-runner\temp\lucee\lucee-server\context
+    [mkdir] Created dir: d:\work\script-runner\temp\lucee\lucee-server\deploy
+     [java] Buildfile: d:\work\script-runner\build-run-cfml.xml
+     [java] 
+     [java] all:
+     [java]      [echo] ---------- 2025-09-10 12:30:02 - Lucee Starting ----------
+     [java]    [script] "Severity","ThreadID","Date","Time","Context","Application","Message"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [7E673D15-D87C-41A6-8B5F1956528C605F-9.4.0.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [7E673D15-D87C-41A6-8B5F1956528C605F-9.4.0.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\7E673D15-D87C-41A6-8B5F1956528C605F-9.4.0.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6-12.6.3.jre11.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6-12.6.3.jre11.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6-12.6.3.jre11.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [671B01B8-B3B3-42B9-AC055A356BED5281-42.7.7.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [671B01B8-B3B3-42B9-AC055A356BED5281-42.7.7.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\671B01B8-B3B3-42B9-AC055A356BED5281-42.7.7.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [2BCD080F-4E1E-48F5-BEFE794232A21AF6-1.3.1.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [2BCD080F-4E1E-48F5-BEFE794232A21AF6-1.3.1.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\2BCD080F-4E1E-48F5-BEFE794232A21AF6-1.3.1.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [17AB52DE-B300-A94B-E058BD978511E39E-2.0.2.21.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [17AB52DE-B300-A94B-E058BD978511E39E-2.0.2.21.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\17AB52DE-B300-A94B-E058BD978511E39E-2.0.2.21.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [66E312DD-D083-27C0-64189D16753FD6F0-2.0.0.0-SNAPSHOT.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [66E312DD-D083-27C0-64189D16753FD6F0-2.0.0.0-SNAPSHOT.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\66E312DD-D083-27C0-64189D16753FD6F0-2.0.0.0-SNAPSHOT.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [CED6227E-0F49-6367-A68D21AACA6B07E8-1.0.0.5.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [CED6227E-0F49-6367-A68D21AACA6B07E8-1.0.0.5.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\CED6227E-0F49-6367-A68D21AACA6B07E8-1.0.0.5.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [D46D49C3-EB85-8D97-30BEC2F38561E985-1.0.0.4.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [D46D49C3-EB85-8D97-30BEC2F38561E985-1.0.0.4.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\D46D49C3-EB85-8D97-30BEC2F38561E985-1.0.0.4.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [B737ABC4-D43F-4D91-8E8E973E37C40D1B-3.0.0.6-SNAPSHOT.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [B737ABC4-D43F-4D91-8E8E973E37C40D1B-3.0.0.6-SNAPSHOT.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\B737ABC4-D43F-4D91-8E8E973E37C40D1B-3.0.0.6-SNAPSHOT.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Extract the extension [37C61C0A-5D7E-4256-8572639BE0CF5838-2.6.0.1.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:04","","extract-extension","Copy extension [37C61C0A-5D7E-4256-8572639BE0CF5838-2.6.0.1.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\37C61C0A-5D7E-4256-8572639BE0CF5838-2.6.0.1.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extract-extension","Extract the extension [97EB5427-F051-4684-91EBA6DBB5C5203F-1.0.0.0.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extract-extension","Copy extension [97EB5427-F051-4684-91EBA6DBB5C5203F-1.0.0.0.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\97EB5427-F051-4684-91EBA6DBB5C5203F-1.0.0.0.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extract-extension","Extract the extension [8D7FB0DF-08BB-1589-FE3975678F07DB17-2.0.0.3-SNAPSHOT.lex] from the lucee.jar to the local extension folder [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extract-extension","Copy extension [8D7FB0DF-08BB-1589-FE3975678F07DB17-2.0.0.3-SNAPSHOT.lex] to temp directory [C:\Users\zacsp\AppData\Local\Temp\8D7FB0DF-08BB-1589-FE3975678F07DB17-2.0.0.3-SNAPSHOT.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","request","Copied [12] bundled extension(s) to local extension directory"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","request","Found Extensions to install (new;new-fresh):7E673D15-D87C-41A6-8B5F1956528C605F;name=MySQL;label=MySQL;version=9.4.0, 99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6;name=MSSQL;label=MS SQL Server;version=12.6.3.jre11, 671B01B8-B3B3-42B9-AC055A356BED5281;name=PostgreSQL;label=PostgreSQL;version=42.7.7, 2BCD080F-4E1E-48F5-BEFE794232A21AF6;name=JDTsSQL;label=jTDS (MSSQL);version=1.3.1, CED6227E-0F49-6367-A68D21AACA6B07E8;name=Admin;label=Lucee Administrator;version=1.0.0.5, D46D49C3-EB85-8D97-30BEC2F38561E985;name=Doc;label=Lucee Documentation;version=1.0.0.4, 17AB52DE-B300-A94B-E058BD978511E39E;name=S3;label=S3;version=2.0.2.21, 66E312DD-D083-27C0-64189D16753FD6F0;name=PDF;label=PDF;version=2.0.0.0-SNAPSHOT, B737ABC4-D43F-4D91-8E8E973E37C40D1B;name=Image;label=Image;version=3.0.0.6-SNAPSHOT;since=5.3.0.35-ALPHA, 37C61C0A-5D7E-4256-8572639BE0CF5838;name=Esapi;label=ESAPI;version=2.6.0.1;since=5.3.0.37-ALPHA, 97EB5427-F051-4684-91EBA6DBB5C5203F;name=Scheduler;label=Scheduler (Classic);version=1.0.0.0;since=7.0.0.125-SNAPSHOT, 8D7FB0DF-08BB-1589-FE3975678F07DB17;name=Compress;label=Compress;version=2.0.0.3-SNAPSHOT;since=5.3.2.31-SNAPSHOT"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension 7E673D15-D87C-41A6-8B5F1956528C605F;name=MySQL;label=MySQL;version=9.4.0"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [7E673D15-D87C-41A6-8B5F1956528C605F;name=MySQL;label=MySQL;version=9.4.0] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy context [admin/dbdriver/MySQL.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Update JDBC Driver [MySQL JDBC Driver:class:com.mysql.cj.jdbc.Driver;name:com.mysql.cj;version:9.4.0;] from extension [MySQL JDBC Driver:9.4.0]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension 99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6;name=MSSQL;label=MS SQL Server;version=12.6.3.jre11"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6;name=MSSQL;label=MS SQL Server;version=12.6.3.jre11] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy context [admin/dbdriver/MSSQL.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Update JDBC Driver [Microsoft SQL Server (Vendor Microsoft):class:com.microsoft.sqlserver.jdbc.SQLServerDriver;name:org.lucee.mssql;version:12.6.3.jre11;] from extension [Microsoft SQL Server (Vendor Microsoft):12.6.3.jre11]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension 671B01B8-B3B3-42B9-AC055A356BED5281;name=PostgreSQL;label=PostgreSQL;version=42.7.7"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [671B01B8-B3B3-42B9-AC055A356BED5281;name=PostgreSQL;label=PostgreSQL;version=42.7.7] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy context [admin/dbdriver/PostgreSql.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Update JDBC Driver [PostgreSQL:class:org.postgresql.Driver;name:org.postgresql.jdbc;version:42.7.7;] from extension [PostgreSQL:42.7.7]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension 2BCD080F-4E1E-48F5-BEFE794232A21AF6;name=JDTsSQL;label=jTDS (MSSQL);version=1.3.1"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [2BCD080F-4E1E-48F5-BEFE794232A21AF6;name=JDTsSQL;label=jTDS (MSSQL);version=1.3.1] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy context [admin/dbdriver/JTDS.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Update JDBC Driver [jTDS (MSSQL,Sybase):class:net.sourceforge.jtds.jdbc.Driver;name:jtds;version:1.3.1;] from extension [jTDS (MSSQL,Sybase):1.3.1]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension CED6227E-0F49-6367-A68D21AACA6B07E8;name=Admin;label=Lucee Administrator;version=1.0.0.5"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [CED6227E-0F49-6367-A68D21AACA6B07E8;name=Admin;label=Lucee Administrator;version=1.0.0.5] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension D46D49C3-EB85-8D97-30BEC2F38561E985;name=Doc;label=Lucee Documentation;version=1.0.0.4"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [D46D49C3-EB85-8D97-30BEC2F38561E985;name=Doc;label=Lucee Documentation;version=1.0.0.4] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension 17AB52DE-B300-A94B-E058BD978511E39E;name=S3;label=S3;version=2.0.2.21"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [17AB52DE-B300-A94B-E058BD978511E39E;name=S3;label=S3;version=2.0.2.21] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy fld [s3-functions.fld]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Update resource provider [s3] from extension [S3 Resource Extension:2.0.2.21]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension 66E312DD-D083-27C0-64189D16753FD6F0;name=PDF;label=PDF;version=2.0.0.0-SNAPSHOT"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [66E312DD-D083-27C0-64189D16753FD6F0;name=PDF;label=PDF;version=2.0.0.0-SNAPSHOT] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy fld [pdffunction.fld]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy tld/tldx [pdftag.tldx]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","installing the extension B737ABC4-D43F-4D91-8E8E973E37C40D1B;name=Image;label=Image;version=3.0.0.6-SNAPSHOT;since=5.3.0.35-ALPHA"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Installing extension [B737ABC4-D43F-4D91-8E8E973E37C40D1B;name=Image;label=Image;version=3.0.0.6-SNAPSHOT;since=5.3.0.35-ALPHA] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:05","","extension","Deploy fld [image-functions.fld]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","Deploy tld/tldx [image-tags.tldx]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","installing the extension 37C61C0A-5D7E-4256-8572639BE0CF5838;name=Esapi;label=ESAPI;version=2.6.0.1;since=5.3.0.37-ALPHA"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","Installing extension [37C61C0A-5D7E-4256-8572639BE0CF5838;name=Esapi;label=ESAPI;version=2.6.0.1;since=5.3.0.37-ALPHA] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","Deploy fld [esapi-function.fld]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","installing the extension 97EB5427-F051-4684-91EBA6DBB5C5203F;name=Scheduler;label=Scheduler (Classic);version=1.0.0.0;since=7.0.0.125-SNAPSHOT"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","Installing extension [97EB5427-F051-4684-91EBA6DBB5C5203F;name=Scheduler;label=Scheduler (Classic);version=1.0.0.0;since=7.0.0.125-SNAPSHOT] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","installing the extension 8D7FB0DF-08BB-1589-FE3975678F07DB17;name=Compress;label=Compress;version=2.0.0.3-SNAPSHOT;since=5.3.2.31-SNAPSHOT"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","Installing extension [8D7FB0DF-08BB-1589-FE3975678F07DB17;name=Compress;label=Compress;version=2.0.0.3-SNAPSHOT;since=5.3.2.31-SNAPSHOT] from local provider"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","extension","Deploy tld/tldx [ziptag.tldx]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","request","Successfully installed the following extensions: 2BCD080F-4E1E-48F5-BEFE794232A21AF6;name=JDTsSQL;label=jTDS (MSSQL);version=1.3.1, 17AB52DE-B300-A94B-E058BD978511E39E;name=S3;label=S3;version=2.0.2.21, 97EB5427-F051-4684-91EBA6DBB5C5203F;name=Scheduler;label=Scheduler (Classic);version=1.0.0.0;since=7.0.0.125-SNAPSHOT, 99A4EF8D-F2FD-40C8-8FB8C2E67A4EEEB6;name=MSSQL;label=MS SQL Server;version=12.6.3.jre11, 8D7FB0DF-08BB-1589-FE3975678F07DB17;name=Compress;label=Compress;version=2.0.0.3-SNAPSHOT;since=5.3.2.31-SNAPSHOT, 671B01B8-B3B3-42B9-AC055A356BED5281;name=PostgreSQL;label=PostgreSQL;version=42.7.7, 66E312DD-D083-27C0-64189D16753FD6F0;name=PDF;label=PDF;version=2.0.0.0-SNAPSHOT, B737ABC4-D43F-4D91-8E8E973E37C40D1B;name=Image;label=Image;version=3.0.0.6-SNAPSHOT;since=5.3.0.35-ALPHA, CED6227E-0F49-6367-A68D21AACA6B07E8;name=Admin;label=Lucee Administrator;version=1.0.0.5, D46D49C3-EB85-8D97-30BEC2F38561E985;name=Doc;label=Lucee Documentation;version=1.0.0.4, 37C61C0A-5D7E-4256-8572639BE0CF5838;name=Esapi;label=ESAPI;version=2.6.0.1;since=5.3.0.37-ALPHA, 7E673D15-D87C-41A6-8B5F1956528C605F;name=MySQL;label=MySQL;version=9.4.0"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","startup","Touched monitors"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","startup","Start CFML Controller"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","startup","Init factory"
+     [java]    [script] "INFO","main","09/10/2025","12:30:06","","startup","Loaded config"
+     [java]    [script] "WARN","main","09/10/2025","12:30:06","http://localhost:80","memory-classloader","class 136cn5qpnr2tu is invalid or doesn't existjava.lang.ClassNotFoundException: class 136cn5qpnr2tu is invalid or doesn't exist
+     [java]    [script] 	at lucee.commons.lang.MemoryClassLoader.findClass(MemoryClassLoader.java:112)
+     [java]    [script] 	at lucee.commons.lang.MemoryClassLoader.loadClass(MemoryClassLoader.java:69)
+     [java]    [script] 	at lucee.commons.lang.MemoryClassLoader.loadClass(MemoryClassLoader.java:121)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.loadClass(Renderer.java:71)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.loadPage(Renderer.java:86)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.tag(Renderer.java:105)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.script(Renderer.java:95)
+     [java]    [script] 	at lucee.runtime.jsr223.ScriptEngineImpl.eval(ScriptEngineImpl.java:66)
+     [java]    [script] ..."
+     [java]    [script] ---------- 2025-09-10 12:30:06 - Lucee Started ----------
+     [java]    [script] 7.0.0.377-SNAPSHOT
+     [java]    [script] Set Web admin password
+     [java]    [script] write access is protected
+     [java]    [script] -------------- Mappings --------------
+     [java]    [script] /lucee 	 {lucee-config}/context/ [{lucee-config}/context/lucee-context.lar] (auto)
+     [java]    [script] /lucee/admin 	 {lucee-config}/context/admin [{lucee-config}/context/lucee-admin.lar] (once)
+     [java]    [script] /lucee-server 	 {lucee-server}/context/ (auto)
+     [java]    [script] /lucee/doc 	  [{lucee-config}/context/lucee-doc.lar] (once)
+     [java]    [script] / 	 d:\work\lucee7\test 
+     [java]    [script] -------------- Extensions --------------
+     [java]    [script] Manually installing extension [D:\work\lucee-extensions\extension-lcov\target\lcov-extension-1.0.0.1-SNAPSHOT.lex]
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","copy [e99e43a5-c10e-41e9-878bfc82baad1c01:1.0.0.1-SNAPSHOT] to [d:\work\script-runner\temp\lucee\lucee-server\context\extensions\available\e99e43a5-c10e-41e9-878bfc82baad1c01-1.0.0.1-SNAPSHOT.lex]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/ExecutableLineCounter.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/ExecutionLogParser.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/ExecutionLogProcessor.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/LcovFunctions.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/codeCoverageReporter.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/CoverageBlockProcessor.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/exeLogger.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/Heatmap.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/HtmlAssets.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/HtmlReporter.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/HtmlWriter.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/LcovWriter.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/assets/css/coverage-report.css]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/assets/js/dark-mode.js]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/heatmap/bucketCalculator.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/heatmap/colorGenerator.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy component [lucee/extension/lcov/reporter/heatmap/cssGenerator.cfc]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovGenerateAllReports.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovGenerateHtml.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovGenerateJson.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovGenerateLcov.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovGenerateSummary.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovStartLogging.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Deploy function [lcovStopLogging.cfm]"
+     [java]    [script] "INFO","main","09/10/2025","12:30:07","http://localhost:80","extension","Found the extension [7E673D15-D87C-41A6-8B5F1956528C605F;symbolic-name=7E673D15-D87C-41A6-8B5F1956528C605F;version=9.4.0] in the installed folder that is in a different version in the configuraton, so we delete that extension file."
+     [java]    [script] -------------- Lucee Initialized --------------
+     [java]    [script] 
+     [java]    [script] Running [bootstrap-tests.cfm]
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] Variables
+     [java]    [script] 	webroot: d:\work\lucee7\test
+     [java]    [script] 	testAdditional: d:\work\lucee-extensions\extension-lcov\tests
+     [java]    [script] 	testFilter: HeatmapTest
+     [java]    [script] 	extensionDir: D:\work\lucee-extensions\extension-lcov\target
+     [java]    [script] 	compile: 
+     [java]    [script] 	basedir: d:\work\script-runner
+     [java]    [script] 	execute: bootstrap-tests.cfm
+     [java]    [script] 	testLabels: lcov
+     [java]    [script] 	executeScriptByInclude: 
+     [java]    [script] 	DSTAMP: 20250910
+     [java]    [script] 	TSTAMP: 1230
+     [java]    [script] 	luceeVersionQuery: 7/all/jar
+     [java]    [script] 	TODAY: September 10 2025
+     [java]    [script] 
+     [java]    [script] ---------- 2025-09-10 12:30:07 - Lucee Started ----------
+     [java]    [script] d:\work\lucee7\test
+     [java]    [script] set web admin password
+     [java]    [script] set server admin password
+     [java]    [script] No access, password is invalid
+     [java]    [script] Downloading [https://downloads.ortussolutions.com/ortussolutions/testbox/3.2.0/testbox-3.2.0.zip]
+     [java]    [script] Running tests with Java: 21.0.7 (Compiler: 11)
+     [java]    [script] set /test mapping 10-Sep-2025 12:30:09
+     [java]    [script] 
+     [java]    [script] -------------- Test Services ------------
+     [java]    [script] Warning test service: [ oracle ] is not configured
+     [java]    [script] Service [ oracle ] not configured
+     [java]    [script] Warning test service: [ postgres ] is not configured
+     [java]    [script] Service [ postgres ] not configured
+     [java]    [script] Warning test service: [ mongoDb ] is not configured
+     [java]    [script] Service [ mongoDb ] not configured
+     [java]    [script] Service [ smtp ] not configured
+     [java]    [script] Service [ pop ] not configured
+     [java]    [script] Warning test service: [ MySQL ] is not configured
+     [java]    [script] Service [ MySQL ] not configured
+     [java]    [script] Service [ s3 ] not configured
+     [java]    [script] Service [ imap ] not configured
+     [java]    [script] Service [ s3_custom ] not configured
+     [java]    [script] Service [ s3_google ] not configured
+     [java]    [script] Warning test service: [ MSsql ] is not configured
+     [java]    [script] Service [ MSsql ] not configured
+     [java]    [script] Service [ ftp ] not configured
+     [java]    [script] Service [ s3_backblaze ] not configured
+     [java]    [script] Service [ sftp ] not configured
+     [java]    [script] Warning test service: [ memcached ] is not configured
+     [java]    [script] Warning test service: [ redis ] is not configured
+     [java]    [script] Service [ memcached ] not configured
+     [java]    [script] Service [ redis ] not configured
+     [java]    [script] Warning test service: [ ldap ] is not configured
+     [java]    [script] Service [ ldap ] not configured
+     [java]    [script] "INFO","pool-3-thread-1","09/10/2025","12:30:10","http://localhost:80","bundle-download","Could not find [/bundles/org.lucee.h2-2.1.214.0001L.jar] in lucee.jar"
+     [java]    [script] "INFO","pool-3-thread-1","09/10/2025","12:30:10","http://localhost:80","bundle-download","Downloading bundle [org.lucee.h2:2.1.214.0001L] from https://repo1.maven.org/maven2/org/lucee/h2/2.1.214.0001L/h2-2.1.214.0001L.jar and copying to d:\work\script-runner\temp\lucee\lucee-server\bundles\org.lucee.h2-2.1.214.0001L.jar"
+     [java]    [script] Service [ h2 ] is [ H2, 2.1.214 (2022-06-13), H2 JDBC Driver, 2.1.214 (2022-06-13), 4, 2 ]
+     [java]    [script] ERROR Service [ httpbin ] threw [ 	lucee.runtime.exp.HTTPException: 408 Request Time-out
+     [java]    [script] 	at lucee.runtime.tag.Http._doEndTag(Http.java:1159)
+     [java]    [script] 	at lucee.runtime.tag.Http.doEndTag(Http.java:715)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall2(/test/_setupTestServices.cfc:500)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall(/test/_setupTestServices.cfc)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.implementation(UDFImpl.java:111)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl._call(UDFImpl.java:356)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.call(UDFImpl.java:223)
+     [java]    [script] 	at lucee.runtime.type.scope.UndefinedImpl.call(UndefinedImpl.java:811)
+     [java]    [script] 	at lucee.runtime.util.VariableUtilImpl.callFunctionWithoutNamedValues(VariableUtilImpl.java:773)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.getFunction(PageContextImpl.java:2064)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall1(/test/_setupTestServices.cfc:251)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall(/test/_setupTestServices.cfc)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.implementation(UDFImpl.java:111)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl._call(UDFImpl.java:356)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.call(UDFImpl.java:218)
+     [java]    [script] 	at lucee.runtime.type.EnvUDF.call(EnvUDF.java:137)
+     [java]    [script] 	at lucee.runtime.concurrency.UDFCaller2.call(UDFCaller2.java:89)
+     [java]    [script] 	at lucee.runtime.concurrency.UDFCaller2.call(UDFCaller2.java:40)
+     [java]    [script] 	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+     [java]    [script] 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+     [java]    [script] 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+     [java]    [script] 	at java.base/java.lang.Thread.run(Thread.java:1583)
+     [java]    [script]  ]
+     [java]    [script]  
+     [java]    [script] set admin password 10-Sep-2025 12:30:12
+     [java]    [script] -------------- Test Filters and Labels
+     [java]    [script] 
+     [java]    [script] Filtering only tests with filenames containing: ["HeatmapTest"]
+     [java]    [script] 
+     [java]    [script] Filtering tests with the following label(s): ["lcov"]
+     [java]    [script] Adding additional tests from [d:\work\lucee-extensions\extension-lcov\tests]
+     [java]    [script] -------------- Deploy.Log ------------
+     [java]    [script] deploy.log not found, is logging redirected to console?
+     [java]    [script] --------------------------------------
+     [java]    [script] update componentpaths 10-Sep-2025 12:30:12
+     [java]    [script] 
+     [java]    [script] -------------- Mappings --------------
+     [java]    [script] /test 	 d:\work\lucee7\test 
+     [java]    [script] /lucee 	 {lucee-config}/context/ [{lucee-config}/context/lucee-context.lar] (auto)
+     [java]    [script] /testAdditional 	 d:\work\lucee-extensions\extension-lcov\tests 
+     [java]    [script] /testbox 	 d:\work\script-runner\temp\lucee\lucee-server\context\temp\testbox 
+     [java]    [script] /test-never 	 d:\work\lucee7\test (never)
+     [java]    [script] /test-once 	 d:\work\lucee7\test (once)
+     [java]    [script] /lucee/admin 	 {lucee-config}/context/admin [{lucee-config}/context/lucee-admin.lar] (once)
+     [java]    [script] /lucee-server 	 {lucee-server}/context/ (auto)
+     [java]    [script] /lucee/doc 	  [{lucee-config}/context/lucee-doc.lar] (once)
+     [java]    [script] / 	 d:\work\script-runner\temp\lucee\lucee-server\context\temp\\empty_webroot 
+     [java]    [script] 
+     [java]    [script] -------------- Start Tests -----------
+     [java]    [script] Found 1 tests to run, filter took 1227ms
+     [java]    [script] Found 1 additional tests to run
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] 	testAdditional.HeatmapTest 	 (18 tests passed in 789 ms, 1 FAILED)
+     [java]    [script] ERRORED
+     [java]    [script] 
+     [java]    [script] 	Suites/Specs: 6/19
+     [java]    [script] 
+     [java]    [script] 	Failures: 1
+     [java]    [script] 	Errors:   0
+     [java]    [script] 	Pass:     18
+     [java]    [script] 	Skipped:  0
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] should distribute brightness evenly across buckets
+     [java]    [script] 
+     [java]    [script] 	Failed: Level 2 should be darker than level 1
+     [java]    [script] 
+     [java]    [script] 	d:\work\lucee-extensions\extension-lcov\tests\HeatmapTest.cfc:74
+     [java]    [script] 	d:\work\lucee7\test\_testRunner.cfc:298
+     [java]    [script] 	d:\work\lucee7\test\run-tests.cfm:351
+     [java]    [script] 	/bootstrap-tests.cfm:112
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] =============================================================
+     [java]    [script] Lucee Version: 7.0.0.377-SNAPSHOT
+     [java]    [script] Java Version: 21.0.7
+     [java]    [script] Java Compiler Version: 11
+     [java]    [script] TestBox Version: 3.2.0+356
+     [java]    [script] Total Execution time: (5 s)
+     [java]    [script] Test Execution time: (1 s)
+     [java]    [script] Average Test Overhead: (1,361 ms)
+     [java]    [script] Total Test Overhead: (1,361 ms)
+     [java]    [script] CFTHREADS: 0
+     [java]    [script] Active Threads: 57
+     [java]    [script] 
+     [java]    [script] DATABASE Total activeDatasourceConnections: 0
+     [java]    [script] DATABASE Total idleDatasourceConnections: 1
+     [java]    [script] DATABASE Total waitingForConn: 0
+     [java]    [script] 
+     [java]    [script] HEAP G1 Eden Space: 0%, 8 Mb, ( -16Mb )
+     [java]    [script] HEAP G1 Old Gen: 0%, 37 Mb, (+ 12Mb )
+     [java]    [script] HEAP G1 Survivor Space: 0%, 10 Mb, (+ 3Mb )
+     [java]    [script] NON HEAP CodeHeap 'non-nmethods': 35%, 2 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-profiled nmethods': 4%, 6 Mb, (+ 2Mb )
+     [java]    [script] NON HEAP CodeHeap 'profiled nmethods': 16%, 19 Mb, (+ 5Mb )
+     [java]    [script] NON HEAP Compressed Class Space: 0%, 4 Mb, (+ 1Mb )
+     [java]    [script] NON HEAP Metaspace: 0%, 44 Mb, (+ 10Mb )
+     [java]    [script] Force GC
+     [java]    [script] 
+     [java]    [script] HEAP G1 Eden Space: 0%, 0 Mb, ( -8Mb )
+     [java]    [script] HEAP G1 Old Gen: 0%, 37 Mb
+     [java]    [script] HEAP G1 Survivor Space: 0%, 0 Mb, ( -10Mb )
+     [java]    [script] NON HEAP CodeHeap 'non-nmethods': 35%, 2 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-profiled nmethods': 4%, 5 Mb, ( -1Mb )
+     [java]    [script] NON HEAP CodeHeap 'profiled nmethods': 14%, 17 Mb, ( -2Mb )
+     [java]    [script] NON HEAP Compressed Class Space: 0%, 4 Mb
+     [java]    [script] NON HEAP Metaspace: 0%, 44 Mb
+     [java]    [script] 
+     [java]    [script] Force GC after structClear(cfthread)
+     [java]    [script] CFTHREADS: 0
+     [java]    [script] Active Threads: 57
+     [java]    [script] 
+     [java]    [script] HEAP G1 Eden Space: 0%, 0 Mb
+     [java]    [script] HEAP G1 Old Gen: 0%, 37 Mb
+     [java]    [script] HEAP G1 Survivor Space: 0%, 0 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-nmethods': 35%, 2 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-profiled nmethods': 3%, 5 Mb, ( -1Mb )
+     [java]    [script] NON HEAP CodeHeap 'profiled nmethods': 11%, 14 Mb, ( -3Mb )
+     [java]    [script] NON HEAP Compressed Class Space: 0%, 4 Mb
+     [java]    [script] NON HEAP Metaspace: 0%, 44 Mb
+     [java]    [script] 
+     [java]    [script] =============================================================
+     [java]    [script] 
+     [java]    [script] -> Bundles/Suites/Specs: 1/6/19
+     [java]    [script] -> Pass:     18
+     [java]    [script] -> Skipped:  0
+     [java]    [script] -> Failures: 1
+     [java]    [script] -> Errors:   0
+     [java]    [script] -> JUnitReport: d:\work\lucee7\test/reports/junit-test-results-7.0.0.377-SNAPSHOT.xml
+     [java]    [script] 
+     [java]    [script] -> Service [ httpbin ] 	 threw
+     [java]    [script] 	lucee.runtime.exp.HTTPException: 408 Request Time-out
+     [java]    [script] 	at lucee.runtime.tag.Http._doEndTag(Http.java:1159)
+     [java]    [script] 	at lucee.runtime.tag.Http.doEndTag(Http.java:715)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall2(/test/_setupTestServices.cfc:500)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall(/test/_setupTestServices.cfc)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.implementation(UDFImpl.java:111)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl._call(UDFImpl.java:356)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.call(UDFImpl.java:223)
+     [java]    [script] 	at lucee.runtime.type.scope.UndefinedImpl.call(UndefinedImpl.java:811)
+     [java]    [script] 	at lucee.runtime.util.VariableUtilImpl.callFunctionWithoutNamedValues(VariableUtilImpl.java:773)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.getFunction(PageContextImpl.java:2064)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall1(/test/_setupTestServices.cfc:251)
+     [java]    [script] 	at _setuptestservices_cfc$cf.udfCall(/test/_setupTestServices.cfc)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.implementation(UDFImpl.java:111)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl._call(UDFImpl.java:356)
+     [java]    [script] 	at lucee.runtime.type.UDFImpl.call(UDFImpl.java:218)
+     [java]    [script] 	at lucee.runtime.type.EnvUDF.call(EnvUDF.java:137)
+     [java]    [script] 	at lucee.runtime.concurrency.UDFCaller2.call(UDFCaller2.java:89)
+     [java]    [script] 	at lucee.runtime.concurrency.UDFCaller2.call(UDFCaller2.java:40)
+     [java]    [script] 	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+     [java]    [script] 	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+     [java]    [script] 	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+     [java]    [script] 	at java.base/java.lang.Thread.run(Thread.java:1583)
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] Lucee Version: 7.0.0.377-SNAPSHOT
+     [java]    [script] Java Version: 21.0.7
+     [java]    [script] Java Compiler Version: 11
+     [java]    [script] TestBox Version: 3.2.0+356
+     [java]    [script] Total Execution time: (5 s)
+     [java]    [script] Test Execution time: (1 s)
+     [java]    [script] Average Test Overhead: (1,361 ms)
+     [java]    [script] Total Test Overhead: (1,361 ms)
+     [java]    [script] CFTHREADS: 0
+     [java]    [script] Active Threads: 57
+     [java]    [script] 
+     [java]    [script] DATABASE Total activeDatasourceConnections: 0
+     [java]    [script] DATABASE Total idleDatasourceConnections: 1
+     [java]    [script] DATABASE Total waitingForConn: 0
+     [java]    [script] 
+     [java]    [script] HEAP G1 Eden Space: 0%, 8 Mb, ( -16Mb )
+     [java]    [script] HEAP G1 Old Gen: 0%, 37 Mb, (+ 12Mb )
+     [java]    [script] HEAP G1 Survivor Space: 0%, 10 Mb, (+ 3Mb )
+     [java]    [script] NON HEAP CodeHeap 'non-nmethods': 35%, 2 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-profiled nmethods': 4%, 6 Mb, (+ 2Mb )
+     [java]    [script] NON HEAP CodeHeap 'profiled nmethods': 16%, 19 Mb, (+ 5Mb )
+     [java]    [script] NON HEAP Compressed Class Space: 0%, 4 Mb, (+ 1Mb )
+     [java]    [script] NON HEAP Metaspace: 0%, 44 Mb, (+ 10Mb )
+     [java]    [script] Force GC
+     [java]    [script] 
+     [java]    [script] HEAP G1 Eden Space: 0%, 0 Mb, ( -8Mb )
+     [java]    [script] HEAP G1 Old Gen: 0%, 37 Mb
+     [java]    [script] HEAP G1 Survivor Space: 0%, 0 Mb, ( -10Mb )
+     [java]    [script] NON HEAP CodeHeap 'non-nmethods': 35%, 2 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-profiled nmethods': 4%, 5 Mb, ( -1Mb )
+     [java]    [script] NON HEAP CodeHeap 'profiled nmethods': 14%, 17 Mb, ( -2Mb )
+     [java]    [script] NON HEAP Compressed Class Space: 0%, 4 Mb
+     [java]    [script] NON HEAP Metaspace: 0%, 44 Mb
+     [java]    [script] 
+     [java]    [script] Force GC after structClear(cfthread)
+     [java]    [script] CFTHREADS: 0
+     [java]    [script] Active Threads: 57
+     [java]    [script] 
+     [java]    [script] HEAP G1 Eden Space: 0%, 0 Mb
+     [java]    [script] HEAP G1 Old Gen: 0%, 37 Mb
+     [java]    [script] HEAP G1 Survivor Space: 0%, 0 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-nmethods': 35%, 2 Mb
+     [java]    [script] NON HEAP CodeHeap 'non-profiled nmethods': 3%, 5 Mb, ( -1Mb )
+     [java]    [script] NON HEAP CodeHeap 'profiled nmethods': 11%, 14 Mb, ( -3Mb )
+     [java]    [script] NON HEAP Compressed Class Space: 0%, 4 Mb
+     [java]    [script] NON HEAP Metaspace: 0%, 44 Mb
+     [java]    [script] 
+     [java]    [script] =============================================================
+     [java]    [script] 
+     [java]    [script] -> Bundles/Suites/Specs: 1/6/19
+     [java]    [script] -> Pass:     18
+     [java]    [script] -> Skipped:  0
+     [java]    [script] -> Failures: 1
+     [java]    [script] -> Errors:   0
+     [java]    [script] -> JUnitReport: d:\work\lucee7\test/reports/junit-test-results-7.0.0.377-SNAPSHOT.xml
+     [java]    [script] Failed: testAdditional.HeatmapTest
+     [java]    [script] 	should distribute brightness evenly across buckets
+     [java]    [script] 	Level 2 should be darker than level 1
+     [java]    [script] 		d:\work\lucee-extensions\extension-lcov\tests\HeatmapTest.cfc:74
+     [java]    [script] 		d:\work\lucee7\test\_testRunner.cfc:298
+     [java]    [script] 		d:\work\lucee7\test\run-tests.cfm:351
+     [java]    [script] 		/bootstrap-tests.cfm:112
+     [java]    [script] 
+     [java]    [script] 
+     [java]    [script] -------------------------------------------------------
+     [java]    [script] TestBox could not successfully execute all testcases: 1 tests failed; 0 tests errored.
+     [java]    [script] "lucee.runtime.exp.CustomTypeException: TestBox could not successfully execute all testcases: 1 tests failed; 0 tests errored.
+     [java]    [script] 	at lucee.runtime.tag.Throw._doStartTag(Throw.java:225)
+     [java]    [script] 	at lucee.runtime.tag.Throw.doStartTag(Throw.java:212)
+     [java]    [script] 	at run_tests_cfm180$cf.call_000004(/test/run-tests.cfm:524)
+     [java]    [script] 	at run_tests_cfm180$cf.call(/test/run-tests.cfm:524)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1006)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.doInclude(PageContextImpl.java:987)
+     [java]    [script] 	at bootstrap_tests_cfm450$cf.call(/bootstrap-tests.cfm:112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1006)
+     [java]    [script] 	at lucee.runtime.listener.ClassicAppListener._onRequest(ClassicAppListener.java:66)
+     [java]    [script] 	at lucee.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:44)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.execute(PageContextImpl.java:2795)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._execute(PageContextImpl.java:2782)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.executeCFML(PageContextImpl.java:2753)
+     [java]    [script] 	at lucee.runtime.functions.system.InternalRequest.call(InternalRequest.java:131)
+     [java]    [script] 	at 136cn5qpnr2tu.call(Unknown Source)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.tag(Renderer.java:105)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.script(Renderer.java:95)
+     [java]    [script] 	at lucee.runtime.jsr223.ScriptEngineImpl.eval(ScriptEngineImpl.java:66)
+     [java]    [script] 	at lucee.runtime.jsr223.ScriptEngineImpl.eval(ScriptEngineImpl.java:221)
+     [java]    [script] 	at org.apache.tools.ant.util.optional.JavaxScriptRunner.evaluateScript(JavaxScriptRunner.java:154)
+     [java]    [script] 	at org.apache.tools.ant.util.optional.JavaxScriptRunner.executeScript(JavaxScriptRunner.java:86)
+     [java]    [script] 	at org.apache.tools.ant.taskdefs.optional.Script.execute(Script.java:54)
+     [java]    [script] 	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:299)
+     [java]    [script] 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+     [java]    [script] 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+     [java]    [script] 	at org.apache.tools.ant.dispatch.DispatchUtils.execute(DispatchUtils.java:99)
+     [java]    [script] 	at org.apache.tools.ant.Task.perform(Task.java:350)
+     [java]    [script] 	at org.apache.tools.ant.Target.execute(Target.java:449)
+     [java]    [script] 	at org.apache.tools.ant.Target.performTasks(Target.java:470)
+     [java]    [script] 	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1401)
+     [java]    [script] 	at org.apache.tools.ant.Project.executeTarget(Project.java:1374)
+     [java]    [script] 	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:41)
+     [java]    [script] 	at org.apache.tools.ant.Project.executeTargets(Project.java:1264)
+     [java]    [script] 	at org.apache.tools.ant.Main.runBuild(Main.java:818)
+     [java]    [script] 	at org.apache.tools.ant.Main.startAnt(Main.java:223)
+     [java]    [script] 	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:284)
+     [java]    [script] 	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:101)
+     [java]    [script] "
+     [java]    [script] -------------------------------------------------------
+     [java]    [script] "ERROR","main","09/10/2025","12:30:15","http://localhost:80","","TestBox could not successfully execute all testcases: 1 tests failed; 0 tests errored.lucee.runtime.exp.CustomTypeException: TestBox could not successfully execute all testcases: 1 tests failed; 0 tests errored.
+     [java]    [script] 	at lucee.runtime.tag.Throw._doStartTag(Throw.java:225)
+     [java]    [script] 	at lucee.runtime.tag.Throw.doStartTag(Throw.java:212)
+     [java]    [script] 	at run_tests_cfm180$cf.call_000004(/test/run-tests.cfm:524)
+     [java]    [script] 	at run_tests_cfm180$cf.call(/test/run-tests.cfm:524)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1006)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.doInclude(PageContextImpl.java:987)
+     [java]    [script] 	at bootstrap_tests_cfm450$cf.call(/bootstrap-tests.cfm:112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1006)
+     [java]    [script] 	at lucee.runtime.listener.ClassicAppListener._onRequest(ClassicAppListener.java:66)
+     [java]    [script] 	at lucee.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:44)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.execute(PageContextImpl.java:2795)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._execute(PageContextImpl.java:2782)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.executeCFML(PageContextImpl.java:2753)
+     [java]    [script] 	at lucee.runtime.functions.system.InternalRequest.call(InternalRequest.java:131)
+     [java]    [script] 	at 136cn5qpnr2tu.call(Unknown Source)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.tag(Renderer.java:105)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.script(Renderer.java:95)
+     [java]    [script] 	at lucee.runtime.jsr223.ScriptEngineImpl.eval(ScriptEngineImpl.java:66)
+     [java]    [script] ..."
+     [java]    [script] {"Extended_Info":"","Message":"TestBox could not successfully execute all testcases: 1 tests failed; 0 tests errored.","Detail":"","additional":[],"TagContext":[{"Raw_Trace":"run_tests_cfm180$cf.call_000004(/test/run-tests.cfm:524)","codePrintPlain":"522: 
+     [java]    [script] 523: 	if ( ( result.getTotalFail() + result.getTotalError() ) > 0 ) {
+     [java]    [script] 524: 		throw ""TestBox could not successfully execute all testcases: ##result.getTotalFail()## tests failed; ##result.getTotalError()## tests errored."";
+     [java]    [script] 525: 	}
+     [java]    [script] 526: 
+     [java]    [script] ","column":0,"line":524,"template":"d:\work\lucee7\test\run-tests.cfm","id":"??","type":"cfml","codePrintHTML":"522: <br>
+     [java]    [script] 523: &nbsp;&nbsp;&nbsp;if&nbsp;(&nbsp;(&nbsp;result.getTotalFail()&nbsp;+&nbsp;result.getTotalError()&nbsp;)&nbsp;&gt;&nbsp;0&nbsp;)&nbsp;{<br>
+     [java]    [script] <b>524: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;throw&nbsp;&quot;TestBox&nbsp;could&nbsp;not&nbsp;successfully&nbsp;execute&nbsp;all&nbsp;testcases:&nbsp;##result.getTotalFail()##&nbsp;tests&nbsp;failed;&nbsp;##result.getTotalError()##&nbsp;tests&nbsp;errored.&quot;;</b><br>
+     [java]    [script] 525: &nbsp;&nbsp;&nbsp;}<br>
+     [java]    [script] 526: <br>
+     [java]    [script] "},{"Raw_Trace":"run_tests_cfm180$cf.call(/test/run-tests.cfm:524)","codePrintPlain":"522: 
+     [java]    [script] 523: 	if ( ( result.getTotalFail() + result.getTotalError() ) > 0 ) {
+     [java]    [script] 524: 		throw ""TestBox could not successfully execute all testcases: ##result.getTotalFail()## tests failed; ##result.getTotalError()## tests errored."";
+     [java]    [script] 525: 	}
+     [java]    [script] 526: 
+     [java]    [script] ","column":0,"line":524,"template":"d:\work\lucee7\test\run-tests.cfm","id":"??","type":"cfml","codePrintHTML":"522: <br>
+     [java]    [script] 523: &nbsp;&nbsp;&nbsp;if&nbsp;(&nbsp;(&nbsp;result.getTotalFail()&nbsp;+&nbsp;result.getTotalError()&nbsp;)&nbsp;&gt;&nbsp;0&nbsp;)&nbsp;{<br>
+     [java]    [script] <b>524: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;throw&nbsp;&quot;TestBox&nbsp;could&nbsp;not&nbsp;successfully&nbsp;execute&nbsp;all&nbsp;testcases:&nbsp;##result.getTotalFail()##&nbsp;tests&nbsp;failed;&nbsp;##result.getTotalError()##&nbsp;tests&nbsp;errored.&quot;;</b><br>
+     [java]    [script] 525: &nbsp;&nbsp;&nbsp;}<br>
+     [java]    [script] 526: <br>
+     [java]    [script] "},{"Raw_Trace":"bootstrap_tests_cfm450$cf.call(/bootstrap-tests.cfm:112)","codePrintPlain":"","column":0,"line":112,"template":"/bootstrap-tests.cfm","id":"??","type":"cfml","codePrintHTML":""}],"ErrorCode":"","code":"","type":"application","StackTrace":"lucee.runtime.exp.CustomTypeException: TestBox could not successfully execute all testcases: 1 tests failed; 0 tests errored.
+     [java]    [script] 	at lucee.runtime.tag.Throw._doStartTag(Throw.java:225)
+     [java]    [script] 	at lucee.runtime.tag.Throw.doStartTag(Throw.java:212)
+     [java]    [script] 	at run_tests_cfm180$cf.call_000004(/test/run-tests.cfm:524)
+     [java]    [script] 	at run_tests_cfm180$cf.call(/test/run-tests.cfm:524)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1006)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.doInclude(PageContextImpl.java:987)
+     [java]    [script] 	at bootstrap_tests_cfm450$cf.call(/bootstrap-tests.cfm:112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1112)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._doInclude(PageContextImpl.java:1006)
+     [java]    [script] 	at lucee.runtime.listener.ClassicAppListener._onRequest(ClassicAppListener.java:66)
+     [java]    [script] 	at lucee.runtime.listener.MixedAppListener.onRequest(MixedAppListener.java:44)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.execute(PageContextImpl.java:2795)
+     [java]    [script] 	at lucee.runtime.PageContextImpl._execute(PageContextImpl.java:2782)
+     [java]    [script] 	at lucee.runtime.PageContextImpl.executeCFML(PageContextImpl.java:2753)
+     [java]    [script] 	at lucee.runtime.functions.system.InternalRequest.call(InternalRequest.java:131)
+     [java]    [script] 	at 136cn5qpnr2tu.call(Unknown Source)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.tag(Renderer.java:105)
+     [java]    [script] 	at lucee.runtime.compiler.Renderer.script(Renderer.java:95)
+     [java]    [script] 	at lucee.runtime.jsr223.ScriptEngineImpl.eval(ScriptEngineImpl.java:66)
+     [java]    [script] 	at lucee.runtime.jsr223.ScriptEngineImpl.eval(ScriptEngineImpl.java:221)
+     [java]    [script] 	at org.apache.tools.ant.util.optional.JavaxScriptRunner.evaluateScript(JavaxScriptRunner.java:154)
+     [java]    [script] 	at org.apache.tools.ant.util.optional.JavaxScriptRunner.executeScript(JavaxScriptRunner.java:86)
+     [java]    [script] 	at org.apache.tools.ant.taskdefs.optional.Script.execute(Script.java:54)
+     [java]    [script] 	at org.apache.tools.ant.UnknownElement.execute(UnknownElement.java:299)
+     [java]    [script] 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+     [java]    [script] 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+     [java]    [script] 	at org.apache.tools.ant.dispatch.DispatchUtils.execute(DispatchUtils.java:99)
+     [java]    [script] 	at org.apache.tools.ant.Task.perform(Task.java:350)
+     [java]    [script] 	at org.apache.tools.ant.Target.execute(Target.java:449)
+     [java]    [script] 	at org.apache.tools.ant.Target.performTasks(Target.java:470)
+     [java]    [script] 	at org.apache.tools.ant.Project.executeSortedTargets(Project.java:1401)
+     [java]    [script] 	at org.apache.tools.ant.Project.executeTarget(Project.java:1374)
+     [java]    [script] 	at org.apache.tools.ant.helper.DefaultExecutor.executeTargets(DefaultExecutor.java:41)
+     [java]    [script] 	at org.apache.tools.ant.Project.executeTargets(Project.java:1264)
+     [java]    [script] 	at org.apache.tools.ant.Main.runBuild(Main.java:818)
+     [java]    [script] 	at org.apache.tools.ant.Main.startAnt(Main.java:223)
+     [java]    [script] 	at org.apache.tools.ant.launch.Launcher.run(Launcher.java:284)
+     [java]    [script] 	at org.apache.tools.ant.launch.Launcher.main(Launcher.java:101)
+     [java]    [script] ","ExtendedInfo":""}
+
+BUILD FAILED
+d:\work\script-runner\build.xml:243: Java returned: 1
+
+Total time: 19 seconds

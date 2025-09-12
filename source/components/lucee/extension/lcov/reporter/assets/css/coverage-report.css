@@ -502,31 +502,46 @@ tbody tr:nth-child(even) {
 	padding: 15px;
 }
 
+/* Reports table styling for index page */
+.reports-table .coverage,
+.reports-table .percentage,
+.reports-table .execution-time {
+	text-align: right;
+}
+
+.reports-table tbody tr {
+	cursor: pointer;
+}
+
+.reports-table tbody tr:hover {
+	background-color: var(--table-row-even);
+}
+
 @media (max-width: 768px) {
 	body {
 		padding: 10px;
 	}
-	
+
 	.summary-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.legend-items {
 		flex-direction: column;
 		gap: 10px;
 	}
-	
+
 	.dark-mode-toggle {
 		top: 10px;
 		right: 10px;
 		padding: 8px 12px;
 		font-size: 14px;
 	}
-	
+
 	table {
 		font-size: 14px;
 	}
-	
+
 	.code-table {
 		font-size: 12px;
 	}
