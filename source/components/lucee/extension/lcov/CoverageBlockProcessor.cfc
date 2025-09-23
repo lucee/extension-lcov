@@ -68,8 +68,8 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 					endLine = block[3];
 				} else {
 					// Use optimized character position lookup
-					   startLine = getLineFromCharacterPosition(block[2], filePath, lineMapping, mappingLen);
-					   endLine = getLineFromCharacterPosition(block[3], filePath, lineMapping, mappingLen, startLine);
+					   startLine = LinePositionUtils::getLineFromCharacterPosition(block[2], lineMapping, mappingLen);
+					   endLine = LinePositionUtils::getLineFromCharacterPosition(block[3], lineMapping, mappingLen, startLine);
 				}
 
 				if (startLine == 0) startLine = 1;
@@ -105,26 +105,18 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		if (!isArray(arguments.lineMapping) || arguments.mappingLen == 0) {
 			throw 'getLineFromCharacterPosition: Invalid lineMapping or mappingLen=0. ' & serializeJSON(var=arguments);
 		}
-		// Use minLine hint for sequential processing, i.e. startLine when processing endline
-		var low = arguments.minLine;
-		var high = arguments.mappingLen;
 
-		while (low <= high) {
-			var mid = int((low + high) / 2);
+		// Use optimized utility function
+		var result = LinePositionUtils::getLineFromCharacterPosition(
+			arguments.charPos,
+			arguments.lineMapping,
+			arguments.mappingLen,
+			arguments.minLine
+		);
 
-			if (mid == arguments.mappingLen) {
-				return arguments.lineMapping[mid] <= arguments.charPos ? mid : mid - 1;
-			} else if (arguments.lineMapping[mid] <= arguments.charPos
-				&& arguments.charPos < arguments.lineMapping[mid + 1]) {
-				return mid;
-			} else if (arguments.lineMapping[mid] > arguments.charPos) {
-				high = mid - 1;
-			} else {
-				low = mid + 1;
-			}
-		}
-
-		return 1; // Not found, default to first line
+		// NOTE: LinePositionUtils returns 0 for invalid positions, but this component
+		// expects a fallback to line 1 for backward compatibility
+		return result == 0 ? 1 : result;
 	}
 
 	/**
@@ -142,8 +134,8 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 					startLine = block[2];
 					endLine = block[3];
 				} else {
-					startLine = getLineFromCharacterPosition(block[2], filePath, lineMapping, mappingLen);
-					endLine = getLineFromCharacterPosition(block[3], filePath, lineMapping, mappingLen);
+					startLine = LinePositionUtils::getLineFromCharacterPosition(block[2], lineMapping, mappingLen);
+					endLine = LinePositionUtils::getLineFromCharacterPosition(block[3], lineMapping, mappingLen);
 				}
 			if (startLine == 0) startLine = 1;
 			if (endLine == 0) endLine = startLine;

@@ -87,10 +87,10 @@ component {
 		var coveragePercent = linesFound > 0 ? numberFormat(100.0 * linesHit / linesFound, "9.9") : "0.0";
 
 		// Extract filename and directory for tab-friendly title
-	var fileName = listLast(scriptName, "/\\");
-	var dirPath = listDeleteAt(scriptName, listLen(scriptName, "/\\"), "/\\");
-	var shortDir = listLast(dirPath, "/\\");
-	var tabTitle = fileName & " - " & shortDir & " - LCOV";
+	var pathArray = listToArray(scriptName, "/\");
+	var fileName = arrayLen(pathArray) > 0 ? pathArray[arrayLen(pathArray)] : scriptName;
+	var shortDir = arrayLen(pathArray) > 1 ? pathArray[arrayLen(pathArray) - 1] : "";
+	var tabTitle = fileName & (shortDir != "" ? " - " & shortDir : "") & " - LCOV";
 
 	var html = '<!DOCTYPE html>
 	<html lang="en">

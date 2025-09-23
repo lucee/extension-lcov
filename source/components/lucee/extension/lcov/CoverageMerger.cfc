@@ -210,8 +210,9 @@ component {
 				}
 			}
 		}
-		if(variables.debug)
-			systemOutput("Merged " & totalCoverageLines & " coverage lines. merged: " & serializeJSON(arguments.merged));
+		if(variables.debug) {
+			systemOutput("Merged " & totalCoverageLines & " coverage lines. merged: " & serializeJSON(arguments.merged), true);
+		}
 	}
 
 
@@ -278,23 +279,30 @@ component {
 		if (!isArray(sourceResult.getFileCoverage())) {
 			return;
 		}
-		for (var coverageLine in sourceResult.getFileCoverage()) {
-			var parts = listToArray(coverageLine, chr(9), false, false);
-			if (arrayLen(parts) != 4) {
+
+		var sourceArray = sourceResult.getFileCoverage();
+		var tempArray = [];
+
+		// Build temporary array with optimized string replacement (much faster than listToArray/arrayToList)
+		for (var i = 1; i <= arrayLen(sourceArray); i++) {
+			var coverageLine = sourceArray[i];
+			var tabPos = find(chr(9), coverageLine);
+			if (tabPos == 0) {
 				throw(
 					"Malformed fileCoverage line: [" & coverageLine & "]. " &
-					"Expected format: <fileIndex>\\t<startLine>\\t<endLine>\\t<hitCount> (4 columns). " &
-					"Found [" & arrayLen(parts) & "] columns. Parsed parts: [" & serializeJSON(parts) & "]",
+					"Expected format: <fileIndex>\\t<startLine>\\t<endLine>\\t<hitCount> (4 tab-separated columns). " &
+					"No tab separator found.",
 					"CoverageDataError"
 				);
 			}
-			// Always remap fileIndex to 0 for canonical merged result (column 1)
-			parts[1] = "0";
-			var remappedLine = arrayToList(parts, chr(9));
-			var targetArray = targetResult.getFileCoverage();
-			arrayAppend(targetArray, remappedLine);
-			targetResult.setFileCoverage(targetArray);
+			// Replace first column (fileIndex) with "0" using fast string operations
+			arrayAppend(tempArray, "0" & mid(coverageLine, tabPos, len(coverageLine)));
 		}
+
+		// Single bulk append operation - much faster than individual appends
+		var targetArray = targetResult.getFileCoverage();
+		arrayAppend(targetArray, tempArray, true);
+		targetResult.setFileCoverage(targetArray);
 	}
 
 }
