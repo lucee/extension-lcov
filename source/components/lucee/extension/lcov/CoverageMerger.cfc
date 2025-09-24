@@ -23,8 +23,7 @@
  */
 component {
 
-	// Import CoverageMergerUtils for private utility logic
-	variables.utils = new CoverageMergerUtils();
+	// CoverageMergerUtils functions now called as static methods for better performance
 	variables.debug = false;
 
 
@@ -55,13 +54,13 @@ component {
 	 * @return mergedResults struct
 	 */
 	public struct function mergeResultStructs(required struct results, boolean verbose=false) {
-		var validResults = utils.filterValidResults(arguments.results);
-		var mappings = utils.buildFileIndexMappings(validResults);
+		var validResults = lucee.extension.lcov.CoverageMergerUtils::filterValidResults(arguments.results);
+		var mappings = lucee.extension.lcov.CoverageMergerUtils::buildFileIndexMappings(validResults);
 		if (variables.debug) {
 			systemOutput("File Mappings: " & serializeJSON(var=mappings, compact=false), true);
 			systemOutput("Source Results: " & serializeJSON(var=validResults, compact=false), true);
 		}
-		var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+		var mergedResults = lucee.extension.lcov.CoverageMergerUtils::initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
 		var sourceFileStats = createSourceFileStats(mappings.indexToFilePath);
 		var totalMergeOperations = 0;
 		mergedResults = mergeAllCoverageDataFromResults(validResults, mergedResults, mappings, sourceFileStats, totalMergeOperations);
@@ -118,12 +117,12 @@ component {
 				var canonicalIndex = arguments.mappings.filePathToIndex[sourceFilePath];
 				var sourceFileCoverage = coverageData[fileIndex];
 				// Only merge if this exlPath/fileIndex was NOT used to initialize the merged entry
-				if (!(structKeyExists(initializedBy, canonicalIndex) && initializedBy[canonicalIndex].exlPath == exlPath 
+				if (!(structKeyExists(initializedBy, canonicalIndex) && initializedBy[canonicalIndex].exlPath == exlPath
 						&& initializedBy[canonicalIndex].fileIndex == fileIndex)) {
 					var mergedLines = mergeCoverageData(arguments.mergedResults[canonicalIndex], sourceFileCoverage, sourceFilePath, 0);
 					arguments.totalMergeOperations += mergedLines;
 				}
-				mergeFileCoverageArray(arguments.mergedResults[canonicalIndex], result, fileIndex, 0, sourceFilePath);
+				// NOTE: Eliminated mergeFileCoverageArray call - no longer needed since we use processed coverage data
 				arrayAppend(arguments.sourceFileStats[canonicalIndex].exlFiles, exlFileName);
 			}
 		}
@@ -270,6 +269,9 @@ component {
 	}
 
 	/**
+	 * DEPRECATED: No longer used - replaced by processing structured coverage data directly.
+	 * This function was causing performance bottlenecks due to arrayAppend() operations on large datasets.
+	 *
 	 * Remap fileCoverage array lines to canonical file path for downstream consumers.
 	 * Only lines matching the canonical fileIndex (always 0 internally) are allowed.
 	 * Fails fast if any line has an unexpected fileIndex value.

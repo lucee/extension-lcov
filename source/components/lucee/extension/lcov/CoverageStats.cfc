@@ -103,14 +103,13 @@ component accessors="true" {
 			// linesHit, totalExecutions, totalExecutionTime remain 0 until coverage is processed
 			totalStats.totalLinesFound += fileInfo.linesFound;
 
-			// DEBUG: Check for issues in individual result processing
+			// Validate data integrity - fail fast on inconsistent state
 			if (fileInfo.linesHit > fileInfo.linesFound) {
-				systemOutput("[LCOV DEBUG - calculateCoverageStats] linesHit > linesFound for fileIdx: " & fileIdx, true);
-				systemOutput("[LCOV DEBUG - calculateCoverageStats] linesHit: " & fileInfo.linesHit, true);
-				systemOutput("[LCOV DEBUG - calculateCoverageStats] linesFound: " & fileInfo.linesFound, true);
-				systemOutput("[LCOV DEBUG - calculateCoverageStats] linesSource: " & fileInfo.linesSource, true);
+				var filePath = structKeyExists(fileInfo, "path") ? fileInfo.path : "fileIdx[" & fileIdx & "]";
+				throw(type="DataIntegrityError", message="Invalid coverage data: linesHit [" & fileInfo.linesHit
+					  & "] exceeds linesFound [" & fileInfo.linesFound & "] for file: [" & filePath & "]");
 			}
-			
+
 			if (structKeyExists(coverageData, fileIdx)) {
 				var filecoverage = coverageData[fileIdx];
 				var lineNumbers = structKeyArray(filecoverage);
@@ -138,17 +137,17 @@ component accessors="true" {
 			// fileinfo is passed by reference and updated in place
 		});
 		arguments.result.setStats(totalStats);
-		
+
 		var validationError = arguments.result.validate(throw=false);
 		if (len(validationError)) {
 			if (variables.debug) {
 				systemOutput("Result before validation: " & serializeJSON(var=arguments.result, compact=false), true);
 				systemOutput("Validation errors: " & serializeJSON(var=validationError, compact=false), true);
 			}
-			// Extract file path(s) from getFiles() for concise error
-			var filesData = arguments.result.getFiles();
-			var filePath = structCount(filesData) ? structKeyList(filesData) : "unknown";
-			throw "Result validation failed for file(s): " & filePath & ", validation errors: " & serializeJSON(var=validationError, compact=false)	;
+			// Extract actual file paths for concise error message
+			var filePaths = arguments.result.getAllFilePaths();
+			var filePathList = arrayLen(filePaths) ? arrayToList(filePaths, ", ") : "unknown";
+			throw "Result validation failed for file(s): [" & filePathList & "], validation errors: " & serializeJSON(var=validationError, compact=false);
 		}
 		return arguments.result;
 	}
@@ -309,13 +308,15 @@ component accessors="true" {
 	* @mergedResults Struct of result objects keyed by file index
 	*/
 	public static void function calculateStatsForMergedResults(required struct mergedResults) {
+		var statsCalculator = new CoverageStats();
 		for (var fileIndex in arguments.mergedResults) {
 			var startTime = getTickCount();
-			arguments.mergedResults[fileIndex].stats = calculateCoverageStats(arguments.mergedResults[fileIndex]);
-			if (structKeyExists(arguments.mergedResults[fileIndex].stats, "totalExecutionTime")) {
-				var metadata = arguments.mergedResults[fileIndex].getMetadata();
-				metadata["execution-time"] = arguments.mergedResults[fileIndex].stats.totalExecutionTime;
-				arguments.mergedResults[fileIndex].setMetadata(metadata);
+			var result = statsCalculator.calculateCoverageStats(arguments.mergedResults[fileIndex]);
+			// calculateCoverageStats returns the result with updated stats, so we don't need to set .stats manually
+			if (structKeyExists(result.getStats(), "totalExecutionTime")) {
+				var metadata = result.getMetadata();
+				metadata["execution-time"] = result.getStats().totalExecutionTime;
+				result.setMetadata(metadata);
 			}
 		}
 	}

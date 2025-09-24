@@ -163,7 +163,7 @@ component {
 		// Ensure parent directory exists before writing file
 		if (!directoryExists(directory)) {
 			// Recursively create parent directories
-			directoryCreate(directory);
+			directoryCreate(directory, true);
 		}
 		// Ensure directory ends with separator
 		if (len(directory) && !right(directory, 1) == "/" && !right(directory, 1) == "\") {

@@ -227,8 +227,16 @@ component accessors=true {
 
 	/**
 	 * Serializes the result model to JSON.
+	 * @pretty Whether to format the JSON with indentation
+	 * @excludeFileCoverage Whether to exclude the raw fileCoverage array from serialization (default false for backward compatibility)
 	 */
-	public string function toJson(boolean pretty=true) {
+	public string function toJson(boolean pretty=true, boolean excludeFileCoverage=false) {
+		if (arguments.excludeFileCoverage) {
+			// Create a copy without fileCoverage
+			var data = this.getData();
+			structDelete(data, "fileCoverage");
+			return serializeJSON(var=data, compact=!arguments.pretty);
+		}
 		return serializeJSON(var=this, compact=!arguments.pretty);
 	}
 

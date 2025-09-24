@@ -75,6 +75,26 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateAllReports(required string executionLogDir, required string outputDir, struct options = {}) {
+		// Validate required directories exist
+		if (!directoryExists(arguments.executionLogDir)) {
+			throw(type="DirectoryNotFound", message="Execution log directory does not exist: [" & arguments.executionLogDir & "]");
+		}
+
+		// Validate output directory exists - throw error if missing
+		if (!directoryExists(arguments.outputDir)) {
+			throw(message="Output directory does not exist: [" & arguments.outputDir & "]");
+		}
+
+		// Ensure required subdirectories exist
+		var htmlDir = arguments.outputDir & "/html";
+		var jsonDir = arguments.outputDir & "/json";
+		if (!directoryExists(htmlDir)) {
+			directoryCreate(htmlDir, true);
+		}
+		if (!directoryExists(jsonDir)) {
+			directoryCreate(jsonDir, true);
+		}
+
 		// Set default options
 		var defaultOptions = {
 			verbose: false,
@@ -177,6 +197,16 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateHtml(required string executionLogDir, required string outputDir, struct options = {}) {
+		// Validate required directories exist
+		if (!directoryExists(arguments.executionLogDir)) {
+			throw(type="DirectoryNotFound", message="Execution log directory does not exist: [" & arguments.executionLogDir & "]");
+		}
+
+		// Validate output directory exists - throw error if missing
+		if (!directoryExists(arguments.outputDir)) {
+			throw(message="Output directory does not exist: [" & arguments.outputDir & "]");
+		}
+
 		// Set default options
 		var defaultOptions = {
 			verbose: false,
@@ -202,7 +232,7 @@ component {
 
 		// Generate HTML reports using focused HTML reporter
 		var htmlReporter = new reporter.HtmlReporter(mergedOptions.displayUnit, mergedOptions.verbose);
-		htmlReporter.setOutputDir(arguments.outputDir); // Set output directory for individual HTML files
+		htmlReporter.setOutputDir(htmlDir); // Set output directory for individual HTML files
 		var htmlIndex = "";
 
 		// Process results based on separateFiles option
@@ -267,7 +297,7 @@ component {
 		}
 
 		// Generate index HTML
-		htmlIndex = htmlReporter.generateIndexHtml(arguments.outputDir);
+		htmlIndex = htmlReporter.generateIndexHtml(htmlDir);
 
 
 		// Calculate aggregated stats from all results
@@ -301,6 +331,16 @@ component {
 	 */
 	public struct function lcovGenerateJson(required string executionLogDir, required string outputDir, struct options = {}) {
 		try {
+			// Validate required directories exist
+			if (!directoryExists(arguments.executionLogDir)) {
+				throw(type="DirectoryNotFound", message="Execution log directory does not exist: [" & arguments.executionLogDir & "]");
+			}
+
+			// Validate output directory exists - throw error if missing
+			if (!directoryExists(arguments.outputDir)) {
+				throw(message="Output directory does not exist: [" & arguments.outputDir & "]");
+			}
+
 			// Set default options
 			var defaultOptions = {
 				verbose: false,

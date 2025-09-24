@@ -11,7 +11,7 @@ component accessors=false {
 	 * @results Struct of results keyed by .exl file path
 	 * @return Struct of valid results with coverage data
 	 */
-	public struct function filterValidResults(required struct results) {
+	public static struct function filterValidResults(required struct results) {
 		var validResults = {};
 		for (var exlPath in arguments.results) {
 			var result = arguments.results[exlPath];
@@ -29,7 +29,7 @@ component accessors=false {
 	 * @validResults Struct of valid results with coverage data
 	 * @return Struct with filePathToIndex and indexToFilePath mappings
 	 */
-	public struct function buildFileIndexMappings(required struct validResults) {
+	public static struct function buildFileIndexMappings(required struct validResults) {
 		var filePathToIndex = {};
 		var indexToFilePath = {};
 		var nextIndex = 0;
@@ -59,7 +59,7 @@ component accessors=false {
 	 * @canonicalIndex The canonical index to use in merged results
 	 * @return A new source file entry struct
 	 */
-	public struct function initializeMergedResults(required struct validResults, 
+	public static struct function initializeMergedResults(required struct validResults,
 			required struct filePathToIndex, required struct indexToFilePath) {
 		var mergedResults = {};
 		for (var canonicalIndex in indexToFilePath) {
@@ -70,7 +70,7 @@ component accessors=false {
 				var files = result.getFiles();
 				for (var fileIndex in files) {
 					if (files[fileIndex].path == sourceFilePath) {
-						mergedResults[canonicalIndex] = initializeSourceFileEntry(sourceFilePath, result, fileIndex, canonicalIndex);
+						mergedResults[canonicalIndex] = lucee.extension.lcov.CoverageMergerUtils::initializeSourceFileEntry(sourceFilePath, result, fileIndex, canonicalIndex);
 						found = true;
 						break;
 					}
@@ -94,7 +94,7 @@ component accessors=false {
 	 *
 	 * This ensures all per-file data in the merged results is consistently keyed by the canonical, consecutive numeric fileIndex, with all paths and stats normalized for downstream consumers and reporting.
 	 */
-	public result function initializeSourceFileEntry(required string sourceFilePath, required result sourceResult, 
+	public static result function initializeSourceFileEntry(required string sourceFilePath, required result sourceResult,
 			required string fileIndex, numeric mergedFileIndex = 0) {
 		if (!len(arguments.sourceFilePath)) {
 			throw(message="BUG: initializeSourceFileEntry called with empty sourceFilePath. fileIndex=" & arguments.fileIndex & ", sourceResult=" & serializeJSON(arguments.sourceResult));
