@@ -120,12 +120,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			
 			describe("Visual Styling Rules", function() {
 				
-				it("should right-align numeric cells (time/count)", function() {
-					var cssContent = cssGenerator.generateCssRules();
-					
-					expect(cssContent).toInclude(".exec-count", "CSS should contain exec-count class");
-					expect(cssContent).toInclude(".exec-time", "CSS should contain exec-time class");
-					expect(cssContent).toInclude("text-align: right", "Numeric cells should be right-aligned");
+				it("should generate agnostic CSS rules for custom table and class names", function() {
+					var values = [100, 200, 300];
+					var minColor = {r: 255, g: 200, b: 200};
+					var maxColor = {r: 200, g: 0, b: 0};
+					var cssContent = cssGenerator.generateCssRules(values, 3, "test-table", "test-class", minColor, maxColor);
+
+					expect(arrayLen(cssContent)).toBe(6, "Should return 6 CSS rule elements: blank, comment, base class, level1, level2, level3");
+					expect(arrayToList(cssContent, " ")).toInclude(".test-table .test-class-1", "CSS should contain level 1 class");
+					expect(arrayToList(cssContent, " ")).toInclude(".test-table .test-class-2", "CSS should contain level 2 class");
+					expect(arrayToList(cssContent, " ")).toInclude(".test-table .test-class-3", "CSS should contain level 3 class");
+					expect(arrayToList(cssContent, " ")).toInclude("background-color:", "CSS should include background colors");
 				});
 
 				it("should use light-dark CSS function for dual-mode theming", function() {
@@ -133,11 +138,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					expect(textColor).toInclude("light-dark(", "Should use CSS light-dark function");
 				});
 
-				it("should use separate styling for not-executed lines", function() {
-					var cssContent = cssGenerator.generateCssRules();
-					
-					expect(cssContent).toInclude("non-executable", "Should have non-executable class");
-					expect(cssContent).notToInclude("##heatmap-non-executable", "Non-executed lines should not use heatmap colors");
+				it("should generate color gradients between min and max colors", function() {
+					var values = [100, 200, 300];
+					var minColor = {r: 255, g: 200, b: 200}; // Light red
+					var maxColor = {r: 200, g: 0, b: 0};     // Dark red
+					var cssContent = cssGenerator.generateCssRules(values, 3, "test-table", "test-class", minColor, maxColor);
+
+					// Should generate different colors for different levels
+					expect(arrayToList(cssContent, " ")).toInclude("rgb(", "CSS should contain RGB color values");
+					expect(arrayToList(cssContent, " ")).toInclude("light-dark(", "CSS should use light-dark function");
 				});
 			});
 
@@ -152,11 +161,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				});
 
-				it("should provide dark mode support through CSS variables", function() {
-					var cssContent = cssGenerator.generateCssRules();
-					
-					expect(cssContent).toInclude("--not-executed-bg", "Should define dark mode background variable");
-					expect(cssContent).toInclude("--not-executed-text", "Should define dark mode text variable");
+				it("should provide dark mode support through CSS light-dark function", function() {
+					var values = [100, 200, 300];
+					var minColor = {r: 255, g: 200, b: 200};
+					var maxColor = {r: 200, g: 0, b: 0};
+					var cssContent = cssGenerator.generateCssRules(values, 3, "test-table", "test-class", minColor, maxColor);
+
+					expect(arrayToList(cssContent, " ")).toInclude("light-dark(", "CSS should use light-dark function for colors");
+					expect(arrayToList(cssContent, " ")).toInclude("color: white", "Text color should be white (in base class)");
 				});
 			});
 

@@ -140,20 +140,23 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// And - HTML should have proper structure
 				var indexContent = fileRead(result.htmlIndex);
-				var doc = htmlParse(indexContent);
+				var htmlParser = new testAdditional.HtmlParser();
+				var doc = htmlParser.parseHtml(indexContent);
 
 				// And - should have root html element
-				var htmlNodes = xmlSearch(doc, "//*[local-name()='html']");
+				var htmlNodes = htmlParser.select(doc, "html");
 				expect(arrayLen(htmlNodes)).toBe(1, "Should have one <html> root element");
 
 				// And - should have coverage summary section
-				var summaryNodes = xmlSearch(doc, "//*[@data-coverage-summary]");
+				var summaryNodes = htmlParser.select(doc, "[data-coverage-summary]");
 				expect(arrayLen(summaryNodes)).toBeGTE(1, "Should have a coverage summary section");
+
 
 				// And - should show percentage coverage
 				var foundPercent = false;
 				for (var node in summaryNodes) {
-					if (find("%", node.xmlText)) foundPercent = true;
+					var nodeText = htmlParser.getText(node);
+					if (find("%", nodeText)) foundPercent = true;
 				}
 				expect(foundPercent).toBeTrue("Should show percentage coverage in summary");
 			});
@@ -201,7 +204,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// Then - it should exclude blocked files
 				expect(result).toBeStruct();
-				expect(result.stats.totalFiles).toBe(0, result.stats);
+				expect(result.stats.totalFiles).toBe(0);
 			});
 		});
 

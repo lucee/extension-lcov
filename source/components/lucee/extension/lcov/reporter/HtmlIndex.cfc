@@ -4,7 +4,7 @@ component {
 	 * @results Array of result model objects (model/result.cfc)
 	 */
 	public string function generateIndexHtmlContent(required array results, required any htmlEncoder, required any displayUnit) {
-		var heatmapData = calculateCoverageHeatmapData(arguments.results);
+		var heatmapData = calculateCoverageHeatmapData(arguments.results, arguments.displayUnit);
 
 		var header = new HtmlReportHeader();
 		var htmlAssets = new HtmlAssets();
@@ -40,37 +40,73 @@ component {
 						<span class="toggle-icon">&##127769;</span>
 					</button>
 				</div>';
-		// Calculate total lines and percent covered for summary
+		// Calculate total lines, percent covered, and total execution time for summary
 		var totalLinesHit = 0;
 		var totalLinesFound = 0;
+		var totalExecutionTimeMicroseconds = 0;
+		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
 		for (var result in arguments.results) {
 			if (isNumeric(result["totalLinesHit"])) totalLinesHit += result["totalLinesHit"];
 			if (isNumeric(result["totalLinesFound"])) totalLinesFound += result["totalLinesFound"];
+			if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
+				// Convert from source unit to microseconds before summing
+				var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
+				var executionTimeMicros = htmlUtils.convertTime(result["executionTime"], sourceUnit, "μs");
+				totalExecutionTimeMicroseconds += executionTimeMicros;
+			}
 		}
 		var percentCovered = (totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "00.0") & '%' : '0%';
+
+		// Format total execution time using HtmlUtils
+		var totalTimeDisplay = htmlUtils.formatTime(totalExecutionTimeMicroseconds, arguments.displayUnit.symbol, 2);
+
 		html &= '<div class="summary" data-coverage-summary'
 			& ' data-total-reports=''' & arrayLen(arguments.results) & ''''
 			& ' data-total-lines=''' & totalLinesFound & ''''
 			& ' data-lines-hit=''' & totalLinesHit & ''''
 			& ' data-percent-covered=''' & percentCovered & '''>'
-			& '<strong>Total Reports:</strong> ' & arrayLen(arguments.results) & ' | '
-			& '<strong>Coverage:</strong> ' & percentCovered & ' | '
-			& '<strong>Generated:</strong> ' & lsDateTimeFormat(now())
+			& '<strong>Total Reports:</strong> <span class="total-reports">' & arrayLen(arguments.results) & '</span> | '
+			& '<strong>Coverage:</strong> <span class="total-coverage">' & percentCovered & '</span> | '
+			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & totalTimeDisplay & '</span> | '
+			& '<strong>Generated:</strong> <span class="generated-timestamp">' & lsDateTimeFormat(now()) & '</span>'
 			& '</div>';
+
+		// Check for minimum time warnings across all results
+		var hasMinTimeWarnings = false;
+		for (var result in arguments.results) {
+			if (structKeyExists(result, "minTimeNano") && isNumeric(result["minTimeNano"]) && result["minTimeNano"] > 0) {
+				hasMinTimeWarnings = true;
+				break;
+			}
+		}
+
+		// Add global minimum time warning if any reports have it
+		if (hasMinTimeWarnings) {
+			html &= '<div class="min-time-warning">
+				   <strong>&##9888; Coverage Warning:</strong> One or more reports may have incomplete coverage data due to minimum execution time filtering. See individual reports for details.
+				   </div>';
+		}
 
 		if (arrayLen(arguments.results) == 0) {
 			html &= '<div class="no-reports">No coverage reports found.</div>';
 		} else {
-			html &= '<table class="reports-table">
+			html &= '<table class="reports-table sortable-table">
 				<thead>
 					<tr>
-						<th>Script Name</th>
-						<th>Coverage</th>
-						<th>Percentage</th>
-						<th>Execution Time</th>
+						<th data-sort-type="text">Script Name</th>
+						<th data-sort-type="numeric">Coverage</th>
+						<th data-sort-type="numeric" style="font-style: italic;" data-dir="asc">Percentage (%)</th>
+						<th data-sort-type="numeric" data-execution-time-header>Execution Time (' & arguments.displayUnit.symbol & ')</th>
 					</tr>
 				</thead>
 				<tbody>';
+
+			// Sort results by coverage percentage (ascending - worst to best)
+			arraySort(arguments.results, function(a, b) {
+				var percentA = (isNumeric(a["totalLinesHit"]) && isNumeric(a["totalLinesFound"]) && a["totalLinesFound"] > 0) ? 100.0 * a["totalLinesHit"] / a["totalLinesFound"] : -1;
+				var percentB = (isNumeric(b["totalLinesHit"]) && isNumeric(b["totalLinesFound"]) && b["totalLinesFound"] > 0) ? 100.0 * b["totalLinesHit"] / b["totalLinesFound"] : -1;
+				return percentA - percentB; // Ascending order (worst first)
+			});
 
 			for (var result in arguments.results) {
 				// Get required properties from report summary struct (from index.json)
@@ -78,12 +114,19 @@ component {
 				var htmlFile = result["htmlFile"];
 				var totalLinesHit = result["totalLinesHit"];
 				var totalLinesFound = result["totalLinesFound"];
-				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") & '%' : '-';
+				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") : '-';
 				var formattedTime = "";
-				var displayUnit = "";
 				if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
-					formattedTime = numberFormat(result["executionTime"]);
-					displayUnit = structKeyExists(result, "unit") ? result["unit"] : "";
+					var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
+					// Convert from source unit to microseconds before passing to formatTime
+					var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
+					var executionTimeMicros = htmlUtils.convertTime(result["executionTime"], sourceUnit, "μs");
+					// Use formatTime which expects microseconds as input
+					// Use same precision as HtmlFileSection.cfc: 4 decimals for seconds, 2 for others
+					var precision = (arguments.displayUnit.symbol == "s") ? 4 : 2;
+					var timeDisplay = htmlUtils.formatTime(executionTimeMicros, arguments.displayUnit.symbol, precision);
+					// Extract just the numeric part (remove unit suffix)
+					formattedTime = reReplace(timeDisplay, "\s+[a-zA-Zμ]+$", "");
 				}
 				var timestamp = structKeyExists(result, "timestamp") ? result["timestamp"] : "";
 
@@ -92,27 +135,29 @@ component {
 				var executionClass = "";
 
 				// Coverage percentage heatmap
+				// For coverage: higher values get higher levels (brighter green)
 				if (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0 && arrayLen(heatmapData.coverageRanges) > 0) {
 					var percentage = 100.0 * totalLinesHit / totalLinesFound;
-					var level = heatmapData.bucketCalculator.getValueLevel(percentage, heatmapData.coverageRanges);
+					var level = heatmapData.bucketCalculator.getValueLevel(percentage, heatmapData.coverageRanges, "asc");
 					coverageClass = " coverage-heatmap-level-" & level;
 				}
 
 				// Execution time heatmap - include zero values and missing data
+				// For execution times: lower values get higher levels (greener)
 				if (arrayLen(heatmapData.executionRanges) > 0) {
 					var execTime = 0; // Default to 0 for missing execution data
 					if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
 						execTime = result["executionTime"];
 					}
-					var level = heatmapData.bucketCalculator.getValueLevel(execTime, heatmapData.executionRanges);
+					var level = heatmapData.bucketCalculator.getValueLevel(execTime, heatmapData.executionRanges, "desc");
 					executionClass = " execution-heatmap-level-" & level;
 				}
 
 				html &= '<tr data-file-row data-html-file="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '" data-script-name="' & arguments.htmlEncoder.htmlAttributeEncode(scriptName) & '">';
-				html &= '<td class="script-name">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</td>';
+				html &= '<td class="script-name"><a href="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</a></td>';
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
 				html &= '<td class="percentage' & coverageClass & '">' & percentCovered & '</td>';
-				html &= '<td class="execution-time' & executionClass & '">' & formattedTime & ' ' & arguments.htmlEncoder.htmlAttributeEncode(displayUnit) & '</td>';
+				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell>' & formattedTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}
 
@@ -121,6 +166,7 @@ component {
 
 			html &= '</div>';
 			html &= htmlAssets.getDarkModeScript();
+			html &= htmlAssets.getTableSortScript();
 			html &= '</body></html>';
 			return html;
 	}
@@ -130,9 +176,9 @@ component {
 	 * @results Array of result model objects
 	 * @return struct containing bucketCalculator, coverage ranges, execution ranges, and css
 	 */
-	private struct function calculateCoverageHeatmapData(required array results) {
+	private struct function calculateCoverageHeatmapData(required array results, required any displayUnit) {
 		var bucketCalculator = new heatmap.bucketCalculator();
-		var colorGenerator = new heatmap.colorGenerator();
+		var cssGenerator = new heatmap.cssGenerator();
 		var coveragePercentages = [];
 		var executionTimes = [];
 
@@ -151,44 +197,48 @@ component {
 		}
 
 		var cssRules = [];
-
-		// Calculate heatmap buckets for coverage percentages
-		var coverageBucketCount = min(5, max(1, arrayLen(coveragePercentages)));
+		var bucketCounts = bucketCalculator.calculateOptimalBucketCounts(coveragePercentages, executionTimes, 5);
 		var coverageRanges = [];
-
-		if (arrayLen(coveragePercentages) > 0) {
-			coverageRanges = bucketCalculator.calculateRanges(coveragePercentages, coverageBucketCount);
-
-			// Generate CSS for coverage heatmap using green base color
-			var coverageBaseColor = {r: 0, g: 128, b: 0}; // Green for coverage percentages
-			arrayAppend(cssRules, "/* Coverage Percentage Heatmap */");
-
-			for (var level = 1; level <= coverageBucketCount; level++) {
-				var coverageClass = "coverage-heatmap-level-" & level;
-				var coverageColor = colorGenerator.generateGradientColor(coverageBaseColor, level, coverageBucketCount);
-				var textColor = colorGenerator.getContrastTextColor(level, coverageBucketCount);
-				arrayAppend(cssRules, ".reports-table .percentage." & coverageClass & " { background-color: " & coverageColor & "; color: " & textColor & "; border-radius: 3px; padding: 2px 5px; }");
-			}
-		}
-
-		// Calculate heatmap buckets for execution times
-		var executionBucketCount = min(5, max(1, arrayLen(executionTimes)));
 		var executionRanges = [];
 
+		// Generate coverage percentage heatmap CSS
+		if (arrayLen(coveragePercentages) > 0) {
+			coverageRanges = bucketCalculator.calculateRanges(coveragePercentages, bucketCounts.countBucketCount);
+
+			// Coverage: use green gradient - darker for better contrast with white text
+			var coverageMinColor = {r: 50, g: 150, b: 50}; // Darker green
+			var coverageMaxColor = {r: 0, g: 100, b: 0}; // Very dark green
+			arrayAppend(cssRules, cssGenerator.generateCssRules(
+				coveragePercentages,
+				bucketCounts.countBucketCount,
+				"reports-table",
+				"percentage.coverage-heatmap-level",
+				coverageMinColor,
+				coverageMaxColor,
+				"asc",
+				"%",
+				"Coverage Percentage Heatmap"
+			), true);
+		}
+
+		// Generate execution time heatmap CSS
 		if (arrayLen(executionTimes) > 0) {
-			executionRanges = bucketCalculator.calculateRanges(executionTimes, executionBucketCount);
+			executionRanges = bucketCalculator.calculateRanges(executionTimes, bucketCounts.timeBucketCount);
 
-			// Generate CSS for execution time heatmap using red base color
-			var executionBaseColor = {r: 255, g: 0, b: 0}; // Red for execution times
-			arrayAppend(cssRules, "");
-			arrayAppend(cssRules, "/* Execution Time Heatmap */");
-
-			for (var level = 1; level <= executionBucketCount; level++) {
-				var executionClass = "execution-heatmap-level-" & level;
-				var executionColor = colorGenerator.generateGradientColor(executionBaseColor, level, executionBucketCount);
-				var textColor = colorGenerator.getContrastTextColor(level, executionBucketCount);
-				arrayAppend(cssRules, ".reports-table .execution-time." & executionClass & " { background-color: " & executionColor & "; color: " & textColor & "; border-radius: 3px; padding: 2px 5px; }");
-			}
+			// Execution time: use blue gradient - medium blue to dark blue
+			var executionMinColor = {r: 100, g: 100, b: 200}; // Medium blue
+			var executionMaxColor = {r: 0, g: 0, b: 150}; // Dark blue
+			arrayAppend(cssRules, cssGenerator.generateCssRules(
+				executionTimes,
+				bucketCounts.timeBucketCount,
+				"reports-table",
+				"execution-time.execution-heatmap-level",
+				executionMinColor,
+				executionMaxColor,
+				"desc",
+				arguments.displayUnit.symbol,
+				"Execution Time Heatmap"
+			), true);
 		}
 
 		var combinedCss = arrayToList(cssRules, chr(10));

@@ -7,7 +7,6 @@ component accessors="true" {
 	property name="fileExistsCache" type="struct" default="#{}#";
 	property name="fileIgnoreCache" type="struct" default="#{}#"; // files not allowed due to allow/block lists
 
-
 	/**
 	* Initialize the parser with cache structures
 	* @options Configuration options struct (optional)
@@ -29,7 +28,7 @@ component accessors="true" {
 	* @message The message to log
 	*/
 	private void function logger(required string message) {
-		if (true || variables.verbose) {
+		if (variables.verbose) {
 			systemOutput(arguments.message, true);
 		}
 	}
@@ -44,9 +43,41 @@ component accessors="true" {
 	* @return Result object containing sections and fileCoverage data
 	*/
 	public result function parseExlFile(string exlPath, boolean needSingleFileCoverage = false,
-		array allowList=[], array blocklist=[], boolean useAstForLinesFound = false) {
+		array allowList=[], array blocklist=[], boolean useAstForLinesFound = false, boolean writeJsonCache = false) {
 
 		var startTime = getTickCount();
+
+		// Check for cached JSON result with matching checksum and options
+		var jsonPath = reReplace(arguments.exlPath, "\.exl$", ".json");
+		if (fileExists(jsonPath) && fileExists(arguments.exlPath)) {
+			try {
+				// Calculate current .exl file checksum
+				var currentChecksum = fileInfo(arguments.exlPath).checksum;
+
+				// Parse JSON directly and check checksum and options
+				var cachedData = deserializeJSON(fileRead(jsonPath));
+				var cachedChecksum = structKeyExists(cachedData, "exlChecksum") ? cachedData.exlChecksum : "";
+
+				// Create options hash for comparison
+				var currentOptionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.useAstForLinesFound]), "MD5");
+				var cachedOptionsHash = structKeyExists(cachedData, "optionsHash") ? cachedData.optionsHash : "";
+
+				if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
+					logger("Using cached result for [" & getFileFromPath(arguments.exlPath) & "]");
+					// Use the static fromJson method but disable validation to avoid schema issues
+					var cachedResult = new lucee.extension.lcov.model.result().fromJson(fileRead(jsonPath), false);
+					return cachedResult;
+				} else {
+					logger("Checksum mismatch for [" & arguments.exlPath & "] - re-parsing (cached: " & cachedChecksum & ", current: " & currentChecksum & ")");
+					// Delete outdated cached file
+					fileDelete(jsonPath);
+				}
+			} catch (any e) {
+				logger("Failed to load cached result for [" & arguments.exlPath & "]: " & e.message & " - re-parsing");
+				// Delete invalid cached file
+				fileDelete(jsonPath);
+			}
+		}
 
 		var lines = [];
 		try {
@@ -68,7 +99,7 @@ component accessors="true" {
 		var fileCoverage = [];
 		var totalLines = arrayLen( lines );
 		var start = getTickCount();
-		systemOutput("Starting to process " & totalLines & " lines...", true);
+		logger("Starting to process " & totalLines & " lines from [" & arguments.exlPath & "]...");
 
 		for ( var i = 1; i <= totalLines; i++ ) {
 			var line = lines[i];
@@ -89,7 +120,7 @@ component accessors="true" {
 				}
 			}	
 		}
-		systemOutput("Processed " & totalLines & " lines in " & numberFormat(getTickCount() - start, "0.0") & "ms", true);
+		logger("Processed " & totalLines & " lines in " & numberFormat(getTickCount() - start, "0.0") & "ms");
 		lines = ""; // free memory
 3
 		var coverage = new lucee.extension.lcov.model.result();
@@ -100,6 +131,23 @@ component accessors="true" {
 		coverage.setFiles(parsedFiles.files);
 		coverage.setFileCoverage(fileCoverage);
 		coverage.setExeLog(exlPath);
+
+		// Calculate and store checksum of the .exl file to detect reprocessing
+		if (fileExists(exlPath)) {
+			try {
+				var fileInfo = fileInfo(exlPath);
+				coverage.setExlChecksum(fileInfo.checksum);
+			} catch (any e) {
+				// If checksum calculation fails, leave it empty
+				// log a warning
+				logger("Warning: Failed to calculate checksum for [" & exlPath & "]: " & e.message);
+				coverage.setExlChecksum("");
+			}
+		}
+
+		// Store options hash for cache validation
+		var optionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.useAstForLinesFound]), "MD5");
+		coverage.setOptionsHash(optionsHash);
 
 		if ( structCount( coverage.getFiles() ) == 0 && arrayLen( coverage.getFileCoverage() ) == 0 ) {
 			logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
@@ -115,8 +163,12 @@ component accessors="true" {
 			", raw rows: " & numberFormat(arrayLen( coverage.getFileCoverage() )) &
 			", in " & numberFormat(totalTime ) & "ms");
 
-		// Write out filecoverage as json using compact=false for debugging
-		fileWrite( replace( arguments.exlPath, ".exl", ".json" ), coverage.toJson(pretty=true) );
+		// Write JSON cache if requested
+		if (arguments.writeJsonCache) {
+			systemOutput("parseExlFile: Writing JSON cache to " & jsonPath, true);
+			fileWrite(jsonPath, coverage.toJson(pretty=false, excludeFileCoverage=true));
+		}
+
 		logger( "" );
 
 

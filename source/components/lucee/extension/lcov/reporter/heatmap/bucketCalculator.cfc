@@ -34,16 +34,28 @@ component output="false" {
 	 * Determines the numeric level for a given value based on threshold array
 	 * @param value The value to classify
 	 * @param thresholds Array of threshold values for each level
+	 * @param sortDirection "asc" for higher values get higher levels, "desc" for higher values get lower levels
 	 * @return numeric Level: 1, 2, 3, etc.
 	 */
-	public numeric function getValueLevel(numeric value, array thresholds) {
+	public numeric function getValueLevel(numeric value, array thresholds, string sortDirection = "asc") {
+		var rawLevel = 0;
 		for (var i = 1; i <= arrayLen(arguments.thresholds); i++) {
 			if (arguments.value <= arguments.thresholds[i]) {
-				return i;
+				rawLevel = i;
+				break;
 			}
 		}
-		// If value exceeds all thresholds, return the highest level
-		return arrayLen(arguments.thresholds);
+		// If value exceeds all thresholds, use the highest level
+		if (rawLevel == 0) {
+			rawLevel = arrayLen(arguments.thresholds);
+		}
+
+		// Apply sort direction
+		if (arguments.sortDirection == "desc") {
+			return arrayLen(arguments.thresholds) - rawLevel + 1;
+		} else {
+			return rawLevel;
+		}
 	}
 
 	/**

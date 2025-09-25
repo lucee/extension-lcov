@@ -37,6 +37,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	public function testSeparateFilesFalse() {
 		// Given
 		var outputDir = variables.testData.coverageDir & "/false/";
+		if (!directoryExists(outputDir)) {
+			directoryCreate(outputDir, true);
+		}
 		var options = {
 			separateFiles: false,
 			verbose: true
@@ -67,6 +70,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	private function testSeparateFilesTrue() {
 		// Given
 		var outputDir = variables.testData.coverageDir & "/true/";
+		if (!directoryExists(outputDir)) {
+			directoryCreate(outputDir, true);
+		}
 		var options = {
 			separateFiles: true,
 			verbose: true
@@ -121,7 +127,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Given
 		var combinedDir = variables.testData.coverageDir & "/by-request-comparison/";
 		var separateDir = variables.testData.coverageDir & "/by-source-file-comparison/";
-		
+
+		if (!directoryExists(combinedDir)) {
+			directoryCreate(combinedDir, true);
+		}
+		if (!directoryExists(separateDir)) {
+			directoryCreate(separateDir, true);
+		}
+
 		// When - Generate with separateFiles: false
 		lcovGenerateHtml(
 			executionLogDir = variables.testData.coverageDir,
@@ -151,6 +164,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	private function testIndexJsonContent() {
 		// Given
 		var outputDir = variables.testData.coverageDir & "/json-validation/";
+		if (!directoryExists(outputDir)) {
+			directoryCreate(outputDir, true);
+		}
 		var options = {
 			separateFiles: true,
 			verbose: true

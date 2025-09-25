@@ -7,48 +7,27 @@ component accessors=true {
 	property name="coverage" type="struct" default="#{}#"; // per file coverage data
 	property name="files" type="struct" default="#{}#"; // contains per file stats, source and info 
 	property name="exeLog" type="string" default=""; // file path of the .exl used to generate this result
+	property name="exlChecksum" type="string" default=""; // checksum of the .exl file to detect reprocessing
+	property name="optionsHash" type="string" default=""; // hash of parsing options to detect option changes
 	property name="outputFilename" type="string" default=""; // name of the output, without an file extension
 	property name="parserPerformance" type="struct" default="#{}#";
 	property name="fileCoverage" type="array" default="#[]#";
 
-	/**
-	* Returns a struct with total execution time and unit for display.
-	* @displayUnit The unit to display (e.g., "micro", "ms", "s").
-	*/
-	public struct function getTotalExecutionTimeStruct(string displayUnit = "micro") {
-		var time = 0;
-		var unit = displayUnit;
-		if (isStruct(variables.stats) && structKeyExists(variables.stats, "totalExecutionTime")) {
-			time = variables.stats.totalExecutionTime;
-		}
-		// Assume input is microseconds, convert as needed
-		if (displayUnit == "ms") {
-			time = time / 1000;
-			unit = "ms";
-		} else if (displayUnit == "s") {
-			time = time / 1000000;
-			unit = "s";
-		} else {
-			unit = "micro";
-		}
-		return { time = time, unit = unit };
-	}
 
 	/**
 	 * Returns an array of all file paths in the result.
 	 */
-	   public array function getAllFilePaths() {
-			   if (!isStruct(variables.files)) return [];
-			   var filePaths = [];
-			   for (var idx in variables.files) {
-				   var fileData = variables.files[idx];
-				   if (structKeyExists(fileData, "path")) {
-					   arrayAppend(filePaths, fileData.path);
-				   }
-			   }
-			   return filePaths;
-		   }
-
+	public array function getAllFilePaths() {
+		if (!isStruct(variables.files)) return [];
+		var filePaths = [];
+		for (var idx in variables.files) {
+			var fileData = variables.files[idx];
+			if (structKeyExists(fileData, "path")) {
+				arrayAppend(filePaths, fileData.path);
+			}
+		}
+		return filePaths;
+	}
 
 	/**
 	 * Returns the coverage struct for a specific file index.
@@ -63,22 +42,22 @@ component accessors=true {
 	/**
 	 * Returns the array of source lines for a specific file index.
 	 */
-	   public array function getFileLines(required numeric fileIndex) {
-		   if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			   throw(message="No files struct present or missing file index: " & arguments.fileIndex);
-		   }
-		   return variables.files[arguments.fileIndex].lines;
-	   }
+	public array function getFileLines(required numeric fileIndex) {
+		if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
+			throw(message="No files struct present or missing file index: " & arguments.fileIndex);
+		}
+		return variables.files[arguments.fileIndex].lines;
+	}
 
 	/**
 	 * Returns the struct of executable lines for a specific file index.
 	 */
-	   public struct function getExecutableLines(required numeric fileIndex) {
-		   if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			   throw(message="No files struct present or missing file index: " & arguments.fileIndex);
-		   }
-		   return variables.files[arguments.fileIndex].executableLines;
-	   }
+	public struct function getExecutableLines(required numeric fileIndex) {
+		if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
+			throw(message="No files struct present or missing file index: " & arguments.fileIndex);
+		}
+		return variables.files[arguments.fileIndex].executableLines;
+	}
 
 	/**
 	 * Returns the overall coverage percentage for the result.
@@ -99,11 +78,15 @@ component accessors=true {
 	}
 
 	/**
-	 * Returns the value of a metadata property, or throws if missing.
+	 * Returns the value of a metadata property, or throws if missing and no default provided.
 	 * @key The metadata property key (e.g. "script-name")
+	 * @defaultValue Optional default value to return if property is missing
 	 */
-	public any function getMetadataProperty(required string key) {
+	public any function getMetadataProperty(required string key, any defaultValue) {
 		if (!structKeyExists(variables.metadata, arguments.key)) {
+			if (structKeyExists(arguments, "defaultValue")) {
+				return arguments.defaultValue;
+			}
 			throw "Missing required metadata property: " & arguments.key & ". Available keys: " & structKeyList(variables.metadata);
 		}
 		return variables.metadata[arguments.key];
@@ -152,15 +135,11 @@ component accessors=true {
 		if (!structKeyExists(variables.stats, "totalExecutionTime")) variables.stats.totalExecutionTime = 0;
 	}
 
-
-
-
 	/**
 	 * Sets or updates a source file entry in the result's source.files struct.
 	 * @fileIndex The file index or path
 	 * @data The file data struct
 	 */
-
 
 	public struct function getFileItem(required numeric fileIndex) {
 		if (!structKeyExists(variables, "files") || !isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {

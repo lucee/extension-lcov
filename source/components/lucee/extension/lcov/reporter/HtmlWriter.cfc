@@ -78,13 +78,17 @@ component {
 		else outUnit = unit;
 		var execTimeValue = value;
 		var execTimeUnit = outUnit;
-		var fileCoverageJson = replace(result.getExeLog(), ".exl", ".json");
+		var fileCoverageJson = result.getOutputFilename() & ".json";
 		var linesFound = result.getStatsProperty("totalLinesFound");
 		var linesHit = result.getStatsProperty("totalLinesHit");
 		if (!isNumeric(linesFound) || !isNumeric(linesHit)) {
 			throw "Missing or invalid coverage stats: linesFound=" & linesFound & ", linesHit=" & linesHit;
 		}
 		var coveragePercent = linesFound > 0 ? numberFormat(100.0 * linesHit / linesFound, "9.9") : "0.0";
+
+		// Check for minimum execution time warning
+		var minTimeNano = result.getMetadataProperty("min-time-nano", 0);
+		var hasMinTimeWarning = isNumeric(minTimeNano) && minTimeNano > 0;
 
 		// Extract filename and directory for tab-friendly title
 	var pathArray = listToArray(scriptName, "/\");
@@ -117,8 +121,17 @@ component {
 				<div class="timestamp">Generated: ' & lsDateTimeFormat(now()) & '</div>
 				   <div class="coverage-summary" data-coverage-summary>
 					   <strong>Coverage Summary:</strong> ' & linesHit & ' of ' & linesFound & ' lines covered (' & coveragePercent & '%)
-				   </div>
-			</div>
+				   </div>';
+
+		// Add minimum time warning if applicable
+		if (hasMinTimeWarning) {
+			var unitSymbol = result.getMetadataProperty("unit", "ns");
+			html &= '<div class="min-time-warning">
+				   <strong>&##9888; Coverage Warning:</strong> Coverage data may be incomplete due to minimum execution time filter (min-time: ' & minTimeNano & ' ' & unitSymbol & ')
+				   </div>';
+		}
+
+		html &= '</div>
 			<a href="index.html" class="back-link">Back to Index</a>
 			<p class="file-links"><strong>Log Files:</strong> <a href="'
 				& variables.htmlEncoder.htmlAttributeEncode(result.getExeLog()) & '" target="_blank" class="file-link">'
@@ -130,14 +143,17 @@ component {
 		// Loop over canonical fileIndex keys in result.getFiles()
 		var filesStruct = result.getFiles();
 		for (var fileIndex in filesStruct) {
-			if (!isNumeric(fileIndex)) continue; // Only process numeric fileIndex keys
+			if (!isNumeric(fileIndex)) throw(type="InvalidFileIndex", message="Only numeric fileIndex keys are allowed [fileIndex=#fileIndex#]");
 			html &= variables.fileSection.generateFileSection(fileIndex, result, variables.htmlEncoder, variables.heatmapCalculator, variables.displayUnit);
 		}
 
 		html &= '</div>';
 		html &= variables.htmlAssets.getDarkModeScript();
-		html &= '</body>\n</html>';
+		html &= variables.htmlAssets.getTableSortScript();
+		html &= '</body></html>';
 		return html;
+		systemOutput("", true);
+		systemOutput("", true);
 	}
 
 	/**

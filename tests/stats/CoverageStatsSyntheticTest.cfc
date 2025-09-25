@@ -65,8 +65,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					files: { "/tmp/B.cfm": { path: "/tmp/B.cfm", linesFound: 2, linesSource: 4, executableLines: {"20": true, "21": true} } },
 					coverage: { "/tmp/B.cfm": { "20": [1, 1], "21": [0, 0] } }
 				});
-				var results = { "/tmp/A.cfm": resultA, "/tmp/B.cfm": resultB };
-				var stats = statsComponent.calculateDetailedStats(results);
+				// Write results to temporary JSON files for progressive processing
+				var tempDir = getTempDirectory() & "/stats-test-" & createUUID();
+				directoryCreate(tempDir);
+				var jsonFilePaths = [];
+				var jsonPathA = tempDir & "/resultA.json";
+				var jsonPathB = tempDir & "/resultB.json";
+				fileWrite(jsonPathA, resultA.toJson(false, true));
+				fileWrite(jsonPathB, resultB.toJson(false, true));
+				arrayAppend(jsonFilePaths, jsonPathA);
+				arrayAppend(jsonFilePaths, jsonPathB);
+				var stats = statsComponent.aggregateCoverageStats(jsonFilePaths);
 				if (variables.debug) {
 					systemOutput("[DEBUG] fileStats keys: " & structKeyList(stats.fileStats), true);
 					systemOutput("[DEBUG] fileStats struct: " & serializeJSON(var=stats.fileStats, compact=false), true);
@@ -96,8 +105,20 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					files: { "/tmp/C.cfm": { path: "/tmp/C.cfm", linesFound: 6, linesSource: 12, executableLines: {"30": true, "31": true, "32": true, "33": true, "34": true, "35": true} } },
 					coverage: { "/tmp/C.cfm": { "30": [1, 2], "31": [1, 1], "32": [0, 0], "33": [1, 1], "34": [1, 1], "35": [0, 0] } }
 				});
-				var results = { "/tmp/A.cfm": resultA, "/tmp/B.cfm": resultB, "/tmp/C.cfm": resultC };
-				var stats = statsComponent.calculateDetailedStats(results);
+				// Write results to temporary JSON files for progressive processing
+				var tempDir = getTempDirectory() & "/stats-test-" & createUUID();
+				directoryCreate(tempDir);
+				var jsonFilePaths = [];
+				var jsonPathA = tempDir & "/resultA.json";
+				var jsonPathB = tempDir & "/resultB.json";
+				var jsonPathC = tempDir & "/resultC.json";
+				fileWrite(jsonPathA, resultA.toJson(false, true));
+				fileWrite(jsonPathB, resultB.toJson(false, true));
+				fileWrite(jsonPathC, resultC.toJson(false, true));
+				arrayAppend(jsonFilePaths, jsonPathA);
+				arrayAppend(jsonFilePaths, jsonPathB);
+				arrayAppend(jsonFilePaths, jsonPathC);
+				var stats = statsComponent.aggregateCoverageStats(jsonFilePaths);
 				expect(stats.totalLinesFound).toBe(15);
 				expect(stats.totalLinesHit).toBe(10);
 				expect(stats.totalLinesSource).toBe(30);
@@ -295,7 +316,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 			it("handles empty results struct", function() {
 				var statsComponent = new lucee.extension.lcov.CoverageStats();
-				var stats = statsComponent.calculateDetailedStats({});
+				var stats = statsComponent.aggregateCoverageStats([]);
 				expect(stats.totalLinesFound).toBe(0);
 				expect(stats.totalLinesHit).toBe(0);
 				expect(stats.totalLinesSource).toBe(0);
@@ -395,11 +416,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					}
 				});
 
-				var results = {
-					"/tmp/result1.exl": result1,
-					"/tmp/result2.exl": result2,
-					"/tmp/result3.exl": result3
-				};
+				// Write results to temporary JSON files for progressive processing
+				var tempDir = getTempDirectory() & "/stats-test-" & createUUID();
+				directoryCreate(tempDir);
+				var jsonFilePaths = [];
+				var jsonPath1 = tempDir & "/result1.json";
+				var jsonPath2 = tempDir & "/result2.json";
+				var jsonPath3 = tempDir & "/result3.json";
+				fileWrite(jsonPath1, result1.toJson(false, true));
+				fileWrite(jsonPath2, result2.toJson(false, true));
+				fileWrite(jsonPath3, result3.toJson(false, true));
+				arrayAppend(jsonFilePaths, jsonPath1);
+				arrayAppend(jsonFilePaths, jsonPath2);
+				arrayAppend(jsonFilePaths, jsonPath3);
 
 				// After the fix:
 				// linesHit = union of (10,12,14,16,18,20,22) = 7 lines
@@ -407,7 +436,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				// 7 <= 7, satisfying the basic coverage rule
 				systemOutput("Testing calculateDetailedStats with overlapping coverage - should now handle correctly", true);
 
-				var stats = statsComponent.calculateDetailedStats(results);
+				var stats = statsComponent.aggregateCoverageStats(jsonFilePaths);
 
 				// Verify the fix works - linesFound should now be calculated correctly
 				expect(stats.fileStats).toHaveKey("/tmp/SameFile.cfm");

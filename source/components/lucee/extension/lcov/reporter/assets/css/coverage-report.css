@@ -159,6 +159,17 @@ body {
 	transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Default link styles using CSS variables */
+a {
+	color: var(--link-color);
+	text-decoration: none;
+}
+
+a:hover {
+	color: var(--link-hover-color);
+	text-decoration: underline;
+}
+
 .container {
 	max-width: 1400px;
 	margin: 0 auto;
@@ -421,6 +432,11 @@ tbody tr:nth-child(even) {
 	color: var(--non-executable-text);
 }
 
+.code-table tbody tr:hover {
+	background-color: var(--table-row-even);
+	opacity: 0.8;
+}
+
 
 .exec-count, .exec-time {
 	text-align: right;
@@ -544,5 +560,35 @@ tbody tr:nth-child(even) {
 
 	.code-table {
 		font-size: 12px;
+	}
+}
+
+/* Minimum time warning styling */
+.min-time-warning {
+	background-color: #fff3cd;
+	border: 1px solid #ffeaa7;
+	border-left: 4px solid #f39c12;
+	color: #856404;
+	padding: 12px 16px;
+	margin: 10px 0;
+	border-radius: 4px;
+	font-size: 14px;
+}
+
+/* Dark mode styling for warning */
+body.dark-mode .min-time-warning,
+[data-theme="dark"] .min-time-warning {
+	background-color: #3d3416;
+	border-color: #5a4b1a;
+	border-left-color: #f39c12;
+	color: #f1c40f;
+}
+
+@media (prefers-color-scheme: dark) {
+	body:not(.dark-mode):not(.light-mode) .min-time-warning {
+		background-color: #3d3416;
+		border-color: #5a4b1a;
+		border-left-color: #f39c12;
+		color: #f1c40f;
 	}
 }

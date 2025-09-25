@@ -104,8 +104,9 @@ component accessors=false {
 		var entry = new lucee.extension.lcov.model.result();
 		entry.initStats();
 		var metadataData = arguments.sourceResult.getMetadata();
+		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
 		entry.setMetadata("metadata": {
-			"script-name": contractPath(arguments.sourceFilePath),
+			"script-name": htmlUtils.safeContractPath(arguments.sourceFilePath),
 			"execution-time": "0",
 			"unit": metadataData.unit ?: "μs"
 		});

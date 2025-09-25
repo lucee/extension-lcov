@@ -49,7 +49,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var testFiles = directoryList(variables.stableTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
-							var parserResult = stableParser.parseExlFile(testExlFile);
+							var parserResult = stableParser.parseExlFile(testExlFile, false, [], [], false, true); // writeJsonCache=true
 
 							expect(isInstanceOf(parserResult, "lucee.extension.lcov.model.result")).toBeTrue();
 							expect(parserResult.getMetadata()).notToBeEmpty();
@@ -63,7 +63,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var testFiles = directoryList(variables.developTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
-							var parserResult = developParser.parseExlFile(testExlFile);
+							var parserResult = developParser.parseExlFile(testExlFile, false, [], [], false, true); // writeJsonCache=true
 
 							expect(isInstanceOf(parserResult, "lucee.extension.lcov.model.result")).toBeTrue();
 							expect(parserResult.getMetadata()).notToBeEmpty();
@@ -250,8 +250,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(developData.getFiles()).notToBeEmpty();
 		expect(stableData.getCoverage()).notToBeEmpty();
 		expect(developData.getCoverage()).notToBeEmpty();
-		expect(stableData.getFileCoverage()).notToBeEmpty();
-		expect(developData.getFileCoverage()).notToBeEmpty();
+		// Skip fileCoverage check - this data is excluded from JSON cache for memory optimization (excludeFileCoverage=true)
+		// expect(stableData.getFileCoverage()).notToBeEmpty();
+		// expect(developData.getFileCoverage()).notToBeEmpty();
 		expect(stableData.getExeLog()).notToBeEmpty();
 		expect(developData.getExeLog()).notToBeEmpty();
 		// Both should have files structure (files are indexed by file index, not nested under "files" key)

@@ -34,14 +34,14 @@ component {
 	 * @return Struct of parsed results keyed by .exl file path
 	 */
 
-	public struct function parseExecutionLogs(required string executionLogDir, struct options = {}) {
+	public array function parseExecutionLogs(required string executionLogDir, struct options = {}) {
 		// add an exclusive cflock here
 		cflock(name="lcov-parse:#arguments.executionLogDir#", timeout=0, type="exclusive", throwOnTimeout=true) {
 			return _parseExecutionLogs(arguments.executionLogDir, arguments.options);
 		}
 	}
 
-	private struct function _parseExecutionLogs(required string executionLogDir, struct options = {}) {
+	private array function _parseExecutionLogs(required string executionLogDir, struct options = {}) {
 		if (!directoryExists(arguments.executionLogDir)) {
 			throw(message="Execution log directory does not exist: " & arguments.executionLogDir);
 		}
@@ -52,37 +52,44 @@ component {
 		var exlParser = factory.getComponent(name="ExecutionLogParser", initArgs=arguments.options);
 
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
-		var results = {};
+		var jsonFilePaths = [];
 
 		logger("Found " & files.recordCount & " .exl files to process");
 
 		for (var file in files) {
 			var exlPath = file.directory & "/" & file.name;
 			var info = getFileInfo( exlPath );
-			logger("Processing .exl file: " & exlPath 
+			logger("Processing .exl file: " & exlPath
 				& " (" & decimalFormat( info.size/1024 ) & " Kb)");
 			var result = exlParser.parseExlFile(
-				exlPath, 
+				exlPath,
 				false, // generateHtml
-				arguments.options.allowList ?: [], 
-				arguments.options.blocklist ?: []
+				arguments.options.allowList ?: [],
+				arguments.options.blocklist ?: [],
+				false, // useAstForLinesFound
+				false  // writeJsonCache - we handle JSON writing after stats
 			);
 			result = factory.getComponent(name="CoverageStats").calculateCoverageStats(result);
 			// Set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
-			// Use the same logic as in LcovFunctions.cfc for request-based outputs
+			// Include unique identifier from .exl filename to avoid overlaps between multiple execution runs
 			var fileName = getFileFromPath(exlPath);
-			var numberPrefix = listFirst(fileName, "-");
+			var fileNameWithoutExt = listFirst(fileName, ".");  // Remove .exl extension
 			var scriptName = result.getMetadataProperty("script-name");
 			scriptName = reReplace(scriptName, "[^a-zA-Z0-9_-]", "_", "all");
-			var outputFilename = "request-" & numberPrefix & "-" & scriptName;
+			var outputFilename = "request-" & fileNameWithoutExt & "-" & scriptName;
 			result.setOutputFilename(outputFilename);
-			results[exlPath] = result;
+
+			// Write JSON cache after stats are calculated (includes complete stats)
+			// Use same unique filename pattern as HTML files
+			var jsonPath = file.directory & "/" & outputFilename & ".json";
+			fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
+			arrayAppend(jsonFilePaths, jsonPath);
 			///logger("Successfully processed: " & exlPath);
-			
+
 		}
 
-		logger("Completed processing " & structCount(results) & " valid .exl files");
-		return results;
+		logger("Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files");
+		return jsonFilePaths;
 	}
 
 }

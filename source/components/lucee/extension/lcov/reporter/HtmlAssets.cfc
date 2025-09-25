@@ -24,6 +24,16 @@ component output="false" {
 	}
 
 	/**
+	 * Gets the table sorting JavaScript by reading from external JS file
+	 * @return string JavaScript code for table sorting functionality
+	 */
+	public string function getTableSortScript() {
+		var jsPath = getAssetPath("js/table-sort.js");
+		var jsContent = fileRead(jsPath);
+		return "<script>" & jsContent & "</script>";
+	}
+
+	/**
 	 * Gets the absolute path to an asset file
 	 * @param relativePath The relative path from the assets directory
 	 * @return string The absolute path to the asset file

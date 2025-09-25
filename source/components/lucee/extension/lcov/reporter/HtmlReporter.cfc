@@ -137,7 +137,8 @@ component {
 			"totalLinesFound": result.getStatsProperty("totalLinesFound"),
 			"totalLinesHit": result.getStatsProperty("totalLinesHit"),
 			"totalExecutions": result.getStatsProperty("totalExecutions"),
-			"totalExecutionTime": result.getStatsProperty("totalExecutionTime")
+			"totalExecutionTime": result.getStatsProperty("totalExecutionTime"),
+			"minTimeNano": result.getMetadataProperty("min-time-nano", 0)
 		};
 
 		var indexJsonPath = getDirectoryFromPath( arguments.htmlPath ) & "index.json";

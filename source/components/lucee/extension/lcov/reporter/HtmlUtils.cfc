@@ -19,30 +19,125 @@ component {
 	}
 
 	/**
-	 * Converts time between different units
+	 * CLEAN NEW API - Convert time between units with consistent parameters and no precision loss
+	 * @value Numeric time value to convert
+	 * @fromUnit String unit to convert from (ns, μs, ms, s)
+	 * @toUnit String unit to convert to (ns, μs, ms, s)
+	 * @return Numeric converted time value (integers for ns/μs, numeric for ms/s)
 	 */
-	public struct function convertTimeUnit(numeric value, string fromUnit, struct toUnit) {
-		if (!isNumeric(arguments.value)) {
-			return { time: -1, unit: toUnit.symbol };
+	public numeric function convertTime(required numeric value, required string fromUnit, required string toUnit) {
+		if (!isNumeric(arguments.value) || arguments.value < 0) {
+			throw("Invalid time value: " & arguments.value, "InvalidTimeValueError");
 		}
 		if (arguments.value == 0) {
-			return { time: 0, unit: toUnit.symbol };
+			return 0;
 		}
-		var toMicros = {
-			"s": 1000000,
-			"ms": 1000,
-			"μs": 1,
-			"ns": 0.001,
-			"seconds": 1000000,
-			"milli": 1000,
-			"micro": 1,
-			"nano": 0.001
-		};
-		var micros = arguments.value * (structKeyExists(toMicros, arguments.fromUnit) ? toMicros[arguments.fromUnit] : 1);
-		var targetFactor = structKeyExists(toMicros, arguments.toUnit.symbol) ? toMicros[arguments.toUnit.symbol] : 1;
+		if (!isValidTimeUnit(arguments.fromUnit)) {
+			throw("Invalid fromUnit: " & arguments.fromUnit & ". Supported units: " & arrayToList(getSupportedTimeUnits()), "InvalidTimeUnitError");
+		}
+		if (!isValidTimeUnit(arguments.toUnit)) {
+			throw("Invalid toUnit: " & arguments.toUnit & ". Supported units: " & arrayToList(getSupportedTimeUnits()), "InvalidTimeUnitError");
+		}
+
+		// Convert to canonical microseconds first, then to target unit
+		var conversionFactors = getConversionFactors();
+		var valueInMicroseconds = arguments.value * conversionFactors[arguments.fromUnit];
+		var result = valueInMicroseconds / conversionFactors[arguments.toUnit];
+
+		// Return integers for nanoseconds and microseconds (discrete units)
+		if (arguments.toUnit == "ns" || arguments.toUnit == "μs") {
+			return round(result);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Format time value with appropriate unit selection and precision
+	 * @microseconds Numeric time in microseconds (canonical internal unit)
+	 * @targetUnit String target unit for display ("auto" for automatic selection)
+	 * @precision Numeric decimal places for formatting
+	 * @return String formatted time with unit
+	 */
+	public string function formatTime(required numeric microseconds, string targetUnit = "auto", numeric precision = 2) {
+		if (!isNumeric(arguments.microseconds) || arguments.microseconds < 0) {
+			return "0 μs";
+		}
+		if (arguments.microseconds == 0) {
+			// For zero values, respect the requested target unit
+			if (arguments.targetUnit != "auto") {
+				return "0 " & arguments.targetUnit;
+			}
+			return "0 μs";
+		}
+
+		var unit = arguments.targetUnit;
+		var value = arguments.microseconds;
+
+		// Auto-select appropriate unit based on magnitude
+		if (arguments.targetUnit == "auto") {
+			if (arguments.microseconds >= 1000000) {
+				unit = "s";
+				value = convertTime(arguments.microseconds, "μs", "s");
+			} else if (arguments.microseconds >= 1000) {
+				unit = "ms";
+				value = convertTime(arguments.microseconds, "μs", "ms");
+			} else if (arguments.microseconds >= 1) {
+				unit = "μs";
+				value = arguments.microseconds;
+			} else {
+				unit = "ns";
+				value = convertTime(arguments.microseconds, "μs", "ns");
+			}
+		} else {
+			value = convertTime(arguments.microseconds, "μs", arguments.targetUnit);
+		}
+
+		return numberFormat(value, "0." & repeatString("0", arguments.precision)) & " " & unit;
+	}
+
+	/**
+	 * Validate if a unit string is supported
+	 * @unit String unit to validate
+	 * @return Boolean true if supported
+	 */
+	public boolean function isValidTimeUnit(required string unit) {
+		return arrayContains(getSupportedTimeUnits(), arguments.unit);
+	}
+
+	/**
+	 * Get array of supported time unit strings
+	 * @return Array of supported unit strings
+	 */
+	public array function getSupportedTimeUnits() {
+		return ["ns", "μs", "ms", "s"];
+	}
+
+	/**
+	 * Get conversion factors to microseconds (canonical internal unit)
+	 * Simple, clean mapping with no duplicate keys
+	 * @return Struct with conversion factors
+	 */
+	private struct function getConversionFactors() {
 		return {
-			time: numberFormat( int( micros / targetFactor ) ),
-			unit: arguments.toUnit.symbol
+			"ns": 0.001,      // nanoseconds to microseconds
+			"μs": 1.0,        // microseconds (canonical)
+			"ms": 1000.0,     // milliseconds to microseconds
+			"s": 1000000.0    // seconds to microseconds
 		};
+	}
+
+
+	/**
+	 * Safely contracts a file path , falling back to original path if contraction fails
+	 */
+	public string function safeContractPath(required string filePath) {
+		try {
+			var contractedPath = contractPath(arguments.filePath);
+			return (isNull(contractedPath) || contractedPath == "null" || contractedPath contains "null") 
+				? arguments.filePath : contractedPath;
+		} catch (any e) {
+			return arguments.filePath;
+		}
 	}
 }

@@ -1,5 +1,7 @@
 component {
 
+	variables.debug = false;
+
 	/**
 	 * Optimized aggregation of coverage entries using performance techniques
 	 * Returns struct with aggregated data, metrics, and performance stats
@@ -39,7 +41,7 @@ component {
 				a[k] = [p[1], int(p[2]), int(p[3]), 1, int(p[4])];
 			}
 
-			if (i % 100000 == 0) {
+			if (variables.debug && i % 100000 == 0) {
 				systemOutput("Processed " & numberFormat(i) & " of " & numberFormat(n)
 					& " rows in " & numberFormat(getTickCount() - rowStart) & "ms", true);
 				rowStart = getTickCount();
@@ -48,12 +50,13 @@ component {
 
 		var aggregatedEntries = structCount(a);
 		var reductionPercent = n > 0 ?
-				numberFormat(((n - aggregatedEntries) / n) * 100, "0.0") : "0";
+				numberFormat(((n - aggregatedEntries) / n) * 100, "0.000") : "0";
 		var aggregationTime = getTickCount() - aggregationStart;
-
-		systemOutput("Post merging: " & numberFormat(aggregatedEntries)
-			& " unique (" & reductionPercent & "% reduction)"
-			& " in " & numberFormat(aggregationTime) & "ms", true);
+		if (variables.debug) {
+			systemOutput("Post merging: " & numberFormat(aggregatedEntries)
+				& " unique (" & reductionPercent & "% reduction)"
+				& " in " & numberFormat(aggregationTime) & "ms", true);
+		}
 
 		return {
 			"aggregated": a,
@@ -74,11 +77,16 @@ component {
 		var n = arguments.totalLines;  // pre-calculated length
 
 		// Calculate chunk size - use larger chunks to reduce coordination overhead
-		var chunkSize = 100000;
+		var chunkSize = 200000;  // Increased chunk size to reduce memory overhead
 		var numChunks = ceiling(n / chunkSize);
 		var g = [];  // chunkResults
 
-		systemOutput("Processing " & n & " entries in " & numChunks & " chunks of " & chunkSize, true);
+		// chunk numberformat mask
+		var chunkMask = repeatString("0", len(ToString(numChunks)));
+		if (variables.debug) {
+			systemOutput("Aggregating " & numberFormat(n) & " entries in " & numberFormat(numChunks) 
+				& " chunks of " & numberFormat(chunkSize), true);
+		}
 
 		// Process chunks in parallel - use arrays instead of structs
 		for (var chunkIdx = 1; chunkIdx <= numChunks; chunkIdx++) {
@@ -122,8 +130,11 @@ component {
 
 			// Store results back to chunk array
 			b[4] = c;  // aggregated
-
-			systemOutput("Chunk " & b[3] & " processed: " & structCount(c) & " unique entries", true);
+			if (variables.debug) {
+				systemOutput("Chunk " & numberFormat(b[3], chunkMask) & " processed " 
+					& numberFormat(b[2] - b[1] + 1) & " rows in " 
+					& numberFormat(getTickCount() - aggregationStart) & "ms", true);
+			}
 		}, true);  // parallel=true
 
 		// Merge chunk results sequentially
@@ -148,12 +159,13 @@ component {
 		}
 		var duplicateCount = totalProcessedEntries - aggregatedEntries;
 		var reductionPercent = n > 0 ?
-				numberFormat(((n - aggregatedEntries) / n) * 100, "0.0") : "0";
+				numberFormat(((n - aggregatedEntries) / n) * 100, "0.000") : "0";
 		var aggregationTime = getTickCount() - aggregationStart;
-
-		systemOutput("Chunked post merging: " & numberFormat(aggregatedEntries)
-			& " unique (" & reductionPercent & "% reduction)"
-			& " in " & numberFormat(aggregationTime) & "ms", true);
+		if (variables.debug) {
+			systemOutput("Aggregated lines after merging: " & numberFormat(aggregatedEntries)
+				& " unique (" & reductionPercent & "% reduction)"
+				& " in " & numberFormat(aggregationTime) & "ms", true);
+		}
 
 		return {
 			"aggregated": a,

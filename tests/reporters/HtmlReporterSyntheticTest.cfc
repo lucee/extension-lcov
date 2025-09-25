@@ -78,25 +78,27 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Read the generated HTML file
 		var html = fileRead(htmlPath);
-		var doc = htmlParse(html);
-		// Write the parsed XML doc to a file for inspection
-		var xmlOutPath = outDir & "/synthetic-html-parsed.xml";
-		fileWrite(xmlOutPath, toString(doc));
-		systemOutput("Wrote parsed XML to: " & xmlOutPath, true);
+		var htmlParser = new testAdditional.HtmlParser();
+		var doc = htmlParser.parseHtml(html);
+		// Write the HTML content to a file for inspection
+		var htmlOutPath = outDir & "/synthetic-html-content.html";
+		fileWrite(htmlOutPath, html);
+		systemOutput("Wrote HTML content to: " & htmlOutPath, true);
 
-		// Assert: file sections exist for all files using xmlSearch (namespace-agnostic)
+		// Assert: file sections exist for all files using JSoup selectors
 		var files = syntheticResult.getFiles();
-		var fileSections = xmlSearch(doc, "//*[local-name()='div' and @data-file-section]");
+
+		var fileSections = htmlParser.select(doc, "[data-file-section]");
 		expect(arrayLen(fileSections)).toBe(structCount(files));
-		// Assert the data-file-section attribute value is 'data-file-section'
-		fileSections.each(function(n){ expect(n.xmlAttributes["data-file-section"]).toBe("data-file-section"); });
-		var filenames = fileSections.map(function(n){ return n.xmlAttributes["data-filename"]; });
+		// Assert the data-file-section attribute exists (boolean attribute with no value)
+		fileSections.each(function(n){ expect(htmlParser.hasAttr(n, "data-file-section")).toBeTrue(); });
+		var filenames = fileSections.map(function(n){ return htmlParser.getAttr(n, "data-filename"); });
 		for (var idx in files) {
 			expect(filenames).toInclude(files[idx].path);
 		}
 
-			// Assert: line rows exist and have correct attributes (namespace-agnostic)
-		var lineRows = xmlSearch(doc, "//*[local-name()='tr' and @data-line-row]");
+			// Assert: line rows exist and have correct attributes using JSoup selectors
+		var lineRows = htmlParser.select(doc, "tr[data-line-row]");
 		var totalLines = 0;
 		for (var idx in files) {
 			totalLines += files[idx].linesSource;
@@ -105,15 +107,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Check exact number of line rows for each file using syntheticResult
 		for (var idx in files) {
 			var filePath = files[idx].path;
-			var fileRows = xmlSearch(doc, "//*[local-name()='div' and @data-file-section and @data-filename='" & filePath & "']//*[local-name()='tr' and @data-line-row]");
+			var fileRows = htmlParser.select(doc, "div[data-filename='" & filePath & "'] tr[data-line-row]");
 			expect(arrayLen(fileRows)).toBe(files[idx].linesSource);
 		}
 
-		// Assert: summary section exists and contains correct percentage (namespace-agnostic)
-		var summary = xmlSearch(doc, "//*[@data-coverage-summary]");
+		// Assert: summary section exists and contains correct percentage using JSoup selectors
+		var summary = htmlParser.select(doc, "[data-coverage-summary]");
 		expect(arrayLen(summary)).toBe(1);
 		var expectedPct = syntheticResult.getStats().coveragePercentage & ".0%";
-		expect(summary[1].xmlText).toInclude(expectedPct);
+		expect(htmlParser.getText(summary[1])).toInclude(expectedPct);
 	}
 
 }

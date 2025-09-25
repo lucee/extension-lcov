@@ -20,7 +20,7 @@ component {
 		return this;
 	}
 	
-	function generateExlFilesForArtifacts(required string adminPassword, string fileFilter = "") {
+	function generateExlFilesForArtifacts(required string adminPassword, string fileFilter = "", struct executionLogOptions = {}) {
 		// Generate .exl files using ResourceExecutionLog
 		
 		// Clean coverage directory
@@ -32,14 +32,24 @@ component {
 		// Create exeLogger instance
 		var exeLogger = new lucee.extension.lcov.exeLogger(arguments.adminPassword);
 		
+		// Default execution log options
+		var defaultLogOptions = {
+			"unit": "micro",
+			"min-time": 0,
+			"directory": variables.tempCoverageDir
+		};
+
+		// Merge custom options with defaults
+		var logOptions = structCopy(defaultLogOptions);
+		structAppend(logOptions, arguments.executionLogOptions, true);
+
+		// Ensure directory is always set to our temp coverage dir
+		logOptions.directory = variables.tempCoverageDir;
+
 		// Enable ResourceExecutionLog
 		exeLogger.enableExecutionLog(
 			class = "lucee.runtime.engine.ResourceExecutionLog",
-			args = {
-				"unit": "micro",
-				"min-time": 0,
-				"directory": variables.tempCoverageDir
-			},
+			args = logOptions,
 			maxlogs = 0
 		);
 		

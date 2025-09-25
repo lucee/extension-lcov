@@ -1,112 +1,67 @@
 /**
- * CSS generation component for heatmap styling
- * Handles CSS rule creation and formatting
+ * CSS generation component for heatmap visualization
+ * Handles CSS rule creation and formatting - completely agnostic to data type
  */
 component output="false" {
 
 	// Instance variables for dependencies
 	variables.colorGenerator = new colorGenerator();
 	variables.bucketCalculator = new bucketCalculator();
-	
-	// Base colors for gradient generation (RGB values)
-	variables.countBaseColor = {r: 255, g: 0, b: 0}; // Red for execution counts
-	variables.timeBaseColor = {r: 0, g: 102, b: 204}; // Blue for execution times
 
 	/**
-	 * Generates CSS rules for execution count heatmap
-	 * @param countValues Array of execution count values
+	 * Generates CSS rules for heatmap visualization
+	 * @param values Array of values to create buckets from
 	 * @param bucketCount Number of buckets to create
 	 * @param tableClass CSS class for scoping
+	 * @param cssClass CSS class name for the heatmap (e.g., "count-level", "time-level")
+	 * @param minColor Struct with r, g, b values for minimum value color
+	 * @param maxColor Struct with r, g, b values for maximum value color
+	 * @param sortDirection "asc" or "desc" for value-to-level mapping
+	 * @param unit Optional unit string for comments (e.g., "μs", "%")
+	 * @param comment Optional comment for the CSS block
 	 * @return array of CSS rule strings
 	 */
-	public array function generateCountCssRules(array countValues, numeric bucketCount, string tableClass) {
+	public array function generateCssRules(array values, numeric bucketCount, string tableClass, string cssClass, struct minColor, struct maxColor, string sortDirection = "asc", string unit = "", string comment = "Heatmap") {
 		var cssRules = [];
-		
-		if (arrayLen(arguments.countValues) == 0) {
+
+		if (arrayLen(arguments.values) == 0) {
 			return cssRules;
 		}
-		
-		var countRanges = variables.bucketCalculator.calculateRanges(arguments.countValues, arguments.bucketCount);
-		
+
+		var ranges = variables.bucketCalculator.calculateRanges(arguments.values, arguments.bucketCount);
+
 		arrayAppend(cssRules, "");
-		arrayAppend(cssRules, "	/* Execution Count Heatmap - " & arguments.bucketCount & " levels */");
-		
+		arrayAppend(cssRules, "	/* " & arguments.comment & " - " & arguments.bucketCount & " levels */");
+
+		// Extract base class from cssClass (e.g., "exec-count.count-level" -> "exec-count")
+		var baseClass = listFirst(arguments.cssClass, ".");
+
+		// Add base class rule for common properties
+		arrayAppend(cssRules, "	." & baseClass & " { color: white; border-radius: 3px; padding: 2px 5px; }");
+
 		var prevThreshold = 0;
 		for (var level = 1; level <= arguments.bucketCount; level++) {
-			var countClass = "count-level-" & level;
-			var countColor = variables.colorGenerator.generateGradientColor(variables.countBaseColor, level, arguments.bucketCount);
-			
+			var levelClass = arguments.cssClass & "-" & level;
+			var levelColor = variables.colorGenerator.generateGradientBetweenColors(arguments.minColor, arguments.maxColor, level, arguments.bucketCount);
+
 			// Build range comment for this level
-			var threshold = countRanges[level];
+			var threshold = ranges[level];
 			var rangeComment = "/* " & (prevThreshold + 1);
 			if (threshold != (prevThreshold + 1)) {
 				rangeComment = rangeComment & "-" & threshold;
+			}
+			if (arguments.unit != "") {
+				rangeComment = rangeComment & " " & arguments.unit;
 			}
 			rangeComment = rangeComment & " */";
-			
-			// Generate text color for contrast
-			var countTextColor = variables.colorGenerator.getContrastTextColor(level, arguments.bucketCount);
-			arrayAppend(cssRules, "	." & arguments.tableClass & " .exec-count." & countClass & " { background-color: " & countColor & "; color: " & countTextColor & "; } " & rangeComment);
+
+			// Generate concise CSS rule - only background color since base class handles the rest
+			var cssRule = "	." & arguments.tableClass & " ." & arguments.cssClass & "-" & level & " { background-color: " & levelColor & "; } " & rangeComment;
+			arrayAppend(cssRules, cssRule);
+
 			prevThreshold = threshold;
 		}
-		
-		return cssRules;
-	}
 
-	/**
-	 * Generates CSS rules for execution time heatmap
-	 * @param timeValues Array of execution time values
-	 * @param bucketCount Number of buckets to create
-	 * @param tableClass CSS class for scoping
-	 * @return array of CSS rule strings
-	 */
-	public array function generateTimeCssRules(array timeValues, numeric bucketCount, string tableClass) {
-		var cssRules = [];
-		
-		if (arrayLen(arguments.timeValues) == 0) {
-			return cssRules;
-		}
-		
-		var timeRanges = variables.bucketCalculator.calculateRanges(arguments.timeValues, arguments.bucketCount);
-		
-		arrayAppend(cssRules, "");
-		arrayAppend(cssRules, "	/* Execution Time Heatmap - " & arguments.bucketCount & " levels */");
-		
-		var prevThreshold = 0;
-		for (var level = 1; level <= arguments.bucketCount; level++) {
-			var timeClass = "time-level-" & level;
-			var timeColor = variables.colorGenerator.generateGradientColor(variables.timeBaseColor, level, arguments.bucketCount);
-			
-			// Build range comment for this level
-			var threshold = timeRanges[level];
-			var rangeComment = "/* " & (prevThreshold + 1);
-			if (threshold != (prevThreshold + 1)) {
-				rangeComment = rangeComment & "-" & threshold;
-			}
-			rangeComment = rangeComment & " μs */";
-			
-			// Generate text color for contrast
-			var timeTextColor = variables.colorGenerator.getContrastTextColor(level, arguments.bucketCount);
-			arrayAppend(cssRules, "	." & arguments.tableClass & " .exec-time." & timeClass & " { background-color: " & timeColor & "; color: " & timeTextColor & "; } " & rangeComment);
-			prevThreshold = threshold;
-		}
-		
 		return cssRules;
-	}
-
-	/**
-	 * Generates CSS rules for both count and time heatmaps (test-friendly method)
-	 * @return string CSS rules as concatenated string
-	 */
-	public string function generateCssRules() {
-		var rules = [];
-		
-		// Generate basic CSS structure for testing
-		arrayAppend(rules, "/* Basic heatmap CSS structure */");
-		arrayAppend(rules, ".exec-count { text-align: right; }");
-		arrayAppend(rules, ".exec-time { text-align: right; }");
-		arrayAppend(rules, ".non-executable { background: var(--not-executed-bg, ##f5f5f5); color: var(--not-executed-text, ##666); }");
-		
-		return arrayToList(rules, chr(10));
 	}
 }
