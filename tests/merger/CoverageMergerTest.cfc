@@ -59,7 +59,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var merger = variables.factory.getComponent(name="CoverageMerger");
 				var results = duplicate(variables.parsedResults);
 				var outputDir = getTempDirectory(true);
-				var mergedResults = merger.mergeResults(results=results, outputDir=outputDir);
+				var jsonFilePaths = writeResultsToJsonFiles(results, outputDir);
+				var mergedResults = merger.mergeResults(jsonFilePaths, outputDir);
 				expect(mergedResults).toBeStruct();
 				expect(structCount(mergedResults)).toBeGT(0);
 			});
@@ -265,7 +266,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			it("merges results by file (integration)", function() {
 				var merger = variables.factory.getComponent(name="CoverageMerger");
 				var results = duplicate(variables.parsedResults);
-				var mergedResult = merger.mergeResultsByFile(results);
+				var outputDir = getTempDirectory(true);
+				var jsonFilePaths = writeResultsToJsonFiles(results, outputDir);
+				var mergedResult = merger.mergeResultsByFile(jsonFilePaths);
 				expect(mergedResult).toHaveKey("mergedCoverage");
 				expect(mergedResult).toHaveKey("files");
 				for (var filePath in mergedResult.files) {
@@ -279,5 +282,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		});
 
+	}
+
+	private array function writeResultsToJsonFiles(required struct results, required string outputDir) {
+		var jsonFilePaths = [];
+		for (var exlPath in arguments.results) {
+			var result = arguments.results[exlPath];
+			var jsonFileName = result.getOutputFilename() & ".json";
+			var jsonFilePath = arguments.outputDir & jsonFileName;
+			fileWrite(jsonFilePath, result.toJson(false, true));
+			arrayAppend(jsonFilePaths, jsonFilePath);
+		}
+		return jsonFilePaths;
 	}
 }

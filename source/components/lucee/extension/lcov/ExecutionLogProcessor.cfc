@@ -80,8 +80,8 @@ component {
 			result.setOutputFilename(outputFilename);
 
 			// Write JSON cache after stats are calculated (includes complete stats)
-			// Use same unique filename pattern as HTML files
-			var jsonPath = file.directory & "/" & outputFilename & ".json";
+			// Use temp directory to avoid contaminating source directories
+			var jsonPath = getTempDirectory() & outputFilename & ".json";
 			fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
 			arrayAppend(jsonFilePaths, jsonPath);
 			///logger("Successfully processed: " & exlPath);

@@ -141,11 +141,15 @@ component accessors=true {
 	 * @data The file data struct
 	 */
 
-	public struct function getFileItem(required numeric fileIndex) {
+	public any function getFileItem(required numeric fileIndex, string property) {
 		if (!structKeyExists(variables, "files") || !isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
 			throw "File entry not found for index: " & arguments.fileIndex;
 		}
-		return variables.files[arguments.fileIndex];
+		var fileItem = variables.files[arguments.fileIndex];
+		if (structKeyExists(arguments, "property")) {
+			return fileItem[arguments.property];
+		}
+		return fileItem;
 	}
 
 	/**
@@ -197,11 +201,15 @@ component accessors=true {
 	 * Gets a file entry from the result's files struct, throws if missing.
 	 * @fileIndex The file index (numeric)
 	 */
-	public struct function getFileItem(required numeric fileIndex) {
+	public any function getFileItem(required numeric fileIndex, string property) {
 		if (!structKeyExists(variables, "files") || !isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
 			throw "File entry not found for index: " & arguments.fileIndex;
 		}
-		return variables.files[arguments.fileIndex];
+		var fileItem = variables.files[arguments.fileIndex];
+		if (structKeyExists(arguments, "property")) {
+			return fileItem[arguments.property];
+		}
+		return fileItem;
 	}
 
 	/**

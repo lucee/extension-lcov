@@ -174,7 +174,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var stableData = variables.stableParsedData[stableFile];
 						var developData = variables.developParsedData[developFile];
 
-						systemOutput("Comparing script: " & scriptKey & " (stable: " & stableFile & ", Optimized: " & developFile & ")", true);
+						//systemOutput("Comparing script: " & scriptKey & " (stable: " & stableFile & ", Optimized: " & developFile & ")", true);
 
 						// Run all comparison tests for this script pair
 						try {

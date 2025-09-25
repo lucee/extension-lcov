@@ -36,10 +36,51 @@ component {
 	 * @verbose Boolean flag for verbose logging
 	 * @return Array of written file paths
 	 */
-	public struct function mergeResults(required struct results, required string outputDir, boolean verbose=false) {
-		// Merge the result structs (all logic moved to private function)
-		var mergedResults = mergeResultStructs(arguments.results, arguments.verbose);
-		// Recalculate and synchronize all per-file stats (linesFound, linesHit, etc.) in mergedResults
+	public struct function mergeResults(required array jsonFilePaths, required string outputDir, boolean verbose=false) {
+		// Progressive loading - process one file at a time to minimize memory usage
+		var resultFactory = new lucee.extension.lcov.model.result();
+		var mergedResults = {};
+		var fileMappings = {};
+		var isFirstFile = true;
+
+		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
+			var filePath = arguments.jsonFilePaths[i];
+			if (arguments.verbose) {
+				systemOutput("Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath, true);
+			}
+
+			if (!fileExists(filePath)) {
+				throw(type="FileNotFound", message="JSON file not found: " & filePath);
+			}
+
+			try {
+				// Load current result
+				var jsonContent = fileRead(filePath);
+				var currentResult = resultFactory.fromJson(jsonContent, false);
+
+				// Initialize merged structure with first file
+				if (isFirstFile) {
+					mergedResults = initializeMergedStructure(currentResult);
+					fileMappings = buildFileIndexMappingsForResult(currentResult);
+					isFirstFile = false;
+				}
+
+				// Merge current result into accumulated results
+				mergeCurrentResultProgressive(mergedResults, currentResult, fileMappings);
+
+				// Clear reference to current result to free memory
+				currentResult = nullValue();
+				jsonContent = nullValue();
+
+			} catch (any e) {
+				if (arguments.verbose) {
+					systemOutput("Error processing " & filePath & ": " & e.message, true);
+				}
+				rethrow;
+			}
+		}
+
+		// Recalculate and synchronize all per-file stats
 		new CoverageStats().calculateStatsForMergedResults(mergedResults);
 		if (variables.debug) {
 			systemOutput("Merged Results: " & serializeJSON(var=mergedResults, compact=false), true);
@@ -132,17 +173,54 @@ component {
 	/**
 	 *  Merge coverage results by file path from multiple .exl parsing results
 	 * Uses pre-computed file mappings to avoid redundant lookups
-	 * @results Struct of parsed results from multiple .exl files
+	 * @jsonFilePaths Array of JSON file paths to load and merge
+	 * @verbose Whether to output verbose logging (default false)
 	 * @return Struct with mergedCoverage and sorted files array
 	 */
-	public struct function mergeResultsByFile(required struct results) {
-		var mappingResult = buildFileMappingsAndInitMerged(arguments.results);
-		var merged = mappingResult.merged;
-		var fileMappings = mappingResult.fileMappings;
+	public struct function mergeResultsByFile(required array jsonFilePaths, boolean verbose=false) {
+		// Progressive loading - process one file at a time to minimize memory usage
+		var resultFactory = new lucee.extension.lcov.model.result();
+		var merged = { files: {}, coverage: {} };
+		var fileMappings = {};
+		var isFirstFile = true;
 
-		mergeCoverageLines(merged, fileMappings, arguments.results);
+		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
+			var filePath = arguments.jsonFilePaths[i];
+			if (arguments.verbose) {
+				systemOutput("Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath, true);
+			}
+
+			if (!fileExists(filePath)) {
+				throw(type="FileNotFound", message="JSON file not found: " & filePath);
+			}
+
+			try {
+				// Load current result
+				var jsonContent = fileRead(filePath);
+				var currentResult = resultFactory.fromJson(jsonContent, false);
+
+				// Initialize merged structure with first file
+				if (isFirstFile) {
+					initializeMergedByFileStructure(merged, currentResult);
+					isFirstFile = false;
+				}
+
+				// Merge current result into accumulated results
+				mergeCurrentResultByFile(merged, currentResult, fileMappings);
+
+				// Clear reference to current result to free memory
+				currentResult = nullValue();
+				jsonContent = nullValue();
+
+			} catch (any e) {
+				if (arguments.verbose) {
+					systemOutput("Error processing " & filePath & ": " & e.message, true);
+				}
+				rethrow;
+			}
+		}
+
 		// Stats calculation moved to CoverageStats component
-
 		return {
 			"mergedCoverage": merged,
 			"files": duplicate(merged.files)
@@ -305,6 +383,142 @@ component {
 		var targetArray = targetResult.getFileCoverage();
 		arrayAppend(targetArray, tempArray, true);
 		targetResult.setFileCoverage(targetArray);
+	}
+
+	private struct function initializeMergedStructure(required any firstResult) {
+		var merged = {};
+		var files = arguments.firstResult.getFiles();
+
+		// Create the first merged result based on the first file
+		for (var fileIndex in files) {
+			if (!structKeyExists(merged, fileIndex)) {
+				var resultCopy = duplicate(arguments.firstResult);
+				resultCopy.setCoverage({});
+				resultCopy.setFileCoverage([]);
+				merged[fileIndex] = resultCopy;
+			}
+		}
+
+		return merged;
+	}
+
+	private struct function buildFileIndexMappingsForResult(required any result) {
+		var mappings = {};
+		var files = arguments.result.getFiles();
+
+		for (var fileIndex in files) {
+			var filePath = files[fileIndex].path;
+			if (!structKeyExists(mappings, filePath)) {
+				mappings[filePath] = fileIndex;
+			}
+		}
+
+		return mappings;
+	}
+
+	private void function mergeCurrentResultProgressive(required struct mergedResults, required any currentResult, required struct fileMappings) {
+		var currentFiles = arguments.currentResult.getFiles();
+		var currentCoverage = arguments.currentResult.getCoverage();
+
+		// For each file in the current result
+		for (var fileIndex in currentFiles) {
+			var filePath = currentFiles[fileIndex].path;
+
+			// Find or assign target index for this file path
+			var targetIndex = fileIndex;
+			if (structKeyExists(arguments.fileMappings, filePath)) {
+				targetIndex = arguments.fileMappings[filePath];
+			} else {
+				// First time seeing this file, use its current index as target
+				arguments.fileMappings[filePath] = fileIndex;
+				targetIndex = fileIndex;
+			}
+
+			if (structKeyExists(arguments.mergedResults, targetIndex)) {
+				// Merge coverage data
+				if (structKeyExists(currentCoverage, fileIndex)) {
+					var targetResult = arguments.mergedResults[targetIndex];
+					var sourceCoverage = currentCoverage[fileIndex];
+					mergeCoverageData(targetResult, sourceCoverage, filePath, targetIndex);
+				}
+
+				// Merge fileCoverage array
+				var targetResult = arguments.mergedResults[targetIndex];
+				mergeFileCoverageArray(targetResult, arguments.currentResult, fileIndex, targetIndex, filePath);
+			} else {
+				// First time seeing this file, create entry in merged results
+				var resultCopy = duplicate(arguments.currentResult);
+				resultCopy.setCoverage({});
+				resultCopy.setFileCoverage([]);
+				arguments.mergedResults[targetIndex] = resultCopy;
+
+				// Now merge the data
+				if (structKeyExists(currentCoverage, fileIndex)) {
+					var sourceCoverage = currentCoverage[fileIndex];
+					mergeCoverageData(arguments.mergedResults[targetIndex], sourceCoverage, filePath, targetIndex);
+				}
+				mergeFileCoverageArray(arguments.mergedResults[targetIndex], arguments.currentResult, fileIndex, targetIndex, filePath);
+			}
+		}
+	}
+
+	private void function initializeMergedByFileStructure(required struct merged, required any firstResult) {
+		var files = arguments.firstResult.getFiles();
+
+		// Initialize merged structure based on first file
+		for (var fileIndex in files) {
+			var filePath = files[fileIndex].path;
+			if (!structKeyExists(arguments.merged.files, filePath)) {
+				arguments.merged.files[filePath] = files[fileIndex];
+			}
+		}
+	}
+
+	private void function mergeCurrentResultByFile(required struct merged, required any currentResult, required struct fileMappings) {
+		var currentFiles = arguments.currentResult.getFiles();
+		var currentCoverage = arguments.currentResult.getCoverage();
+
+		// Process each file in current result
+		for (var fileIndex in currentFiles) {
+			var filePath = currentFiles[fileIndex].path;
+
+			// Merge file metadata (executable lines, etc.)
+			if (!structKeyExists(arguments.merged.files, filePath)) {
+				arguments.merged.files[filePath] = currentFiles[fileIndex];
+			} else {
+				// Merge executableLines from multiple runs of the same file
+				if (structKeyExists(currentFiles[fileIndex], "executableLines") &&
+					structKeyExists(arguments.merged.files[filePath], "executableLines")) {
+					var existingExecLines = arguments.merged.files[filePath].executableLines;
+					var newExecLines = currentFiles[fileIndex].executableLines;
+					for (var lineNum in newExecLines) {
+						if (!structKeyExists(existingExecLines, lineNum)) {
+							existingExecLines[lineNum] = newExecLines[lineNum];
+						}
+					}
+				}
+			}
+
+			// Merge coverage data
+			if (structKeyExists(currentCoverage, fileIndex)) {
+				if (!structKeyExists(arguments.merged.coverage, filePath)) {
+					arguments.merged.coverage[filePath] = {};
+				}
+
+				var sourceCoverage = currentCoverage[fileIndex];
+				var targetCoverage = arguments.merged.coverage[filePath];
+
+				// Merge line coverage
+				for (var lineNum in sourceCoverage) {
+					if (!structKeyExists(targetCoverage, lineNum)) {
+						targetCoverage[lineNum] = sourceCoverage[lineNum];
+					} else {
+						// Add hit counts together
+						targetCoverage[lineNum][2] += sourceCoverage[lineNum][2];
+					}
+				}
+			}
+		}
 	}
 
 }

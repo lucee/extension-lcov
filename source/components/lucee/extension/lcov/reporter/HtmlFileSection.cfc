@@ -5,84 +5,181 @@ component {
 	 * @fileIndex The canonical file index (numeric)
 	 * @result The result object (model/result.cfc)
 	 */
-	public string function generateFileSection(required numeric fileIndex, required result result, 
+	public string function generateFileSection(required numeric fileIndex, required result result,
 				required any htmlEncoder, required any heatmapCalculator, required any displayUnit) localmode=true {
 		var legend = new HtmlLegend();
 		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
-		// Look up filePath from the model using fileIndex
-		var fileData = result.getFiles()[arguments.fileIndex];
-		if (!isStruct(fileData) || !structKeyExists(fileData, "path")) {
-			throw "No file path found for fileIndex: " & arguments.fileIndex;
-		}
-		var filePath = fileData.path;
-		var vscodeLink = "vscode://file/" & replace(filePath, "\", "/", "all");
-		if (!structKeyExists(result.getCoverage(), arguments.fileIndex)) {
-			throw "No coverage data for fileIndex: " & arguments.fileIndex & " (no fileIndex mapping found)";
-		}
-		var html = '<div class="file-section" data-file-section data-file-index="' & arguments.fileIndex & '" data-filename="' & htmlEncoder.htmlAttributeEncode(filePath) & '">'
-			& '<div class="file-header">'
-				& '<h3><a href="' & vscodeLink & '" class="file-header-link">'
-				& htmlEncoder.htmlEncode(result.getFileDisplayPath(filePath))
-				& '</a></h3>'
-			& '</div>'
-			& '<div class="file-content">';
+
+		var filePath = result.getFileItem(arguments.fileIndex, "path");
+		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder);
 
 		var stats = result.getFileItem(arguments.fileIndex);
-		if (!isStruct(stats) || !structKeyExists(stats, "linesFound") || !structKeyExists(stats, "linesHit")) {
-			throw "Missing per-file coverage stats for fileIndex: " & arguments.fileIndex;
-		}
 		var totalExecutionTime = result.getStatsProperty("totalExecutionTime");
-		// Convert totalExecutionTime to microseconds (formatTime expects μs) based on metadata unit
-		var sourceUnit = result.getMetadataProperty("unit", "μs");
-		var totalExecutionTimeMicros = htmlUtils.convertTime(totalExecutionTime, sourceUnit, "μs");
-		var timeDisplay = htmlUtils.formatTime(totalExecutionTimeMicros, displayUnit.symbol, 2);
-		html &= '<div class="stats">'
-			& '<strong>Lines Executed:</strong> <span class="lines-executed">' & numberFormat(stats.totalExecutions) & '</span> | '
-			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span> | '
-			& '<strong>Lines Covered:</strong> <span class="lines-covered">' & stats.linesHit & ' of ' & stats.linesFound & '</span>'
-			& '</div>';
+		var unitName = result.getMetadataProperty("unit");
+		var sourceUnit = htmlUtils.getUnitInfo(unitName).symbol;
+		html &= generateStatsSection(stats, totalExecutionTime, htmlUtils, sourceUnit, arguments.displayUnit);
 
 		var coverage = result.getCoverageForFile(arguments.fileIndex);
 		var fileLines = result.getFileLines(arguments.fileIndex);
 		var executableLines = result.getExecutableLines(arguments.fileIndex);
 
-		var hashValue = hash(filePath, "md5");
-		var fileId = "file-" & left(hashValue, 8);
-		var tableClass = "file-table-" & fileId;
+		var tableClass = "file-table-" & left(hash(filePath, "md5"), 8);
 
-		// Extract data and create agnostic heatmaps
+		// Generate heatmaps
+		var executionData = extractExecutionData(coverage, fileLines);
+		var heatmapData = generateHeatmaps(executionData.countValues, executionData.timeValues, tableClass, heatmapCalculator);
+
+		html &= generateTableHeader(tableClass, displayUnit, heatmapData.cssRules);
+		html &= generateTableRows(coverage, fileLines, executableLines, 
+			heatmapData.countHeatmap, heatmapData.timeHeatmap,
+			htmlEncoder, htmlUtils, sourceUnit, displayUnit);
+
+		html &= '</tbody></table>';
+		html &= legend.generateLegendHtml();
+		html &= '</div></div>';
+		return html;
+	}
+
+	/**
+	 * Extracts count and time values from coverage data for heatmap generation
+	 * @coverage The coverage data structure
+	 * @fileLines Array of file lines
+	 * @return Struct with countValues and timeValues arrays
+	 */
+	private struct function extractExecutionData(required struct coverage, required array fileLines) {
 		var countValues = [];
 		var timeValues = [];
 
-		for (var i = 1; i <= arrayLen(fileLines); i++) {
-			var lineKey = i; //toString(i);
-			var lineData = structKeyExists(coverage, lineKey) ? coverage[lineKey] : [];
-			var len = arrayLen(lineData);
+		for (var i = 1; i <= arrayLen(arguments.fileLines); i++) {
+			var lineData = arguments.coverage[i] ?: [];
 
-			if (len > 0) {
-				if (len != 2) {
-					throw(type="InvalidDataStructure", message="Line execution data must contain exactly 2 elements [count, time]", detail="Line #i# has #len# elements: #serializeJSON(lineData)#");
-				}
-
-				var countVal = lineData[1] ?: 0;
-				var timeVal = lineData[2] ?: 0;
+			if (arrayLen(lineData) > 0) {
+				var countVal = lineData[1];
+				var timeVal = lineData[2];
 				if (countVal > 0) arrayAppend(countValues, countVal);
-				if (isNumeric(lineData[2])) arrayAppend(timeValues, timeVal);
+				if (timeVal > 0) arrayAppend(timeValues, timeVal);
 			}
 		}
 
+		return {
+			countValues: countValues,
+			timeValues: timeValues
+		};
+	}
+
+
+	/**
+	 * Generates the table header HTML
+	 * @tableClass CSS class for the table
+	 * @displayUnit The display unit object with symbol
+	 * @cssRules Array of CSS rules to include
+	 * @return String HTML for the table opening and header
+	 */
+	private string function generateTableHeader(required string tableClass, required any displayUnit, required array cssRules) {
+		var html = '<style>' & chr(10) & chr(9) & arrayToList(arguments.cssRules, chr(10) & chr(9)) & chr(10) & '</style>';
+		html &= '<table class="code-table sortable-table ' & arguments.tableClass & '">'
+			& '<thead>'
+				& '<tr>'
+					& '<th class="line-number" data-sort-type="numeric">Line</th>'
+					& '<th class="code-cell" data-sort-type="text">Code</th>'
+					& '<th class="exec-count" data-sort-type="numeric">Count</th>'
+					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>Time (' & arguments.displayUnit.symbol & ')</th>'
+				& '</tr>'
+			& '</thead>'
+			& '<tbody>';
+		return html;
+	}
+
+	/**
+	 * Generates the table rows HTML
+	 * @coverage The coverage data structure
+	 * @fileLines Array of file lines
+	 * @executableLines Structure of executable lines
+	 * @countHeatmap Count heatmap object
+	 * @timeHeatmap Time heatmap object
+	 * @htmlEncoder HTML encoder
+	 * @htmlUtils HTML utilities
+	 * @sourceUnit Source time unit
+	 * @displayUnit Display unit object
+	 * @return String HTML for table rows
+	 */
+	private string function generateTableRows(required struct coverage, required array fileLines,
+			required struct executableLines, required struct countHeatmap, required struct timeHeatmap,
+			required any htmlEncoder, required any htmlUtils, required string sourceUnit, required any displayUnit) {
+		var html = "";
+		var nl = chr(10);
+
+		for (var i = 1; i <= arrayLen(arguments.fileLines); i++) {
+			var lineData = arguments.coverage[i] ?: [];
+			var hasData = arrayLen(lineData) > 0;
+			var rowClass = hasData ? "executed" : (structKeyExists(arguments.executableLines, i) ? "not-executed" : "non-executable");
+
+			var execCount = "";
+			var execTime = "";
+			var countClass = "exec-count";
+			var timeClass = "exec-time";
+
+			if (hasData) {
+				var countVal = lineData[1];
+				var timeVal = lineData[2];
+
+				execCount = countVal > 0 ? numberFormat(countVal) : "";
+
+				// Format execution time
+				var convertedTime = arguments.htmlUtils.convertTime(timeVal, arguments.sourceUnit, arguments.displayUnit.symbol);
+				if (convertedTime > 0) {
+					if (arguments.displayUnit.symbol == "s") {
+						execTime = numberFormat(convertedTime, "0.0000");
+					} else {
+						execTime = numberFormat(convertedTime, "0");
+					}
+				}
+
+				// Apply heatmap classes
+				if (countVal > 0) {
+					var additionalCountClass = arguments.countHeatmap.getValueClass(countVal);
+					if (additionalCountClass != "") countClass &= " " & additionalCountClass;
+				}
+
+				if (timeVal > 0) {
+					var additionalTimeClass = arguments.timeHeatmap.getValueClass(timeVal);
+					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
+				}
+			}
+
+			html &= '<tr class="' & rowClass & '" data-line-row data-line-number="' & i & '" data-line-hit="' & (hasData ? "true" : "false") & '">'  & nl
+				& '<td class="line-number">' & i & '</td>' & nl
+				& '<td class="code-cell">' & arguments.htmlEncoder.htmlEncode(arguments.fileLines[i]) & '</td>' & nl
+				& '<td class="' & countClass & '">' & execCount & '</td>' & nl
+				& '<td class="' & timeClass & '" data-execution-time-cell>' & execTime & '</td>' & nl
+				& '</tr>' & nl;
+		}
+
+		return html;
+	}
+
+	/**
+	 * Generates heatmaps and CSS rules for count and time data
+	 * @countValues Array of execution count values
+	 * @timeValues Array of execution time values
+	 * @tableClass CSS class for the table
+	 * @heatmapCalculator The heatmap calculator instance
+	 * @return Struct with countHeatmap, timeHeatmap, and cssRules
+	 */
+	private struct function generateHeatmaps(required array countValues, required array timeValues,
+			required string tableClass, required any heatmapCalculator) {
 		var cssRules = [];
 		var countHeatmap = {};
 		var timeHeatmap = {};
 
 		// Generate count heatmap (red colors)
-		if (arrayLen(countValues) > 0) {
+		if (arrayLen(arguments.countValues) > 0) {
 			var countMinColor = {r: 200, g: 100, b: 100}; // Medium red
 			var countMaxColor = {r: 150, g: 0, b: 0}; // Dark red
-			countHeatmap = heatmapCalculator.generate(
-				countValues,
-				min(5, max(1, arrayLen(countValues))),
-				tableClass,
+			countHeatmap = arguments.heatmapCalculator.generate(
+				arguments.countValues,
+				min(5, max(1, arrayLen(arguments.countValues))),
+				arguments.tableClass,
 				"exec-count.count-level",
 				countMinColor,
 				countMaxColor,
@@ -94,13 +191,13 @@ component {
 		}
 
 		// Generate time heatmap (blue colors)
-		if (arrayLen(timeValues) > 0) {
+		if (arrayLen(arguments.timeValues) > 0) {
 			var timeMinColor = {r: 100, g: 100, b: 200}; // Medium blue
 			var timeMaxColor = {r: 0, g: 0, b: 150}; // Dark blue
-			timeHeatmap = heatmapCalculator.generate(
-				timeValues,
-				min(10, max(1, arrayLen(timeValues))),
-				tableClass,
+			timeHeatmap = arguments.heatmapCalculator.generate(
+				arguments.timeValues,
+				min(10, max(1, arrayLen(arguments.timeValues))),
+				arguments.tableClass,
 				"exec-time.time-level",
 				timeMinColor,
 				timeMaxColor,
@@ -111,68 +208,51 @@ component {
 			arrayAppend(cssRules, timeHeatmap.cssRules, true);
 		}
 
-		html &= '<style>' & chr(10) & chr(9) & arrayToList(cssRules, chr(10) & chr(9)) & chr(10) & '</style>';
-		html &= '<table class="code-table sortable-table ' & tableClass & '">'
-			& '<thead>'
-				& '<tr>'
-					& '<th class="line-number" data-sort-type="numeric">Line</th>'
-					& '<th class="code-cell" data-sort-type="text">Code</th>'
-					& '<th class="exec-count" data-sort-type="numeric">Count</th>'
-					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>Time (' & displayUnit.symbol & ')</th>'
-				& '</tr>'
-			& '</thead>'
-			& '<tbody>';
+		return {
+			countHeatmap: countHeatmap,
+			timeHeatmap: timeHeatmap,
+			cssRules: cssRules
+		};
+	}
 
-		for (var i = 1; i <= arrayLen(fileLines); i++) {
-			var lineKey = i;// toString(i);
-			var lineData = structKeyExists(coverage, lineKey) ? coverage[lineKey] : [];
-			var len = arrayLen(lineData);
-			var isExecutable = structIsEmpty(executableLines) || structKeyExists(executableLines, lineKey);
-			var rowClass = len > 0 ? "executed" : (isExecutable ? "not-executed" : "non-executable");
-			var execCount = (len >= 1 && lineData[1] ?: 0) > 0 ? numberFormat(lineData[1]) : "";
-			var execTime = "";
-			if (len >= 2 && isNumeric(lineData[2])) {
-				// Has execution time data (including zero)
-				// Use actual source unit from metadata like the total execution time does
-				var convertedTime = htmlUtils.convertTime(lineData[2], sourceUnit, displayUnit.symbol);
-				// For discrete units (ns, μs, ms), show as integers. For seconds, show with decimals.
-				if (displayUnit.symbol == "s") {
-					execTime = numberFormat(convertedTime, "0.0000");
-				} else {
-					// For ns, μs, ms - no decimal places
-					execTime = numberFormat(convertedTime, "0");
-				}
-			}
-			// Use heatmap functions to get classes
-			var countClass = "exec-count";
-			var timeClass = "exec-time";
 
-			if (len > 0) {
-				var countVal = lineData[1] ?: 0;
-				var timeVal = lineData[2] ?: 0;
+	/**
+	 * Generates the initial HTML structure and header
+	 * @fileIndex The canonical file index
+	 * @filePath The file path
+	 * @result The result object
+	 * @htmlEncoder HTML encoder
+	 * @return String HTML for file header section
+	 */
+	private string function generateFileHeader(required numeric fileIndex, required string filePath,
+			required result result, required any htmlEncoder) {
+		var vscodeLink = "vscode://file/" & replace(arguments.filePath, "\", "/", "all");
+		return '<div class="file-section" data-file-section data-file-index="' & arguments.fileIndex & '" data-filename="' & arguments.htmlEncoder.htmlAttributeEncode(arguments.filePath) & '">'
+			& '<div class="file-header">'
+				& '<h3><a href="' & vscodeLink & '" class="file-header-link">'
+				& arguments.htmlEncoder.htmlEncode(arguments.result.getFileDisplayPath(arguments.filePath))
+				& '</a></h3>'
+			& '</div>'
+			& '<div class="file-content">';
+	}
 
-				if (countVal > 0 && structKeyExists(countHeatmap, "getValueClass")) {
-					var additionalCountClass = countHeatmap.getValueClass(countVal);
-					if (additionalCountClass != "") countClass &= " " & additionalCountClass;
-				}
-
-				if (len >= 2 && isNumeric(lineData[2]) && structKeyExists(timeHeatmap, "getValueClass")) {
-					var additionalTimeClass = timeHeatmap.getValueClass(timeVal);
-					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
-				}
-			}
-			var nl = chr(10);
-			html &= '<tr class="' & rowClass & '" data-line-row data-line-number="' & i & '" data-line-hit="' & (len > 0 ? "true" : "false") & '">'  & nl
-				& '<td class="line-number">' & i & '</td>' & nl
-				& '<td class="code-cell">' & htmlEncoder.htmlEncode(fileLines[i]) & '</td>' & nl
-				& '<td class="' & countClass & '">' & execCount & '</td>' & nl
-				& '<td class="' & timeClass & '" data-execution-time-cell>' & execTime & '</td>' & nl
-				& '</tr>' & nl;
-		}
-
-		html &= '</tbody></table>';
-		html &= legend.generateLegendHtml();
-		html &= '</div></div>';
-		return html;
+	/**
+	 * Generates the stats section HTML
+	 * @stats File statistics
+	 * @totalExecutionTime Total execution time
+	 * @htmlUtils HTML utilities
+	 * @sourceUnit Source time unit
+	 * @displayUnit Display unit object
+	 * @return String HTML for stats section
+	 */
+	private string function generateStatsSection(required struct stats, required numeric totalExecutionTime,
+			required any htmlUtils, required string sourceUnit, required any displayUnit) {
+		var totalExecutionTimeMicros = arguments.htmlUtils.convertTime(arguments.totalExecutionTime, arguments.sourceUnit, "μs");
+		var timeDisplay = arguments.htmlUtils.formatTime(totalExecutionTimeMicros, arguments.displayUnit.symbol, 2);
+		return '<div class="stats">'
+			& '<strong>Lines Executed:</strong> <span class="lines-executed">' & numberFormat(arguments.stats.totalExecutions) & '</span> | '
+			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span> | '
+			& '<strong>Lines Covered:</strong> <span class="lines-covered">' & arguments.stats.linesHit & ' of ' & arguments.stats.linesFound & '</span>'
+			& '</div>';
 	}
 }

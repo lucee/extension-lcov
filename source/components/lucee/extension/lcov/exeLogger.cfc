@@ -5,9 +5,18 @@ component  {
 	};
 
 	function enableExecutionLog( string class, struct args, numeric maxLogs ){
+		// Validate unit is supported by Lucee ExecutionLogSupport
+		var processedArgs = structCopy(arguments.args);
+		if (structKeyExists(processedArgs, "unit")) {
+			var supportedUnits = ["micro", "μs", "milli", "ms", "nano", "ns"];
+			if (!arrayContains(supportedUnits, processedArgs.unit)) {
+				throw("Unsupported execution log unit: " & processedArgs.unit & ". Lucee ExecutionLogSupport only supports: " & arrayToList(supportedUnits), "UnsupportedUnitError");
+			}
+		}
+
 		admin action="UpdateExecutionLog" type="server" password="#variables.adminPassword#"
 			class="#arguments.class#" enabled= true
-			arguments=arguments.args;
+			arguments=processedArgs;
 		admin action="updateDebug" type="server" password="#variables.adminPassword#" debug="true" template="true"; // template needs to be enabled to produce debug logs
 		admin action="updateDebugSetting" type="server" password="#variables.adminPassword#" maxLogs="#arguments.maxLogs#";
 	}

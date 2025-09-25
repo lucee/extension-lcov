@@ -1,0 +1,21 @@
+context-path:
+remote-user:
+remote-addr:192.168.178.20
+remote-host:zac-dell
+script-name:/testAdditional/artifacts/simple_cfc.cfm
+server-name:localhost
+protocol:HTTP/1.1
+server-port:80
+path-info:
+query-string:
+unit:μs
+min-time-nano:0
+execution-time:1510
+
+0:d:\work\lucee-extensions\extension-lcov\tests\artifacts\simple_cfc.cfm
+1:d:\work\lucee-extensions\extension-lcov\tests\artifacts\cfc\simple_cfc.cfc
+
+0	13	39	99
+1	40	48	0
+0	43	46	61
+0	0	67	167

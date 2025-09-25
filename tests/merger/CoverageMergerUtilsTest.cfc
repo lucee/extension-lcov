@@ -80,11 +80,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var fileIndex = 0;
 				var mergedResult = utils.initializeSourceFileEntry(sourceFilePath, sourceResult, fileIndex);
 				expect(mergedResult).notToBeNull();
-				expect(mergedResult.getFiles()[0].path).toBe(sourceFilePath);
-				expect(mergedResult.getFiles()[0]).toHaveKey("linesSource");
-				expect(mergedResult.getFiles()[0]).toHaveKey("linesFound");
-				expect(mergedResult.getFiles()[0].linesSource).toBe(7);
-				expect(mergedResult.getFiles()[0].linesFound).toBe(3);
+				expect(mergedResult.getFileItem(0, "path")).toBe(sourceFilePath);
+				expect(mergedResult.getFileItem(0)).toHaveKey("linesSource");
+				expect(mergedResult.getFileItem(0)).toHaveKey("linesFound");
+				expect(mergedResult.getFileItem(0, "linesSource")).toBe(7);
+				expect(mergedResult.getFileItem(0, "linesFound")).toBe(3);
 			});
 		});
 
@@ -95,9 +95,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result = new lucee.extension.lcov.model.result();
 				result.setFiles({ 0: { path: filePath, linesSource: 10, linesFound: 0, linesHit: 0 } });
 				var entry = utils.initializeSourceFileEntry(filePath, result, 0);
-				expect(entry.getFiles()[0].linesFound).toBe(0);
-				expect(entry.getFiles()[0].linesHit).toBe(0);
-				expect(entry.getFiles()[0].linesSource).toBe(10);
+				expect(entry.getFileItem(0, "linesFound")).toBe(0);
+				expect(entry.getFileItem(0, "linesHit")).toBe(0);
+				expect(entry.getFileItem(0, "linesSource")).toBe(10);
 			});
 
 			it("should handle file with zero source lines (linesSource=0)", function() {
@@ -105,9 +105,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result = new lucee.extension.lcov.model.result();
 				result.setFiles({ 0: { path: filePath, linesSource: 0, linesFound: 0, linesHit: 0 } });
 				var entry = utils.initializeSourceFileEntry(filePath, result, 0);
-				expect(entry.getFiles()[0].linesSource).toBe(0);
-				expect(entry.getFiles()[0].linesFound).toBe(0);
-				expect(entry.getFiles()[0].linesHit).toBe(0);
+				expect(entry.getFileItem(0, "linesSource")).toBe(0);
+				expect(entry.getFileItem(0, "linesFound")).toBe(0);
+				expect(entry.getFileItem(0, "linesHit")).toBe(0);
 			});
 
 			it("should handle completely empty result struct", function() {
@@ -126,9 +126,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result = new lucee.extension.lcov.model.result();
 				result.setFiles({ 0: { path: filePath, linesSource: 1, linesFound: 1, linesHit: 1 } });
 				var entry = utils.initializeSourceFileEntry(filePath, result, 0);
-				expect(entry.getFiles()[0].linesSource).toBe(1);
-				expect(entry.getFiles()[0].linesFound).toBe(1);
-				expect(entry.getFiles()[0].linesHit).toBe(1);
+				expect(entry.getFileItem(0, "linesSource")).toBe(1);
+				expect(entry.getFileItem(0, "linesFound")).toBe(1);
+				expect(entry.getFileItem(0, "linesHit")).toBe(1);
 			});
 
 			it("should handle file with only one line, not covered", function() {
@@ -136,9 +136,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result = new lucee.extension.lcov.model.result();
 				result.setFiles({ 0: { path: filePath, linesSource: 1, linesFound: 1, linesHit: 0 } });
 				var entry = utils.initializeSourceFileEntry(filePath, result, 0);
-				expect(entry.getFiles()[0].linesSource).toBe(1);
-				expect(entry.getFiles()[0].linesFound).toBe(1);
-				expect(entry.getFiles()[0].linesHit).toBe(0);
+				expect(entry.getFileItem(0, "linesSource")).toBe(1);
+				expect(entry.getFileItem(0, "linesFound")).toBe(1);
+				expect(entry.getFileItem(0, "linesHit")).toBe(0);
 			});
 
 			it("should handle file with all lines covered", function() {
@@ -146,9 +146,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result = new lucee.extension.lcov.model.result();
 				result.setFiles({ 0: { path: filePath, linesSource: 5, linesFound: 5, linesHit: 5 } });
 				var entry = utils.initializeSourceFileEntry(filePath, result, 0);
-				expect(entry.getFiles()[0].linesSource).toBe(5);
-				expect(entry.getFiles()[0].linesFound).toBe(5);
-				expect(entry.getFiles()[0].linesHit).toBe(5);
+				expect(entry.getFileItem(0, "linesSource")).toBe(5);
+				expect(entry.getFileItem(0, "linesFound")).toBe(5);
+				expect(entry.getFileItem(0, "linesHit")).toBe(5);
 			});
 
 			it("should handle file with no lines covered", function() {
@@ -156,9 +156,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result = new lucee.extension.lcov.model.result();
 				result.setFiles({ 0: { path: filePath, linesSource: 5, linesFound: 5, linesHit: 0 } });
 				var entry = utils.initializeSourceFileEntry(filePath, result, 0);
-				expect(entry.getFiles()[0].linesSource).toBe(5);
-				expect(entry.getFiles()[0].linesFound).toBe(5);
-				expect(entry.getFiles()[0].linesHit).toBe(0);
+				expect(entry.getFileItem(0, "linesSource")).toBe(5);
+				expect(entry.getFileItem(0, "linesFound")).toBe(5);
+				expect(entry.getFileItem(0, "linesHit")).toBe(0);
 			});
 		});
 	}

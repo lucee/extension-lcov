@@ -4,14 +4,32 @@ component {
 	/**
 	 * Returns unit information for display
 	 */
-	public struct function getUnitInfo(string unit) {
+	public struct function getUnitInfo(required string unit) {
 		var units = getUnits();
-		return structKeyExists(units, arguments.unit) ? units[arguments.unit] : units["micro"];
+
+		// First try direct lookup by unit name
+		if (structKeyExists(units, arguments.unit)) {
+			return units[arguments.unit];
+		}
+
+		// Then try lookup by symbol
+		for (var unitName in units) {
+			if (units[unitName].symbol == arguments.unit) {
+				return units[unitName];
+			}
+		}
+
+		// If neither works, throw error
+		var supportedUnits = [];
+		for (var unitName in units) {
+			arrayAppend(supportedUnits, unitName & " (" & units[unitName].symbol & ")");
+		}
+		throw("Invalid unit: " & arguments.unit & ". Supported units: " & arrayToList(supportedUnits), "InvalidUnitError");
 	}
 
 	public struct function getUnits() {
 		return {
-			"seconds": { symbol: "s", name: "seconds" },
+			"second": { symbol: "s", name: "seconds" },
 			"milli": { symbol: "ms", name: "milliseconds" },
 			"micro": { symbol: "μs", name: "microseconds" },
 			"nano": { symbol: "ns", name: "nanoseconds" }
