@@ -35,20 +35,19 @@ https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gu
 
 <img width="636" height="717" alt="image" src="https://github.com/user-attachments/assets/e1848c17-47cc-4ef6-b82c-974734e7fbad" />
 
-## Components
 
-### Extension Functions
+# Functions
 
 The extension provides easy-to-use functions for code coverage analysis:
 
 Any directories being passed as arguments must already exist!
 
-#### Capturing Logs
+## Capturing Logs
 
 - **lcovStartLogging(adminPassword, executionLogDir="", options={})** - Start execution logging with ResourceExecutionLog
 - **lcovStopLogging(adminPassword, className="lucee.runtime.engine.ResourceExecutionLog")** - Stop execution logging
 
-#### Analiysing and Reporting
+## Analiysing and Reporting
 
 - **lcovGenerateAllReports(executionLogDir, outputDir, options={})** - Generate LCOV, HTML, and JSON reports
 - **lcovGenerateLcov(executionLogDir, outputFile="", options={})** - Generate LCOV format file only
@@ -69,14 +68,14 @@ The `options` struct can include the following configuration parameters:
 
 ### File Filtering
 
-- **allowList** (array, default: []) - Array of file paths/patterns to include (when specified, only these files are processed)
-- **blocklist** (array, default: []) - Array of file paths/patterns to exclude from processing
+- **allowList** - Array of file paths/patterns to include (when specified, only these files are processed)
+- **blocklist** - Array of file paths/patterns to exclude from processing, i.e. frameworks, testbox, etc
 
 ### HTML Report Options
 
-- **separateFiles** (boolean, default: false) - Generate separate HTML files for each source file instead of by execution run
-- **title** (string, default: "Code Coverage Report") - Title for HTML reports
-- **includeTimestamp** (boolean, default: true) - Include timestamp in report headers
+- **separateFiles** - Generate separate HTML files for each source file instead of per request
+- **title** Title for HTML reports
+- **includeTimestamp** - Include timestamp in report headers, `boolean=true`
 
 ### AST Options
 
@@ -102,7 +101,7 @@ var options = {
 };
 ```
 
-### Core Components
+## Core Components
 
 - **ExecutionLogParser** - Parses Lucee .exl execution log files with verbose logging
 - **CoverageBlockProcessor** - Utility functions for coverage calculations and data processing
@@ -112,7 +111,7 @@ var options = {
 - **exeLogger** - Utility component to enable/disable execution logs
 - **LcovFunctions** - Main component providing all extension functions
 
-### Usage
+## Usage
 
 The extension functions are automatically available once installed.
 
@@ -136,7 +135,8 @@ var logDirectory = lcovStartLogging(
 );
 
 // Run your tests or application code here
-// CRITICAL: Must use internalRequest() for logging to work!
+// CRITICAL: Must use internalRequest() for logging to work, logging only works for subsequent requests!
+
 internalRequest(
     template = "/your/test/runner.cfm",
     throwonerror = true
@@ -150,24 +150,24 @@ internalRequest(
 // Stop execution logging
 lcovStopLogging(adminPassword = "your-admin-password");
 
-// Generate all report types (LCOV, HTML, JSON)
 var options = {
     verbose: true,
     allowList: [],
     blocklist: [expandPath("/testbox"), expandPath("/specs"), expandPath("{lucee-config}")],
-    displayUnit: "milli"
+    displayUnit: "auto"
 };
 
-var result = lcovGenerateAllReports(
-    executionLogDir = codeCoverageDir,
-    outputDir = "/path/to/reports",
-    options = options
-);
+reportDir = "/path/to/reports";
+if ( !directoryExists( reportDir ) )
+    directoryCreate( reportDir );
+
+// Generate all report types (LCOV, HTML, JSON)
+var result = lcovGenerateAllReports( executionLogDir=codeCoverageDir, outputDir=reportDir, options=options );
 
 // Or generate individual report types:
 // lcovGenerateLcov(executionLogDir=codeCoverageDir, outputFile="/path/to/lcov.info", options=options);
-// lcovGenerateHtml(executionLogDir=codeCoverageDir, outputDir="/path/to/html", options=options);
-// lcovGenerateJson(executionLogDir=codeCoverageDir, outputDir="/path/to/json", options=options);
+// lcovGenerateHtml(executionLogDir=codeCoverageDir, outputDir=reportDir, options=options);
+// lcovGenerateJson(executionLogDir=codeCoverageDir, outputDir=reportDir, options=options);
 ```
 
 [Examples](examples/coverage.cfm)
