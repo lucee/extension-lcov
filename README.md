@@ -24,7 +24,11 @@ CURRENTLY still in early BETA, WIP subject to changed, not yet published!
 
 This extension consumes the [Execution Logs](https://docs.lucee.org/recipes/execution-log.html) from Lucee, it currently doesn't consider some block elmements as being executed, i.e. switch, component, function, etc.
 
-Processing large logs (ie.e 500Mb+) from test suite runs, requires a lot of filtering and de-duplication, be patient!
+Execution logs use character offsets, which needs to be translated to per line records.
+
+In addition, they contain overlapping blocks which need to be filtered out in order to produce useful reports.
+
+Processing large logs (ie.e 500Mb+) from test suite runs, requires a lot of filtering and de-duplication, be patient, it's been tuned to be fast, use the `verbose: true` option to see progress/details.
 
 ## HTML Reports
 
@@ -36,18 +40,23 @@ The LCOV files produced by this extension can be visualised in VS Code via the [
 
 <img width="636" height="717" alt="image" src="https://github.com/user-attachments/assets/e1848c17-47cc-4ef6-b82c-974734e7fbad" />
 
-# Functions
+## Functions
 
 The extension provides easy-to-use functions for code coverage analysis:
 
 Any directories being passed as arguments must already exist!
 
-## Capturing Logs
+### Capturing Logs
 
 - **lcovStartLogging(adminPassword, executionLogDir="", options={})** - Start execution logging with ResourceExecutionLog
 - **lcovStopLogging(adminPassword, className="lucee.runtime.engine.ResourceExecutionLog")** - Stop execution logging
 
-## Analiysing and Reporting
+Execution Logging Options
+
+- **className** - Lucee Java class name for execution logging, default is `lucee.runtime.engine.ResourceExecutionLog`
+- **executionLogDir** Directory for storing .exl execution log files, (string, default: auto-generated)
+
+### Analysing and Reporting
 
 - **lcovGenerateAllReports(executionLogDir, outputDir, options={})** - Generate LCOV, HTML, and JSON reports
 - **lcovGenerateLcov(executionLogDir, outputFile="", options={})** - Generate LCOV format file only
@@ -55,36 +64,33 @@ Any directories being passed as arguments must already exist!
 - **lcovGenerateJson(executionLogDir, outputDir, options={})** - Generate JSON reports only
 - **lcovGenerateSummary(executionLogDir, options={})** - Generate coverage statistics only
 
-## Options
+### General Options
 
 The `options` struct can include the following configuration parameters:
-
-### General Options
 
 - **verbose** (boolean, default: false) - Enables verbose logging during processing
 - **displayUnit** (string, default: `micro`) - Time unit for display: `auto`, `nano`, `micro`, `milli`, `second`
 - **unit** (string, default: `micro`) - Time unit for execution logging: `nano`, `micro` or `milli`
 - **minTime** (numeric, default: 0) - Minimum execution time threshold for logging
 
-### File Filtering
+File Filtering
 
 - **allowList** - Array of file paths/patterns to include (when specified, only these files are processed)
 - **blocklist** - Array of file paths/patterns to exclude from processing, i.e. frameworks, testbox, etc
 
-### HTML Report Options
+HTML Report Options
 
 - **separateFiles** - Generate separate HTML files for each source file instead of per request
 - **title** Title for HTML reports
 - **includeTimestamp** - Include timestamp in report headers, `boolean=true`
 
-### AST Options
+AST Options
 
-- **useAstForLinesFound** (boolean, default: true) - Use AST-based analysis for accurate executable line counting
+LCOV differentiates between executable lines and non-executable lines, aka `linesFound`. I.e. comment is ignored and doesn't count missing towards line coverage.
 
-### Execution Logging Options
+- **useAstForLinesFound** (boolean, default: true) - Use [AST-based](https://docs.lucee.org/recipes/ast.html) analysis for accurate executable line counting, otherwise it uses a simpler non AST approach.
 
-- **className** (string, default: "lucee.runtime.engine.ResourceExecutionLog") - Java class name for execution logging
-- **executionLogDir** (string, default: auto-generated) - Directory for storing .exl execution log files
+[source/components/lucee/extension/lcov/ExecutableLineCounter.cfc](ExecutableLineCounter.cfc)
 
 ### Example Options Usage
 
