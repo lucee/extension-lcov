@@ -49,7 +49,7 @@ Any directories being passed as arguments must already exist!
 ### Capturing Logs
 
 - `lcovStartLogging( adminPassword, executionLogDir="", options={} )` - Start execution logging with ResourceExecutionLog
-- ``lcovStopLogging( adminPassword, className="lucee.runtime.engine.ResourceExecutionLog" )` - Stop execution logging
+- `lcovStopLogging( adminPassword, className="lucee.runtime.engine.ResourceExecutionLog" )` - Stop execution logging
 
 Execution Logging Options
 
@@ -59,7 +59,7 @@ Execution Logging Options
 ### Analysing and Reporting
 
 - `lcovGenerateAllReports( executionLogDir, outputDir, options={} )` - Generate LCOV, HTML, and JSON reports
-- `lcovGenerateLcov( executionLogDir, outputFile="", options={} )` - Generate LCOV format file only
+- `lcovGenerateLcov( executionLogDir, outputFile, options={} )` - Generate LCOV format file only
 - `lcovGenerateHtml( executionLogDir, outputDir, options={} )` - Generate HTML reports only
 - `lcovGenerateJson( executionLogDir, outputDir, options={} )` - Generate JSON reports only
 - `lcovGenerateSummary( executionLogDir, options={} )` - Generate coverage statistics only
@@ -68,27 +68,27 @@ Execution Logging Options
 
 The `options` struct can include the following configuration parameters:
 
-- **verbose** Enables verbose logging during processing, default `false`
-- **displayUnit** - Time unit for display: `auto`, `nano`, `micro`, `milli`, `second` - default `false`
-- **unit** - Time unit for execution logging: `nano`, `micro` or `milli`, default `micro`
-- **minTime** - Minimum execution time threshold for logging, default `0`
+- `verbose` Enables verbose logging during processing, default `false`
+- `displayUnit` - Time unit for display: `auto`, `nano`, `micro`, `milli`, `second` - default `false`
+- `unit` - Time unit for execution logging: `nano`, `micro` or `milli`, default `micro`
+- `minTime` - Minimum execution time threshold for logging, default `0`
 
 File Filtering
 
-- **allowList** - Array of file paths/patterns to include (when specified, only these files are processed)
-- **blocklist** - Array of file paths/patterns to exclude from processing, i.e. frameworks, testbox, etc
+- `allowList` - Array of file paths/patterns to include (when specified, only these files are processed)
+- `blocklist` - Array of file paths/patterns to exclude from processing, i.e. frameworks, testbox, etc
 
 HTML Report Options
 
-- **separateFiles** - Generate separate HTML files for each source file instead of per request, default `false`
-- **title** Title for HTML reports
-- **includeTimestamp** - Include timestamp in report headers, `boolean=true`
+- `separateFiles` - Generate separate HTML files per source file instead of files per request, default `false`
+- `title` Title for HTML reports
+- `includeTimestamp` - Include timestamp in report headers, `boolean=true`
 
 AST Options
 
 LCOV differentiates between executable lines and non-executable lines, aka `linesFound`. I.e. comment is non-executable and therefore ignored so it doesn't count towards missing line coverage.
 
-- **useAstForLinesFound** (boolean, default: true) - Use [AST-based](https://docs.lucee.org/recipes/ast.html) analysis for accurate executable line counting, otherwise it uses a simpler non AST approach.
+- `useAstForLinesFound` (boolean, default: true) - Use [AST-based](https://docs.lucee.org/recipes/ast.html) analysis for accurate executable line counting, otherwise it uses a simpler non AST approach.
 
 [source/components/lucee/extension/lcov/ExecutableLineCounter.cfc](ExecutableLineCounter.cfc)
 
