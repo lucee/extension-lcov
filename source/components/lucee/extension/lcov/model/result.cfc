@@ -34,7 +34,7 @@ component accessors=true {
 	 */
 	public struct function getCoverageForFile(required numeric fileIndex) {
 		if (!isStruct(variables.coverage) || !structKeyExists(variables.coverage, arguments.fileIndex)) {
-			throw(message="No coverage for file index: " & arguments.fileIndex);
+			throw(message="No coverage for file index: " & arguments.fileIndex & " exeLog: " & variables.exeLog);
 		}
 		return variables.coverage[arguments.fileIndex];
 	}
@@ -44,7 +44,7 @@ component accessors=true {
 	 */
 	public array function getFileLines(required numeric fileIndex) {
 		if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			throw(message="No files struct present or missing file index: " & arguments.fileIndex);
+			throw(message="No files struct present or missing file index: " & arguments.fileIndex & " exeLog: " & variables.exeLog);
 		}
 		return variables.files[arguments.fileIndex].lines;
 	}
@@ -54,7 +54,7 @@ component accessors=true {
 	 */
 	public struct function getExecutableLines(required numeric fileIndex) {
 		if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			throw(message="No files struct present or missing file index: " & arguments.fileIndex);
+			throw(message="No files struct present or missing file index: " & arguments.fileIndex & " exeLog: " & variables.exeLog);
 		}
 		return variables.files[arguments.fileIndex].executableLines;
 	}
@@ -64,7 +64,7 @@ component accessors=true {
 	 */
 	public numeric function getTotalCoveragePercent() {
 		if (!isStruct(variables.stats) || !structKeyExists(variables.stats, "totalLinesFound") || !structKeyExists(variables.stats, "totalLinesHit")) {
-			throw(message="Missing totalLinesFound or totalLinesHit in stats");
+			throw(message="Missing totalLinesFound or totalLinesHit in stats" & " exeLog: " & variables.exeLog);
 		}
 		return variables.stats.totalLinesFound > 0 ? (variables.stats.totalLinesHit / variables.stats.totalLinesFound) * 100 : 0;
 	}
@@ -87,7 +87,9 @@ component accessors=true {
 			if (structKeyExists(arguments, "defaultValue")) {
 				return arguments.defaultValue;
 			}
-			throw "Missing required metadata property: " & arguments.key & ". Available keys: " & structKeyList(variables.metadata);
+			throw "Missing required metadata property: " & arguments.key 
+				& ". Available keys: " & structKeyList(variables.metadata) 
+				& " exeLog: " & variables.exeLog;
 		}
 		return variables.metadata[arguments.key];
 	}
@@ -107,7 +109,9 @@ component accessors=true {
 	 */
 	public any function getStatsProperty(required string key) {
 		if (!structKeyExists(variables.stats, arguments.key)) {
-			throw "Missing required stats property: " & arguments.key & ". Available keys: " & structKeyList(variables.stats);
+			throw "Missing required stats property: " & arguments.key 
+				& ". Available keys: " & structKeyList(variables.stats) 
+				& " exeLog: " & variables.exeLog;
 		}
 		return variables.stats[arguments.key];
 	}
@@ -143,7 +147,7 @@ component accessors=true {
 
 	public any function getFileItem(required numeric fileIndex, string property) {
 		if (!structKeyExists(variables, "files") || !isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			throw "File entry not found for index: " & arguments.fileIndex;
+			throw "File entry not found for index: " & arguments.fileIndex & " exeLog: " & variables.exeLog;
 		}
 		var fileItem = variables.files[arguments.fileIndex];
 		if (structKeyExists(arguments, "property")) {
@@ -182,7 +186,7 @@ component accessors=true {
 	 */
 	public struct function getCoverageItem(required numeric fileIndex) {
 		if (!isStruct(variables.coverage) || !structKeyExists(variables.coverage, arguments.fileIndex)) {
-			throw(message="No coverage for file index: " & arguments.fileIndex);
+			throw(message="No coverage for file index: " & arguments.fileIndex & " exeLog: " & variables.exeLog);
 		}
 		return variables.coverage[arguments.fileIndex];
 	}
@@ -203,7 +207,7 @@ component accessors=true {
 	 */
 	public any function getFileItem(required numeric fileIndex, string property) {
 		if (!structKeyExists(variables, "files") || !isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			throw "File entry not found for index: " & arguments.fileIndex;
+			throw "File entry not found for index: " & arguments.fileIndex & " exeLog: " & variables.exeLog;
 		}
 		var fileItem = variables.files[arguments.fileIndex];
 		if (structKeyExists(arguments, "property")) {
@@ -308,16 +312,16 @@ component accessors=true {
 				arrayAppend(problems, "File entry for " & filePath & " is not a struct");
 				continue;
 			}
-			   var requiredFileFields = ["linesFound", "linesHit", "linesSource", "path"];
-			   for (var f in requiredFileFields) {
-				   if (!structKeyExists(fileData, f)) {
-					   arrayAppend(problems, "Missing file field '" & f & "' for file: " & filePath);
-				   } else if (f == "path" && isEmpty(fileData[f])) {
-					   arrayAppend(problems, "Invalid value for file field 'path' in file: " & filePath & " (should be string file path)");
-				   } else if (f != "path" && (!isNumeric(fileData[f]) || fileData[f] < 0)) {
-					   arrayAppend(problems, "Invalid value for file field '" & f & "' in file: " & filePath);
-				   }
-			   }
+			var requiredFileFields = ["linesFound", "linesHit", "linesSource", "path"];
+			for (var f in requiredFileFields) {
+				if (!structKeyExists(fileData, f)) {
+					arrayAppend(problems, "Missing file field '" & f & "' for file: " & filePath);
+				} else if (f == "path" && isEmpty(fileData[f])) {
+					arrayAppend(problems, "Invalid value for file field 'path' in file: " & filePath & " (should be string file path)");
+				} else if (f != "path" && (!isNumeric(fileData[f]) || fileData[f] < 0)) {
+					arrayAppend(problems, "Invalid value for file field '" & f & "' in file: " & filePath);
+				}
+			}
 			// Check linesHit does not exceed linesFound
 			if (structKeyExists(fileData, "linesHit") && structKeyExists(fileData, "linesFound")) {
 				if (fileData.linesHit > fileData.linesFound) {
@@ -326,8 +330,13 @@ component accessors=true {
 				}
 			}
 		}
+
+		if (arrayLen(problems) > 0) {
+			arrayPrepend(problems, "src/exeLog: " & variables.exeLog);
+		}
 		
 		if (arguments.throw && arrayLen(problems) > 0) {
+
 			throw "Result validation failed: " & arrayToList(problems, "; ");
 		}
 		return problems;

@@ -25,7 +25,7 @@ component {
 				minTime: 0,
 				className: "lucee.runtime.engine.ResourceExecutionLog"
 			};
-			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+			var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 			// Generate temp directory if not provided
 			var logDir = len(arguments.executionLogDir) ? arguments.executionLogDir :
@@ -42,13 +42,13 @@ component {
 
 			// Enable execution logging
 			var result = variables.exeLogger.enableExecutionLog(
-				class = mergedOptions.className,
+				class = _options.className,
 				args = {
-					"unit": mergedOptions.unit,
-					"min-time": mergedOptions.minTime,
+					"unit": _options.unit,
+					"min-time": _options.minTime,
 					"directory": logDir
 				},
-				maxlogs = structKeyExists(mergedOptions, "maxLogs") ? mergedOptions.maxLogs : 0
+				maxlogs = structKeyExists(_options, "maxLogs") ? _options.maxLogs : 0
 			);
 
 			return logDir;
@@ -107,7 +107,7 @@ component {
 			blocklist: [],
 			displayUnit: "milli"
 		};
-		var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+		var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 		var startTime = getTickCount();
 
@@ -116,21 +116,21 @@ component {
 		var lcovContent = lcovGenerateLcov(
 			executionLogDir = arguments.executionLogDir,
 			outputFile = lcovFile,
-			options = mergedOptions
+			options = _options
 		);
 
 		// Generate HTML reports
 		var htmlResult = lcovGenerateHtml(
 			executionLogDir = arguments.executionLogDir,
 			outputDir = arguments.outputDir & "/html",
-			options = mergedOptions
+			options = _options
 		);
 
 		// Generate JSON reports
 		var jsonResult = lcovGenerateJson(
 			executionLogDir = arguments.executionLogDir,
 			outputDir = arguments.outputDir & "/json",
-			options = mergedOptions
+			options = _options
 		);
 
 		// Calculate overall stats
@@ -172,25 +172,27 @@ component {
 			blocklist: [],
 			useRelativePath: false
 		};
-		var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+		var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
-		if (mergedOptions.verbose) {
+		if (_options.verbose) {
 			systemOutput("Generating LCOV report from: " & arguments.executionLogDir, true);
 		}
 
 		// Parse .exl files using ExecutionLogProcessor
-		var logProcessor = new ExecutionLogProcessor(mergedOptions);
-		var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
+		var logProcessor = new ExecutionLogProcessor(_options);
+		var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, _options);
 
 		// Generate LCOV content
-		var lcovContent = buildLcovContent(jsonFilePaths, mergedOptions);
+		var lcovContent = buildLcovContent(jsonFilePaths, _options);
+
+		// JSON files are now permanent cache files next to .exl files - no cleanup needed
 
 		// Write to file if outputFile provided
 		if (len(arguments.outputFile)) {
 			var factory = new lucee.extension.lcov.CoverageComponentFactory();
 			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(getDirectoryFromPath(arguments.outputFile));
 			fileWrite(arguments.outputFile, lcovContent);
-			if (mergedOptions.verbose) {
+			if (_options.verbose) {
 				systemOutput("LCOV file written to: " & arguments.outputFile, true);
 			}
 		}
@@ -224,11 +226,11 @@ component {
 			blocklist: [],
 			separateFiles: false
 		};
-		var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+		var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 		var startTime = getTickCount();
 
-		if (mergedOptions.verbose) {
+		if (_options.verbose) {
 			systemOutput("Generating HTML reports from: " & arguments.executionLogDir, true);
 		}
 
@@ -236,26 +238,40 @@ component {
 		factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
 
 		// Parse execution logs using ExecutionLogProcessor
-		var logProcessor = new ExecutionLogProcessor(mergedOptions);
-		var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
+		var logProcessor = new ExecutionLogProcessor(_options);
+		var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, _options);
 
 		// Generate HTML reports using focused HTML reporter
-		var htmlReporter = new reporter.HtmlReporter(mergedOptions.displayUnit, mergedOptions.verbose);
+		var htmlReporter = new reporter.HtmlReporter(_options.displayUnit, _options.verbose);
 		htmlReporter.setOutputDir(arguments.outputDir); // Set output directory for individual HTML files
 		var htmlIndex = "";
 
 		// Process results based on separateFiles option
-		if (mergedOptions.separateFiles) {
+		if (_options.separateFiles) {
+			// Load results from JSON files for per-file processing
+			var results = {};
+			var resultFactory = new lucee.extension.lcov.model.result();
+			for (var jsonPath in jsonFilePaths) {
+				var result = resultFactory.fromJson(fileRead(jsonPath), false);
+				results[jsonPath] = result;
+				result = nullValue(); // Clear reference immediately
+			}
+
 			// Process JSON files progressively without loading all into memory
-			if (mergedOptions.verbose) {
+			if (_options.verbose) {
 				systemOutput("Merging " & arrayLen(jsonFilePaths) & " execution logs by source file", true);
 			}
+			// Create per-file merged results following the same pattern as CoverageMergerTest
 			var merger = new lucee.extension.lcov.CoverageMerger();
-			var mergedResults = merger.mergeResults(jsonFilePaths, arguments.outputDir, mergedOptions.verbose);
-			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, mergedOptions.verbose);
+			var utils = new lucee.extension.lcov.CoverageMergerUtils();
+			var validResults = utils.filterValidResults(results);
+			var mappings = utils.buildFileIndexMappings(validResults);
+			var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+			new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
+			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.verbose);
 
 			// Generate HTML reports for each source file JSON
-			if (mergedOptions.verbose) {
+			if (_options.verbose) {
 				systemOutput("Processing " & arrayLen(sourceFileJsons) & " source file JSONs for HTML generation", true);
 			}
 			var resultFactory = new lucee.extension.lcov.model.result();
@@ -271,20 +287,20 @@ component {
 				sourceFilePath = reReplace(sourceFilePath, "\.json$", ""); // Remove .json extension
 				sourceResult.setExeLog(sourceFilePath);
 
-				if (mergedOptions.verbose) {
+				if (_options.verbose) {
 					systemOutput("Processing JSON file: " & jsonFile, true);
 					systemOutput("  - Set exeLog to: " & sourceFilePath, true);
 					systemOutput("  - Attempting HTML report generation", true);
 				}
 				var htmlPath = htmlReporter.generateHtmlReport(sourceResult);
-				if (mergedOptions.verbose) {
+				if (_options.verbose) {
 					systemOutput("  - HTML report generated: " & htmlPath, true);
 				}
 			}
 		}
 
 		// For regular mode, generate HTML reports for each request-based result
-		if (!mergedOptions.separateFiles) {
+		if (!_options.separateFiles) {
 			// Load results from JSON paths and generate HTML reports
 			var resultFactory = new lucee.extension.lcov.model.result();
 			for (var jsonPath in jsonFilePaths) {
@@ -318,6 +334,8 @@ component {
 				arrayAppend(generatedHtmlFiles, htmlFile);
 			}
 		}
+
+		// JSON files are now permanent cache files next to .exl files - no cleanup needed
 
 		return {
 			"htmlIndex": htmlIndex,
@@ -356,11 +374,11 @@ component {
 				allowList: [],
 				blocklist: []
 			};
-			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+			var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 			var startTime = getTickCount();
 
-			if (mergedOptions.verbose) {
+			if (_options.verbose) {
 				systemOutput("Generating JSON reports from: " & arguments.executionLogDir, true);
 			}
 
@@ -368,8 +386,8 @@ component {
 			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
 
 			// Parse execution logs using ExecutionLogProcessor
-			var logProcessor = new ExecutionLogProcessor(mergedOptions);
-			var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
+			var logProcessor = new ExecutionLogProcessor(_options);
+			var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, _options);
 
 			// Generate JSON files directly from parsed results (processed progressively)
 			var jsonFiles = {};
@@ -391,13 +409,13 @@ component {
 				result = nullValue(); // Clear reference immediately
 			}
 			var resultsFile = arguments.outputDir & "/results.json";
-			fileWrite(resultsFile, serializeJSON(var=results, compact=mergedOptions.compact));
+			fileWrite(resultsFile, serializeJSON(var=results, compact=_options.compact));
 			jsonFiles.results = resultsFile;
 
 			// Create merged coverage data progressively from JSON files
 			var merged = new lucee.extension.lcov.CoverageMerger().mergeResultsByFile(jsonFilePaths);
 			var mergedFile = arguments.outputDir & "/merged.json";
-			fileWrite(mergedFile, serializeJSON(var=merged, compact=mergedOptions.compact));
+			fileWrite(mergedFile, serializeJSON(var=merged, compact=_options.compact));
 			jsonFiles.merged = mergedFile;
 
 			// Calculate aggregated stats from JSON files using CoverageStats
@@ -405,15 +423,19 @@ component {
 			var totalStats = statsComponent.aggregateCoverageStats(jsonFilePaths, getTickCount() - startTime);
 
 			var statsFile = arguments.outputDir & "/summary-stats.json";
-			fileWrite(statsFile, serializeJSON(var=totalStats, compact=mergedOptions.compact));
+			fileWrite(statsFile, serializeJSON(var=totalStats, compact=_options.compact));
 			jsonFiles.stats = statsFile;
 
 			// Generate separate files if requested
-			if (mergedOptions.separateFiles) {
-				// Merge by source file and write directly to file-*.json files
+			if (_options.separateFiles) {
+				// Create per-file merged results following the same pattern as CoverageMergerTest
 				var merger = new lucee.extension.lcov.CoverageMerger();
-				var mergedResults = merger.mergeResults(jsonFilePaths, arguments.outputDir, mergedOptions.verbose); // now returns mergedResults
-				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, mergedOptions.verbose);
+				var utils = new lucee.extension.lcov.CoverageMergerUtils();
+				var validResults = utils.filterValidResults(results);
+				var mappings = utils.buildFileIndexMappings(validResults);
+				var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+				new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
+				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.verbose);
 				for (var jsonFile in sourceFileJsons) {
 					jsonFiles[getFileFromPath(jsonFile)] = jsonFile;
 				}
@@ -426,11 +448,14 @@ component {
 						// Use outputFilename property set by the log processor
 						var jsonFileName = result.getOutputFilename() & ".json";
 						var jsonFilePath = arguments.outputDir & "/" & jsonFileName;
-						fileWrite(jsonFilePath, serializeJSON(var=result, compact=mergedOptions.compact));
+						fileWrite(jsonFilePath, serializeJSON(var=result, compact=_options.compact));
 						jsonFiles[jsonFileName] = jsonFilePath;
 					}
 				}
 			}
+
+			// Clean up temp JSON files after consumption
+			// JSON files are now permanent cache files next to .exl files - no cleanup needed
 
 			return {
 				"jsonFiles": jsonFiles,
@@ -462,25 +487,28 @@ component {
 				allowList: [],
 				blocklist: []
 			};
-			var mergedOptions = mergeDefaultOptions(defaultOptions, arguments.options);
+			var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
-			if (mergedOptions.verbose) {
+			if (_options.verbose) {
 				systemOutput("Calculating coverage summary from: " & arguments.executionLogDir, true);
 			}
 
 			var startTime = getTickCount();
 
 			// Parse execution logs for stats only using ExecutionLogProcessor
-			var logProcessor = new ExecutionLogProcessor(mergedOptions);
-			var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, mergedOptions);
+			var logProcessor = new ExecutionLogProcessor(_options);
+			var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, _options);
 
 			// Calculate stats progressively without loading all results into memory
 			var statsComponent = variables.factory.getComponent(name="CoverageStats");
 			var stats = statsComponent.aggregateCoverageStats(jsonFilePaths, getTickCount() - startTime);
 
-			if (mergedOptions.verbose) {
+			if (_options.verbose) {
 				systemOutput("Summary complete: " & stats.coveragePercentage & "% coverage", true);
 			}
+
+			// Clean up temp JSON files after consumption
+			// JSON files are now permanent cache files next to .exl files - no cleanup needed
 
 			return stats;
 
@@ -508,9 +536,31 @@ component {
 		var merger = new lucee.extension.lcov.CoverageMerger();
 		var merged = merger.mergeResultsByFile(arguments.jsonFilePaths);
 
+		// write out merged to a json file a log it
+		var tempMerged = getTempFile("", "lcov-merged-", ".json");
+		fileWrite(tempMerged, serializeJSON(var=merged, compact=false));
+		systemOutput("DEBUG: Merged coverage data written to temp file: " & tempMerged, true);
+
 		// Create LCOV writer with options and build LCOV format
 		var lcovWriter = new reporter.LcovWriter(arguments.options);
 		return lcovWriter.buildLCOV(merged.mergedCoverage, arguments.options.useRelativePath ?: false);
+	}
+
+	/**
+	 * Clean up temporary JSON files created by ExecutionLogProcessor
+	 * @jsonFilePaths Array of temp JSON file paths to delete
+	 */
+	private void function cleanupTempJsonFiles(required array jsonFilePaths) {
+		for (var jsonPath in arguments.jsonFilePaths) {
+			try {
+				if (fileExists(jsonPath)) {
+					fileDelete(jsonPath);
+				}
+			} catch (any e) {
+				// Log but don't fail - temp cleanup errors shouldn't break processing
+				systemOutput("Warning: Could not delete temp JSON file: " & jsonPath & " - " & e.message, true);
+			}
+		}
 	}
 
 }

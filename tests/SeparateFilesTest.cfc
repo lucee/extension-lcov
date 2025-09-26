@@ -221,7 +221,28 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				break;
 			}
 		}
-		   expect(hasNonZeroCoverage).toBeTrue("At least one report in " & outputDir & " should have non-zero coverage data: " 
+		   expect(hasNonZeroCoverage).toBeTrue("At least one report in " & outputDir & " should have non-zero coverage data: "
 			   & serializeJSON(indexData));
+
+		// Validate that each individual per-file JSON contains only data for that specific file
+		var jsonFiles = directoryList(outputDir, false, "name", "file-*.json");
+		expect(arrayLen(jsonFiles)).toBeGT(0, "Should have individual file JSON files");
+
+		for (var jsonFile in jsonFiles) {
+			var jsonPath = outputDir & jsonFile;
+			if (!fileExists(jsonPath)) continue;
+
+			var jsonContent = fileRead(jsonPath);
+			var jsonData = deserializeJSON(jsonContent);
+
+			// Each per-file JSON should have exactly ONE file in the files structure
+			expect(jsonData).toHaveKey("files", "Per-file JSON should have files structure: " & jsonFile);
+			expect(structCount(jsonData.files)).toBe(1, "Per-file JSON should contain exactly ONE file entry, not all files from execution: " & jsonFile & " (found " & structCount(jsonData.files) & " files)");
+
+			// Should have exactly ONE entry in coverage structure (for the single file)
+			if (structKeyExists(jsonData, "coverage")) {
+				expect(structCount(jsonData.coverage)).toBeLTE(1, "Per-file JSON should contain coverage for at most ONE file: " & jsonFile & " (found " & structCount(jsonData.coverage) & " coverage entries)");
+			}
+		}
 	}
 }

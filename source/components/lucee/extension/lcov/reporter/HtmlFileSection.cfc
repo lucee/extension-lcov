@@ -8,7 +8,7 @@ component {
 	public string function generateFileSection(required numeric fileIndex, required result result,
 				required any htmlEncoder, required any heatmapCalculator, required any displayUnit) localmode=true {
 		var legend = new HtmlLegend();
-		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
 
 		var filePath = result.getFileItem(arguments.fileIndex, "path");
 		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder);
@@ -16,9 +16,11 @@ component {
 		var stats = result.getFileItem(arguments.fileIndex);
 		var totalExecutionTime = result.getStatsProperty("totalExecutionTime");
 		var unitName = result.getMetadataProperty("unit");
-		var sourceUnit = htmlUtils.getUnitInfo(unitName).symbol;
-		html &= generateStatsSection(stats, totalExecutionTime, htmlUtils, sourceUnit, arguments.displayUnit);
-
+		var sourceUnit = timeFormatter.getUnitInfo(unitName).symbol;
+		html &= generateStatsSection(stats, totalExecutionTime, timeFormatter, sourceUnit, arguments.displayUnit);
+		if ( result.getFileItem(arguments.fileIndex, "linesHit") eq 0 )
+			throw "No coverage data for fileIndex: " & arguments.fileIndex & " (linesHit is zero)";
+			
 		var coverage = result.getCoverageForFile(arguments.fileIndex);
 		var fileLines = result.getFileLines(arguments.fileIndex);
 		var executableLines = result.getExecutableLines(arguments.fileIndex);
@@ -30,9 +32,9 @@ component {
 		var heatmapData = generateHeatmaps(executionData.countValues, executionData.timeValues, tableClass, heatmapCalculator);
 
 		html &= generateTableHeader(tableClass, displayUnit, heatmapData.cssRules);
-		html &= generateTableRows(coverage, fileLines, executableLines, 
+		html &= generateTableRows(coverage, fileLines, executableLines,
 			heatmapData.countHeatmap, heatmapData.timeHeatmap,
-			htmlEncoder, htmlUtils, sourceUnit, displayUnit);
+			htmlEncoder, timeFormatter, sourceUnit, displayUnit);
 
 		html &= '</tbody></table>';
 		html &= legend.generateLegendHtml();
@@ -75,7 +77,8 @@ component {
 	 * @cssRules Array of CSS rules to include
 	 * @return String HTML for the table opening and header
 	 */
-	private string function generateTableHeader(required string tableClass, required any displayUnit, required array cssRules) {
+	private string function generateTableHeader(required string tableClass, required string displayUnit, required array cssRules) {
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
 		var html = '<style>' & chr(10) & chr(9) & arrayToList(arguments.cssRules, chr(10) & chr(9)) & chr(10) & '</style>';
 		html &= '<table class="code-table sortable-table ' & arguments.tableClass & '">'
 			& '<thead>'
@@ -83,7 +86,7 @@ component {
 					& '<th class="line-number" data-sort-type="numeric">Line</th>'
 					& '<th class="code-cell" data-sort-type="text">Code</th>'
 					& '<th class="exec-count" data-sort-type="numeric">Count</th>'
-					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>Time (' & arguments.displayUnit.symbol & ')</th>'
+					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader(arguments.displayUnit) & '</th>'
 				& '</tr>'
 			& '</thead>'
 			& '<tbody>';
@@ -98,14 +101,14 @@ component {
 	 * @countHeatmap Count heatmap object
 	 * @timeHeatmap Time heatmap object
 	 * @htmlEncoder HTML encoder
-	 * @htmlUtils HTML utilities
+	 * @timeFormatter Time formatter
 	 * @sourceUnit Source time unit
 	 * @displayUnit Display unit object
 	 * @return String HTML for table rows
 	 */
 	private string function generateTableRows(required struct coverage, required array fileLines,
 			required struct executableLines, required struct countHeatmap, required struct timeHeatmap,
-			required any htmlEncoder, required any htmlUtils, required string sourceUnit, required any displayUnit) {
+			required any htmlEncoder, required any timeFormatter, required string sourceUnit, required string displayUnit) {
 		var html = "";
 		var nl = chr(10);
 
@@ -126,13 +129,9 @@ component {
 				execCount = countVal > 0 ? numberFormat(countVal) : "";
 
 				// Format execution time
-				var convertedTime = arguments.htmlUtils.convertTime(timeVal, arguments.sourceUnit, arguments.displayUnit.symbol);
-				if (convertedTime > 0) {
-					if (arguments.displayUnit.symbol == "s") {
-						execTime = numberFormat(convertedTime, "0.0000");
-					} else {
-						execTime = numberFormat(convertedTime, "0");
-					}
+				if (timeVal > 0) {
+					var timeMicros = arguments.timeFormatter.convertTime(timeVal, arguments.sourceUnit, "μs");
+					execTime = arguments.timeFormatter.formatTime(timeMicros, arguments.displayUnit, true); // Include units
 				}
 
 				// Apply heatmap classes
@@ -151,7 +150,7 @@ component {
 				& '<td class="line-number">' & i & '</td>' & nl
 				& '<td class="code-cell">' & arguments.htmlEncoder.htmlEncode(arguments.fileLines[i]) & '</td>' & nl
 				& '<td class="' & countClass & '">' & execCount & '</td>' & nl
-				& '<td class="' & timeClass & '" data-execution-time-cell>' & execTime & '</td>' & nl
+				& '<td class="' & timeClass & '" data-execution-time-cell data-sort-value="' & (hasData && arrayLen(lineData) >= 2 ? arguments.timeFormatter.convertTime(lineData[2], arguments.sourceUnit, "μs") : 0) & '">' & execTime & '</td>' & nl
 				& '</tr>' & nl;
 		}
 
@@ -240,15 +239,15 @@ component {
 	 * Generates the stats section HTML
 	 * @stats File statistics
 	 * @totalExecutionTime Total execution time
-	 * @htmlUtils HTML utilities
+	 * @timeFormatter Time formatter
 	 * @sourceUnit Source time unit
 	 * @displayUnit Display unit object
 	 * @return String HTML for stats section
 	 */
 	private string function generateStatsSection(required struct stats, required numeric totalExecutionTime,
-			required any htmlUtils, required string sourceUnit, required any displayUnit) {
-		var totalExecutionTimeMicros = arguments.htmlUtils.convertTime(arguments.totalExecutionTime, arguments.sourceUnit, "μs");
-		var timeDisplay = arguments.htmlUtils.formatTime(totalExecutionTimeMicros, arguments.displayUnit.symbol, 2);
+			required any timeFormatter, required string sourceUnit, required string displayUnit) {
+		var totalExecutionTimeMicros = arguments.timeFormatter.convertTime(arguments.totalExecutionTime, arguments.sourceUnit, "μs");
+		var timeDisplay = arguments.timeFormatter.formatTime(totalExecutionTimeMicros, arguments.displayUnit);
 		return '<div class="stats">'
 			& '<strong>Lines Executed:</strong> <span class="lines-executed">' & numberFormat(arguments.stats.totalExecutions) & '</span> | '
 			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span> | '

@@ -36,20 +36,24 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function run() {
 		describe("HTML Reporter Unit Display Validation", function() {
 
-			xit("displays units correctly when unit=nano and displayUnit=ms", function() {
+			it("displays units correctly when unit=nano and displayUnit=ms", function() {
 				testHtmlUnitDisplay(unit="nano", minTime=10, testName="unit-nano-display-ms", displayUnit="ms");
 			});
 
-			xit("displays units correctly when unit=micro and displayUnit=μs", function() {
+			it("displays units correctly when unit=micro and displayUnit=μs", function() {
 				testHtmlUnitDisplay(unit="micro", minTime=10, testName="unit-micro-display-us", displayUnit="μs");
 			});
 
-			xit("displays units correctly when unit=milli and displayUnit=ms", function() {
+			it("displays units correctly when unit=milli and displayUnit=ms", function() {
 				testHtmlUnitDisplay(unit="milli", minTime=10, testName="unit-milli-display-ms", displayUnit="ms");
 			});
 
 			it("displays units correctly when unit=micro and displayUnit=s", function() {
 				testHtmlUnitDisplay(unit="micro", minTime=10, testName="unit-micro-display-s", displayUnit="s");
+			});
+
+			it("auto-selects appropriate units when displayUnit=auto", function() {
+				testHtmlUnitDisplay(unit="micro", minTime=10, testName="unit-micro-display-auto", displayUnit="auto");
 			});
 
 		});
@@ -98,8 +102,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			outputDir = outputDir,
 			options = { displayUnit = arguments.displayUnit, verbose=false }
 		);
+
+		// For auto unit selection, determine expected display unit based on typical execution times
+		var expectedDisplayUnit = arguments.displayUnit;
+		if (arguments.displayUnit == "auto") {
+			// With micro source unit and typical test execution times, auto should select μs for most values
+			// But we need to validate that auto selection is actually working, not just assume μs
+			expectedDisplayUnit = "auto"; // Let the validation handle auto mode properly
+		}
+
 		// mixin from ValidateHtmlReports()
-		validateHtmlExecutionTimeUnits(outputDir, arguments.displayUnit, arguments.displayUnit);
+		validateHtmlExecutionTimeUnits(outputDir, arguments.unit, expectedDisplayUnit);
 	}
 
 	private function testMisParse(required numeric exampleNumber, string unit="") {

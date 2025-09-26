@@ -1,6 +1,6 @@
 component accessors="true" {
 
-	variables.debug = false;
+	variables.debug = true;
 
 	/**
 	* Calculate LCOV-style statistics from merged coverage data
@@ -208,7 +208,7 @@ component accessors="true" {
 						"linesHit": 0,
 						"linesSource": filesData[filePath].linesSource ?: 0,
 						"hitCounts": {},
-						"path": filePath
+						"path": filesData[filePath].path
 					};
 				}
 
@@ -252,7 +252,7 @@ component accessors="true" {
 			var fileCoveragePercentage = fileStats[filePath].linesFound > 0
 				? (fileStats[filePath].linesHit / fileStats[filePath].linesFound) * 100
 				: 0;
-			fileStats[filePath].coveragePercentage = numberFormat(fileCoveragePercentage, "0.0");
+			fileStats[filePath]["coveragePercentage"] = numberFormat(fileCoveragePercentage, "0.0");
 		}
 
 		var coveragePercentage = totalLinesFound > 0 ? (totalLinesHit / totalLinesFound) * 100 : 0;

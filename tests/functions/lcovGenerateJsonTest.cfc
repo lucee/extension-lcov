@@ -115,6 +115,38 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Should have created individual JSON files per source file
 		var jsonFiles = directoryList(outputDir, false, "query", "*.json");
 		expect(jsonFiles.recordCount).toBeGTE(1, "Should create individual JSON files when separateFiles=true");
+
+		// Validate that each per-file JSON contains only data for that specific file
+		for (var row = 1; row <= jsonFiles.recordCount; row++) {
+			var jsonFile = jsonFiles.name[row];
+			var jsonPath = outputDir & "/" & jsonFile;
+
+			if (!fileExists(jsonPath)) continue;
+
+			// Skip merged.json and other system files - only validate per-file JSONs (file-*.json)
+			if (!reFind("^file-[A-Z0-9]+-", jsonFile)) continue;
+
+			var jsonContent = fileRead(jsonPath);
+			var jsonData = deserializeJSON(jsonContent);
+
+			// Each per-file JSON should have exactly ONE file in the files structure
+			expect(jsonData).toHaveKey("files", "Per-file JSON should have files structure: " & jsonFile);
+			expect(structCount(jsonData.files)).toBe(1, "Per-file JSON should contain exactly ONE file entry, not all files from execution: " & jsonFile);
+
+			// Should have exactly ONE entry in coverage structure (for the single file)
+			if (structKeyExists(jsonData, "coverage")) {
+				expect(structCount(jsonData.coverage)).toBeLTE(1, "Per-file JSON should contain coverage for at most ONE file: " & jsonFile);
+			}
+
+			// Verify the file path matches what we expect from the filename
+			var fileEntry = jsonData.files[structKeyArray(jsonData.files)[1]];
+			expect(fileEntry).toHaveKey("path", "File entry should have path property: " & jsonFile);
+
+			// Extract expected filename from the JSON filename (file-HASH-filename.extension.json -> filename.(cfm|cfc))
+			var expectedFilePattern = reReplace(jsonFile, "^file-[A-Z0-9]+-(.+)\.(cfm|cfc)\.json$", "\1");
+			expectedFilePattern = expectedFilePattern & "\.(cfm|cfc)";
+			expect(fileEntry.path).toMatch(".*" & expectedFilePattern & "$", "File path should match the JSON filename pattern: " & jsonFile);
+		}
 	}
 
 	/**

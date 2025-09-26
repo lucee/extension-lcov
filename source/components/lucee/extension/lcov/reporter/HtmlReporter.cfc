@@ -3,32 +3,14 @@
 */
 component {
 
-    // Instance variable to store display unit struct
     variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
     variables.outputDir = "";
 	
 	/**
 	* Constructor/init function
 	*/
-	public function init(any displayUnit = { symbol: "μs", name: "micro", factor: 1 }, boolean verbose = false) {
-		// Accept either a struct or a string for displayUnit
-		if (isStruct(arguments.displayUnit)) {
-			variables.displayUnit = arguments.displayUnit;
-		} else if (isSimpleValue(arguments.displayUnit)) {
-			var unit = lcase(arguments.displayUnit);
-			switch (unit) {
-				case "ms":
-					variables.displayUnit = { symbol: "ms", name: "ms", factor: 1000 };
-					break;
-				case "s":
-					variables.displayUnit = { symbol: "s", name: "s", factor: 1000000 };
-					break;
-				default:
-					variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
-			}
-		} else {
-			variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
-		}
+	public function init(string displayUnit = "μs", boolean verbose = false) {
+		variables.displayUnit = arguments.displayUnit;
 		variables.verbose = arguments.verbose;
 		return this;
 	}
@@ -151,7 +133,23 @@ component {
 				indexData = deserializeJSON( jsonContent );
 			}
 		}
-		arrayAppend( indexData, reportEntry );
+
+		// Check if entry already exists for this HTML file to prevent duplicates
+		var existingIndex = -1;
+		for (var i = 1; i <= arrayLen(indexData); i++) {
+			if (structKeyExists(indexData[i], "htmlFile") && indexData[i].htmlFile == reportEntry.htmlFile) {
+				existingIndex = i;
+				break;
+			}
+		}
+
+		if (existingIndex > 0) {
+			// Update existing entry
+			indexData[existingIndex] = reportEntry;
+		} else {
+			// Add new entry
+			arrayAppend( indexData, reportEntry );
+		}
 		fileWrite( indexJsonPath, serializeJSON( var=indexData, compact=false ) );
 		return reportEntry;
 	}

@@ -180,7 +180,7 @@ component {
 	public struct function mergeResultsByFile(required array jsonFilePaths, boolean verbose=false) {
 		// Progressive loading - process one file at a time to minimize memory usage
 		var resultFactory = new lucee.extension.lcov.model.result();
-		var merged = { files: {}, coverage: {} };
+		var merged = { "files": {}, "coverage": {} };
 		var fileMappings = {};
 		var isFirstFile = true;
 
@@ -193,32 +193,26 @@ component {
 			if (!fileExists(filePath)) {
 				throw(type="FileNotFound", message="JSON file not found: " & filePath);
 			}
+			// Load current result
+			var jsonContent = fileRead(filePath);
+			var currentResult = resultFactory.fromJson(jsonContent, false);
 
-			try {
-				// Load current result
-				var jsonContent = fileRead(filePath);
-				var currentResult = resultFactory.fromJson(jsonContent, false);
-
-				// Initialize merged structure with first file
-				if (isFirstFile) {
-					initializeMergedByFileStructure(merged, currentResult);
-					isFirstFile = false;
-				}
-
-				// Merge current result into accumulated results
-				mergeCurrentResultByFile(merged, currentResult, fileMappings);
-
-				// Clear reference to current result to free memory
-				currentResult = nullValue();
-				jsonContent = nullValue();
-
-			} catch (any e) {
-				if (arguments.verbose) {
-					systemOutput("Error processing " & filePath & ": " & e.message, true);
-				}
-				rethrow;
+			// Initialize merged structure with files from the first file
+			if (isFirstFile) {
+				initializeMergedByFileStructure(merged, currentResult);
+				isFirstFile = false;
 			}
+
+			// Merge current result into accumulated results
+			mergeCurrentResultByFile(merged, currentResult, fileMappings);
+
+			// Clear reference to current result to free memory
+			currentResult = nullValue();
+			jsonContent = nullValue();
 		}
+
+		//systemOutput("mergeResultsByFile: Coverage (#len(merged.coverage)#): " & serializeJSON(var=structKeyArray(merged.coverage)), true);
+		//systemOutput("mergeResultsByFile: Files: (#len(merged.files)#)" & serializeJSON(var=structKeyArray(merged.files)), true);
 
 		// Stats calculation moved to CoverageStats component
 		return {
@@ -464,12 +458,16 @@ component {
 
 	private void function initializeMergedByFileStructure(required struct merged, required any firstResult) {
 		var files = arguments.firstResult.getFiles();
+		var coverage = arguments.firstResult.getCoverage();
 
-		// Initialize merged structure based on first file
+		// Initialize merged structure based on first file - only include files that have coverage data
 		for (var fileIndex in files) {
 			var filePath = files[fileIndex].path;
-			if (!structKeyExists(arguments.merged.files, filePath)) {
+			// Only add file if it has coverage data
+			if (structKeyExists(coverage, fileIndex) && !structKeyExists(arguments.merged.files, filePath)) {
 				arguments.merged.files[filePath] = files[fileIndex];
+			} else {
+				throw "File index " & fileIndex & " (path: " & filePath & ") has no coverage data in the first result. Skipping.";
 			}
 		}
 	}
@@ -478,9 +476,18 @@ component {
 		var currentFiles = arguments.currentResult.getFiles();
 		var currentCoverage = arguments.currentResult.getCoverage();
 
+		//systemOutput("Coverage keys for current result: " & serializeJSON(var=structKeyArray(currentCoverage)), true);
+		//systemOutput("Coverage Files for current result: " & serializeJSON(var=structKeyArray(currentFiles)), true);
+
 		// Process each file in current result
 		for (var fileIndex in currentFiles) {
 			var filePath = currentFiles[fileIndex].path;
+			systemOutput("Merging coverage for file [#fileIndex#]: " & filePath, true);
+			var hasCoverage = structKeyExists(currentCoverage, fileIndex);
+			if (!hasCoverage) {
+				throw "No coverage data for file index: " & fileIndex & " (path: " & filePath & ")";
+				continue;
+			}
 
 			// Merge file metadata (executable lines, etc.)
 			if (!structKeyExists(arguments.merged.files, filePath)) {
@@ -500,7 +507,7 @@ component {
 			}
 
 			// Merge coverage data
-			if (structKeyExists(currentCoverage, fileIndex)) {
+			if ( hasCoverage ) {
 				if (!structKeyExists(arguments.merged.coverage, filePath)) {
 					arguments.merged.coverage[filePath] = {};
 				}

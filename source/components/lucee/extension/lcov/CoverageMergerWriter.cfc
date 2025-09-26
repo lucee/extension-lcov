@@ -17,11 +17,13 @@ component accessors=false {
 		var writtenFiles = [];
 		for (var canonicalIndex in arguments.mergedResults) {
 			var entry = arguments.mergedResults[canonicalIndex];
-			var idx = 0;
 			// Always synchronize stats from canonical files struct
 			var files = entry.getFiles();
 			var canonicalStats = {};
-			if (structKeyExists(files, idx)) {
+			// Get the first (and only) file key since per-file results should have exactly one file
+			var fileKeys = structKeyArray(files);
+			if (arrayLen(fileKeys) == 1) {
+				var idx = fileKeys[1];
 				var srcFile = files[idx];
 				// Fail fast if any required field is missing
 				var requiredFields = ["linesSource","linesFound","linesHit","path","totalExecutions","totalExecutionTime","lines","executableLines"];
@@ -35,23 +37,44 @@ component accessors=false {
 					canonicalStats[f] = srcFile[f];
 				}
 			} else {
-				throw (message="BUG: Missing expected 'files' struct or entry for canonical index " & canonicalIndex & ". This should never happen. Entry: " & serializeJSON(entry));
+				throw (message="BUG: Expected exactly ONE file entry in per-file result, found " & arrayLen(fileKeys) & " files for canonical index " & canonicalIndex & ". Files keys: " & serializeJSON(fileKeys) & ". Entry: " & serializeJSON(entry));
 			}
-			// Overwrite all stats sections with canonicalStats
-			entry.setFileItem(idx, duplicate(canonicalStats));
-			// TODO is this correct?????
-			entry.stats = duplicate(canonicalStats);
-			// Always use numeric 0 as the key for 'files' struct
-			// Fail fast if any entry has missing/empty path
+			// Create a filtered entry containing only data for this specific file
 			var sourceFilePath = canonicalStats["path"];
 			if (!len(sourceFilePath)) {
 				throw(message="BUG: Attempted to write output for canonicalStats with empty path. This should never happen. canonicalStats: " & serializeJSON(canonicalStats));
 			}
-			if (structKeyExists(entry, "files")) {
-				entry.files[0] = duplicate(canonicalStats);
-			} else {
-				entry["files"] = { 0 = duplicate(canonicalStats) };
+
+			// Create a new filtered entry for this specific file
+			var filteredEntry = duplicate(entry);
+
+			// Set files to only contain this specific file at index 0
+			filteredEntry.files = { 0 = duplicate(canonicalStats) };
+
+			// Filter coverage to only include data for this file index
+			var originalCoverage = entry.getCoverage();
+			var filteredCoverage = {};
+			if (structKeyExists(originalCoverage, idx)) {
+				filteredCoverage[0] = duplicate(originalCoverage[idx]);
 			}
+			filteredEntry.setCoverage(filteredCoverage);
+
+			// Filter fileCoverage array to only include entries for this file
+			var originalFileCoverage = entry.getFileCoverage();
+			var filteredFileCoverage = [];
+			for (var fcEntry in originalFileCoverage) {
+				if (structKeyExists(fcEntry, "fileIndex") && fcEntry.fileIndex == idx) {
+					var newFcEntry = duplicate(fcEntry);
+					newFcEntry.fileIndex = 0; // Remap to 0 since this is now the only file
+					arrayAppend(filteredFileCoverage, newFcEntry);
+				}
+			}
+			filteredEntry.setFileCoverage(filteredFileCoverage);
+
+			// Set stats to this file's specific stats
+			filteredEntry.stats = duplicate(canonicalStats);
+
+			// Generate filename
 			var sourceDir = getDirectoryFromPath(sourceFilePath);
 			var sourceFileName = getFileFromPath(sourceFilePath);
 			if (!len(sourceFileName)) {
@@ -62,14 +85,19 @@ component accessors=false {
 			var jsonFileName = baseName & ".json";
 			var htmlFileName = baseName & ".html";
 			var jsonFilePath = arguments.outputDir & "/" & jsonFileName;
-			// Always set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
-			if (!len(entry.getOutputFilename())) {
-				entry.setOutputFilename(baseName);
+
+			// Set outputFilename for downstream consumers
+			filteredEntry.setOutputFilename(baseName);
+
+			// Create directory if it doesn't exist
+			var outputDirNormalized = arguments.outputDir;
+			if (!directoryExists(outputDirNormalized)) {
+				directoryCreate(outputDirNormalized, true);
 			}
-			fileWrite(jsonFilePath, serializeJSON(var=entry, compact=false));
+			fileWrite(jsonFilePath, serializeJSON(var=filteredEntry, compact=false));
 			arrayAppend(writtenFiles, jsonFilePath);
 			if (arguments.verbose) {
-				systemOutput("Wrote source file JSON: " & jsonFileName, true);
+				systemOutput("writeMergedResultsToFiles: Wrote source file JSON: " & jsonFileName, true);
 			}
 		}
 		return writtenFiles;

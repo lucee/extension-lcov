@@ -80,8 +80,8 @@ component {
 			result.setOutputFilename(outputFilename);
 
 			// Write JSON cache after stats are calculated (includes complete stats)
-			// Use temp directory to avoid contaminating source directories
-			var jsonPath = getTempDirectory() & outputFilename & ".json";
+			// Write next to the .exl file for permanent caching
+			var jsonPath = reReplace(exlPath, "\.exl$", ".json");
 			fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
 			arrayAppend(jsonFilePaths, jsonPath);
 			///logger("Successfully processed: " & exlPath);

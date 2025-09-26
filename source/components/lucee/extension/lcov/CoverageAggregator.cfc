@@ -1,6 +1,6 @@
 component {
 
-	variables.debug = false;
+	variables.debug = true;
 
 	/**
 	 * Optimized aggregation of coverage entries using performance techniques

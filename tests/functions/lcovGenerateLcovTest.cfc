@@ -296,7 +296,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 		
 		var executionLogDir = verboseTestData.coverageDir;
-		var outputFile = variables.outputDir & "/test-verbose.lcov";
+		var outputFile = verboseTestDataGenerator.getGeneratedArtifactsDir() & "/test-verbose.lcov";
 		var options = {
 			verbose: true
 		};
@@ -319,5 +319,45 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(fileContent).toInclude("LF:", "Should contain lines found records");
 		expect(fileContent).toInclude("LH:", "Should contain lines hit records");
 		expect(fileContent).toInclude("end_of_record", "Should contain end of record markers");
+	}
+
+	/**
+	 * @displayName "Test lcovGenerateLcov with multiple files (regression test for mergeResultsByFile bug)"
+	 * This test specifically targets the data contract between CoverageMerger.mergeResultsByFile and LcovWriter
+	 */
+	function testLcovGenerateWithMultipleFilesRegression() {
+		// Use GenerateTestData to create multiple .exl files with different artifacts
+		var multiFileGenerator = new "../GenerateTestData"(testName="lcovGenerateLcovTest-multiFile");
+		var multiFileData = multiFileGenerator.generateExlFilesForArtifacts(
+			adminPassword=variables.adminPassword
+		);
+
+		var executionLogDir = multiFileData.coverageDir;
+		var outputFile = multiFileGenerator.getGeneratedArtifactsDir() & "/multi-file-regression.lcov";
+
+		// This should trigger the mergeResultsByFile -> LcovWriter integration path
+		var result = lcovGenerateLcov(
+			executionLogDir=executionLogDir,
+			outputFile=outputFile
+		);
+		// Verify the LCOV was generated successfully (no exceptions thrown)
+		expect(result).toBeString();
+		expect(fileExists(outputFile)).toBeTrue("LCOV file should be created");
+
+		var fileContent = fileRead(outputFile);
+
+		// Verify LCOV format for multiple files
+		expect(fileContent).toInclude("SF:", "Should contain source file records");
+		expect(fileContent).toInclude("DA:", "Should contain data array records");
+		expect(fileContent).toInclude("end_of_record", "Should contain end of record markers");
+
+		// Count SF records to verify multiple files were processed
+		var sfCount = len(fileContent) - len(replace(fileContent, "SF:", "", "all"));
+		expect(sfCount).toBeGTE(9, "Should process multiple source files (3 chars removed per SF record)");
+
+		// Verify that each SF record has a corresponding end_of_record
+		var endRecordCount = len(fileContent) - len(replace(fileContent, "end_of_record", "", "all"));
+		expect(endRecordCount).toBeGTE(39, "Should have end_of_record for each file (13 chars removed per end_of_record)");
+
 	}
 }

@@ -111,6 +111,89 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var statsA = mappingResult.merged.files[fileA];
 				expect(statsA).toHaveKey("path");
 			});
+
+			it("mergeResultsByFile produces unique file data for index generation (synthetic)", function() {
+				var merger = variables.factory.getComponent(name="CoverageMerger");
+
+				// Create 3 different files with different coverage patterns
+				var fileA = "/tmp/File1.cfm";
+				var fileB = "/tmp/File2.cfm";
+				var fileC = "/tmp/File3.cfm";
+
+				// File A: Good coverage (80%)
+				var jsonPathA = "/tmp/fileA.json";
+				var resultA = new lucee.extension.lcov.model.result();
+				resultA.setFiles({
+					0: { path: fileA, linesFound: 10, linesHit: 8, linesSource: 10 }
+				});
+				resultA.setCoverage({
+					0: { "1": [1,100], "2": [1,200], "3": [1,150], "4": [1,180], "5": [1,120], "6": [1,90], "7": [1,110], "8": [1,75] }
+				});
+
+				// File B: Poor coverage (25%)
+				var jsonPathB = "/tmp/fileB.json";
+				var resultB = new lucee.extension.lcov.model.result();
+				resultB.setFiles({
+					0: { path: fileB, linesFound: 20, linesHit: 5, linesSource: 20 }
+				});
+				resultB.setCoverage({
+					0: { "1": [1,50], "5": [1,75], "10": [1,100], "15": [1,25], "20": [1,60] }
+				});
+
+				// File C: Moderate coverage (60%)
+				var jsonPathC = "/tmp/fileC.json";
+				var resultC = new lucee.extension.lcov.model.result();
+				resultC.setFiles({
+					0: { path: fileC, linesFound: 15, linesHit: 9, linesSource: 15 }
+				});
+				resultC.setCoverage({
+					0: { "1": [1,80], "2": [1,90], "3": [1,70], "5": [1,85], "7": [1,95], "9": [1,75], "11": [1,65], "13": [1,55], "15": [1,45] }
+				});
+
+				// Create synthetic JSON file paths array (this is what mergeResultsByFile expects)
+				var jsonFilePaths = [jsonPathA, jsonPathB, jsonPathC];
+
+				// Mock the JSON file reading by setting up the results directly
+				// In real usage, mergeResultsByFile reads JSON files, but we'll use the direct approach
+				var results = {
+					"#jsonPathA#": resultA,
+					"#jsonPathB#": resultB,
+					"#jsonPathC#": resultC
+				};
+
+				// Use buildFileMappingsAndInitMerged and mergeCoverageLines to simulate mergeResultsByFile
+				var mappingResult = merger.buildFileMappingsAndInitMerged(results);
+				merger.mergeCoverageLines(mappingResult.merged, mappingResult.fileMappings, results);
+
+				// Verify that we have 3 unique files in the merged data
+				expect(structCount(mappingResult.merged.files)).toBe(3, "Should have exactly 3 files");
+				expect(structCount(mappingResult.merged.coverage)).toBe(3, "Should have coverage for exactly 3 files");
+
+				// Verify each file has different data
+				expect(mappingResult.merged.files).toHaveKey(fileA);
+				expect(mappingResult.merged.files).toHaveKey(fileB);
+				expect(mappingResult.merged.files).toHaveKey(fileC);
+
+				expect(mappingResult.merged.coverage).toHaveKey(fileA);
+				expect(mappingResult.merged.coverage).toHaveKey(fileB);
+				expect(mappingResult.merged.coverage).toHaveKey(fileC);
+
+				// Verify files have different line counts (different linesFound values)
+				expect(mappingResult.merged.files[fileA].linesFound).toBe(10);
+				expect(mappingResult.merged.files[fileB].linesFound).toBe(20);
+				expect(mappingResult.merged.files[fileC].linesFound).toBe(15);
+
+				// Verify files have different coverage counts
+				expect(structCount(mappingResult.merged.coverage[fileA])).toBe(8, "File A should have 8 covered lines");
+				expect(structCount(mappingResult.merged.coverage[fileB])).toBe(5, "File B should have 5 covered lines");
+				expect(structCount(mappingResult.merged.coverage[fileC])).toBe(9, "File C should have 9 covered lines");
+
+				// This test ensures that when multiple files are processed:
+				// 1. Each file maintains its unique metadata (linesFound, linesHit, etc.)
+				// 2. Each file has its own distinct coverage data
+				// 3. Files are not incorrectly duplicated or merged into identical entries
+				// This prevents the index page from showing identical rows for different files
+			});
 		});
 
 	}

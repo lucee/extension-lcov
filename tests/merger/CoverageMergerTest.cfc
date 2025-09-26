@@ -203,7 +203,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				}
 			});
 
-			xit("writes merged results to files - function removed", function() {
+			it("writes merged results to files with proper filtering", function() {
 				var merger = variables.factory.getComponent(name="CoverageMerger");
 				var results = duplicate(variables.parsedResults);
 				var validResults = variables.utils.filterValidResults(results);
@@ -211,20 +211,34 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var mergedResults = variables.utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
 				new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
 				var outputDir = variables.testData.COVERAGEDIR & "/bdd/";
-				var writtenFiles = merger.writeMergedResultsToFiles(mergedResults, outputDir, true);
+				var writtenFiles = new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, outputDir, true);
 				expect(writtenFiles).toBeArray();
 				expect(arrayLen(writtenFiles)).toBeGT(0);
 
-				// Additional: Validate stats in written files
-				for (var idx in mergedResults) {
-					var stats = mergedResults[idx]["stats"];
-					expect(stats).toHaveKey("linesFound");
-					expect(stats).toHaveKey("linesHit");
-					expect(stats).toHaveKey("linesSource");
-					expect(stats.linesFound).toBeGTE(0);
-					expect(stats.linesHit).toBeGTE(0);
-					expect(stats.linesSource).toBeGTE(0);
-					expect(stats.linesHit).toBeLTE(stats.linesFound, "linesHit should never exceed linesFound (written files)");
+				// Validate that each written file contains only data for that specific file
+				for (var writtenFile in writtenFiles) {
+					if (!fileExists(writtenFile)) continue;
+
+					var jsonContent = fileRead(writtenFile);
+					var jsonData = deserializeJSON(jsonContent);
+					var fileName = getFileFromPath(writtenFile);
+
+					// Each per-file JSON should have exactly ONE file in the files structure
+					expect(jsonData).toHaveKey("files", "Per-file JSON should have files structure: " & fileName);
+					expect(structCount(jsonData.files)).toBe(1, "Per-file JSON should contain exactly ONE file entry, not all files from execution: " & fileName & " (found " & structCount(jsonData.files) & " files)");
+
+					// Should have exactly ONE entry in coverage structure (for the single file)
+					if (structKeyExists(jsonData, "coverage")) {
+						expect(structCount(jsonData.coverage)).toBeLTE(1, "Per-file JSON should contain coverage for at most ONE file: " & fileName & " (found " & structCount(jsonData.coverage) & " coverage entries)");
+					}
+
+					// The single file entry should have valid stats
+					var fileEntry = jsonData.files[structKeyArray(jsonData.files)[1]];
+					expect(fileEntry).toHaveKey("linesFound");
+					expect(fileEntry).toHaveKey("linesHit");
+					expect(fileEntry.linesFound).toBeGTE(0);
+					expect(fileEntry.linesHit).toBeGTE(0);
+					expect(fileEntry.linesHit).toBeLTE(fileEntry.linesFound, "linesHit should never exceed linesFound in per-file JSON: " & fileName);
 				}
 			});
 		});

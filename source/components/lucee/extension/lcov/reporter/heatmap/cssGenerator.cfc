@@ -4,7 +4,6 @@
  */
 component output="false" {
 
-	// Instance variables for dependencies
 	variables.colorGenerator = new colorGenerator();
 	variables.bucketCalculator = new bucketCalculator();
 

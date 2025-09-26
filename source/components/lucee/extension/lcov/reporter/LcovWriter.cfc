@@ -26,6 +26,21 @@ component {
 
 	/**
 	 * Build LCOV format content from file coverage data
+	 *
+	 * Expected fileCoverage structure (from CoverageMerger.mergeResultsByFile):
+	 * {
+	 *   files: {
+	 *     "0": { path: "/path/to/file1.cfm", linesFound: 5, linesHit: 3, ... },
+	 *     "1": { path: "/path/to/file2.cfm", linesFound: 8, linesHit: 2, ... }
+	 *   },
+	 *   coverage: {
+	 *     "/path/to/file1.cfm": { "1": [1, 50], "2": [2, 75], ... },
+	 *     "/path/to/file2.cfm": { "1": [0, 0], "3": [1, 30], ... }
+	 *   }
+	 * }
+	 *
+	 * Note: files keyed by numeric indices, coverage keyed by file paths
+	 *
 	 * @fileCoverage Struct containing files and coverage data
 	 * @useRelativePath Whether to convert paths to relative format
 	 * @return String containing LCOV format content
@@ -38,8 +53,9 @@ component {
 		var coverage = arguments.fileCoverage.coverage;
 
 		for (var file in files) {
-			var filePath = files[file].path;
-			
+			var originalFilePath = files[file].path;
+			var filePath = originalFilePath;
+
 			// Apply relative path conversion if requested
 			if (arguments.useRelativePath) {
 				try {
@@ -48,14 +64,16 @@ component {
 					logger("Converted path to relative: " & filePath);
 				} catch (any e) {
 					// If contractPath fails, use original path
-					filePath = files[file].path;
+					filePath = originalFilePath;
 					logger("Failed to convert path, using original: " & filePath);
 				}
 			}
 
 			arrayAppend(lcovLines, "SF:" & filePath);
-
-			var data = coverage[file];
+			if (!structKeyExists(coverage, originalFilePath)) {
+				throw("buildLCOV: No coverage data found for file [" & originalFilePath & "]");
+			}
+			var data = coverage[originalFilePath];
 			var lineNumbers = structKeyArray(data);
 			arraySort(lineNumbers, "numeric");
 

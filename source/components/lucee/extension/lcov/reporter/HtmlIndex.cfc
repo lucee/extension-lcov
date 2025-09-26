@@ -3,7 +3,7 @@ component {
 	 * Generates the HTML for the index page.
 	 * @results Array of result model objects (model/result.cfc)
 	 */
-	public string function generateIndexHtmlContent(required array results, required any htmlEncoder, required any displayUnit) {
+	public string function generateIndexHtmlContent(required array results, required any htmlEncoder, required string displayUnit) {
 		var heatmapData = calculateCoverageHeatmapData(arguments.results, arguments.displayUnit);
 
 		var header = new HtmlReportHeader();
@@ -44,21 +44,21 @@ component {
 		var totalLinesHit = 0;
 		var totalLinesFound = 0;
 		var totalExecutionTimeMicroseconds = 0;
-		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
 		for (var result in arguments.results) {
 			if (isNumeric(result["totalLinesHit"])) totalLinesHit += result["totalLinesHit"];
 			if (isNumeric(result["totalLinesFound"])) totalLinesFound += result["totalLinesFound"];
 			if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
 				// Convert from source unit to microseconds before summing
 				var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
-				var executionTimeMicros = htmlUtils.convertTime(result["executionTime"], sourceUnit, "μs");
+				var executionTimeMicros = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
 				totalExecutionTimeMicroseconds += executionTimeMicros;
 			}
 		}
 		var percentCovered = (totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "00.0") & '%' : '0%';
 
-		// Format total execution time using HtmlUtils
-		var totalTimeDisplay = htmlUtils.formatTime(totalExecutionTimeMicroseconds, arguments.displayUnit.symbol, 2);
+		// Format total execution time using TimeFormatter
+		var totalTimeDisplay = timeFormatter.formatTime(totalExecutionTimeMicroseconds, arguments.displayUnit);
 
 		html &= '<div class="summary" data-coverage-summary'
 			& ' data-total-reports=''' & arrayLen(arguments.results) & ''''
@@ -96,7 +96,7 @@ component {
 						<th data-sort-type="text">Script Name</th>
 						<th data-sort-type="numeric">Coverage</th>
 						<th data-sort-type="numeric" style="font-style: italic;" data-dir="asc">Percentage (%)</th>
-						<th data-sort-type="numeric" data-execution-time-header>Execution Time (' & arguments.displayUnit.symbol & ')</th>
+						<th data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader(arguments.displayUnit) & '</th>
 					</tr>
 				</thead>
 				<tbody>';
@@ -117,16 +117,12 @@ component {
 				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") : '-';
 				var formattedTime = "";
 				if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
-					var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
+					var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
 					// Convert from source unit to microseconds before passing to formatTime
 					var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
-					var executionTimeMicros = htmlUtils.convertTime(result["executionTime"], sourceUnit, "μs");
-					// Use formatTime which expects microseconds as input
-					// Use same precision as HtmlFileSection.cfc: 4 decimals for seconds, 2 for others
-					var precision = (arguments.displayUnit.symbol == "s") ? 4 : 2;
-					var timeDisplay = htmlUtils.formatTime(executionTimeMicros, arguments.displayUnit.symbol, precision);
-					// Extract just the numeric part (remove unit suffix)
-					formattedTime = reReplace(timeDisplay, "\s+[a-zA-Zμ]+$", "");
+					var executionTimeMicros = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
+					// Use formatTime with the configured displayUnit and let it determine precision
+					formattedTime = timeFormatter.formatTime(executionTimeMicros, arguments.displayUnit);
 				}
 				var timestamp = structKeyExists(result, "timestamp") ? result["timestamp"] : "";
 
@@ -157,7 +153,9 @@ component {
 				html &= '<td class="script-name"><a href="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</a></td>';
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
 				html &= '<td class="percentage' & coverageClass & '">' & percentCovered & '</td>';
-				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell>' & formattedTime & '</td>';
+				// Add data-sort-value with raw microsecond value for proper numeric sorting
+				var sortValue = (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) ? executionTimeMicros : 0;
+				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-sort-value="' & sortValue & '">' & formattedTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}
 
@@ -236,7 +234,7 @@ component {
 				executionMinColor,
 				executionMaxColor,
 				"desc",
-				arguments.displayUnit.symbol,
+				arguments.displayUnit,
 				"Execution Time Heatmap"
 			), true);
 		}

@@ -3,31 +3,14 @@
 */
 component {
 	
-	// Instance variable for HTML assets
 	variables.htmlAssets = new HtmlAssets();
-	
-	// Instance variable for heatmap calculations
 	variables.heatmapCalculator = new Heatmap();
-	
-	// Instance variable for HTML encoding
 	variables.htmlEncoder = new HtmlEncoder();
-	
-	// Instance variable to store display unit struct
 	variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
-	
-	// Instance variable for report header
 	variables.header = new HtmlReportHeader();
-	
-	// Instance variable for file section
 	variables.fileSection = new HtmlFileSection();
-	
-	// Instance variable for legend
 	variables.legend = new HtmlLegend();
-	
-	// Instance variable for index
 	variables.index = new HtmlIndex();
-	
-	// Instance variable for utility functions
 	variables.utils = new HtmlUtils();
 	
 	/**
@@ -35,26 +18,8 @@ component {
 	* Accepts either a displayUnit struct or a string ("micro", "ms", "s").
 	* Always stores a struct with name, symbol, and factor.
 	*/
-	public HtmlWriter function init(struct displayUnit = { symbol: "μs", name: "micro", factor: 1 }) {
-		if (isStruct(arguments.displayUnit)) {
-			variables.displayUnit = arguments.displayUnit;
-		} else if (isSimpleValue(arguments.displayUnit)) {
-			// Accept string: "micro", "ms", "s"
-			var unit = lcase(arguments.displayUnit);
-			switch (unit) {
-				case "ms":
-					variables.displayUnit = { symbol: "ms", name: "ms", factor: 1000 };
-					break;
-				case "s":
-					variables.displayUnit = { symbol: "s", name: "s", factor: 1000000 };
-					break;
-				default:
-					variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
-			}
-		} else {
-			// Fallback to default
-			variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
-		}
+	public HtmlWriter function init(string displayUnit = "μs") {
+		variables.displayUnit = arguments.displayUnit;
 		return this;
 	}
 
@@ -66,18 +31,15 @@ component {
 		var scriptName = result.getMetadataProperty("script-name");
 		var time = result.getMetadataProperty("execution-time");
 		var unit = result.getMetadataProperty("unit");
-		var value = time;
-		var outUnit = displayUnit.name;
-		// Basic conversion: ms <-> micro <-> s
-		if (unit == "ms" && variables.displayUnit.name == "micro") value = time * 1000;
-		else if (unit == "ms" && variables.displayUnit.name == "s") value = time / 1000;
-		else if (unit == "micro" && variables.displayUnit.name == "ms") value = time / 1000;
-		else if (unit == "micro" && variables.displayUnit.name == "s") value = time / 1000000;
-		else if (unit == "s" && variables.displayUnit.name == "ms") value = time * 1000;
-		else if (unit == "s" && variables.displayUnit.name == "micro") value = time * 1000000;
-		else outUnit = unit;
-		var execTimeValue = value;
-		var execTimeUnit = outUnit;
+
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var timeMicros = timeFormatter.convertTime(time, unit, "μs");
+		var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit);
+
+		// Extract value and unit from formatted display
+		var parts = listToArray(timeDisplay, " ");
+		var execTimeValue = reReplace(parts[1], ",", "", "all"); // Remove commas for numeric operations
+		var execTimeUnit = parts[2];
 		var fileCoverageJson = result.getOutputFilename() & ".json";
 		var linesFound = result.getStatsProperty("totalLinesFound");
 		var linesHit = result.getStatsProperty("totalLinesHit");
@@ -91,37 +53,37 @@ component {
 		var hasMinTimeWarning = isNumeric(minTimeNano) && minTimeNano > 0;
 
 		// Extract filename and directory for tab-friendly title
-	var pathArray = listToArray(scriptName, "/\");
-	var fileName = arrayLen(pathArray) > 0 ? pathArray[arrayLen(pathArray)] : scriptName;
-	var shortDir = arrayLen(pathArray) > 1 ? pathArray[arrayLen(pathArray) - 1] : "";
-	var tabTitle = fileName & (shortDir != "" ? " - " & shortDir : "") & " - LCOV";
+		var pathArray = listToArray(scriptName, "/\");
+		var fileName = arrayLen(pathArray) > 0 ? pathArray[arrayLen(pathArray)] : scriptName;
+		var shortDir = arrayLen(pathArray) > 1 ? pathArray[arrayLen(pathArray) - 1] : "";
+		var tabTitle = fileName & (shortDir != "" ? " - " & shortDir : "") & " - LCOV";
 
-	var html = '<!DOCTYPE html>
-	<html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>' & variables.htmlEncoder.htmlEncode(tabTitle) & '</title>
-		<style>' & variables.htmlAssets.getCommonCss() & '</style>
-	</head>
-	<body>
-		<div class="container">
-			<div class="header-section">
-				<div class="header-top">
-					<div class="header-content">'
-						& variables.header.getReportTitleHeader() & '
-						<h1>' & variables.htmlEncoder.htmlEncode(scriptName) & ' <span class="file-path-subtitle">('
-							& variables.htmlEncoder.htmlEncode(numberFormat(execTimeValue))
-							& ' ' & variables.htmlEncoder.htmlEncode(execTimeUnit) & ')</span></h1>
+		var html = '<!DOCTYPE html>
+		<html lang="en">
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>' & variables.htmlEncoder.htmlEncode(tabTitle) & '</title>
+			<style>' & variables.htmlAssets.getCommonCss() & '</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header-section">
+					<div class="header-top">
+						<div class="header-content">'
+							& variables.header.getReportTitleHeader() & '
+							<h1>' & variables.htmlEncoder.htmlEncode(scriptName) & ' <span class="file-path-subtitle">('
+								& variables.htmlEncoder.htmlEncode(numberFormat(execTimeValue))
+								& ' ' & variables.htmlEncoder.htmlEncode(execTimeUnit) & ')</span></h1>
+						</div>
+						<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
+							<span class="toggle-icon">&##127769;</span>
+						</button>
 					</div>
-					<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
-						<span class="toggle-icon">&##127769;</span>
-					</button>
-				</div>
-				<div class="timestamp">Generated: ' & lsDateTimeFormat(now()) & '</div>
-				   <div class="coverage-summary" data-coverage-summary>
-					   <strong>Coverage Summary:</strong> ' & linesHit & ' of ' & linesFound & ' lines covered (' & coveragePercent & '%)
-				   </div>';
+					<div class="timestamp">Generated: ' & lsDateTimeFormat(now()) & '</div>
+					<div class="coverage-summary" data-coverage-summary>
+						<strong>Coverage Summary:</strong> ' & linesHit & ' of ' & linesFound & ' lines covered (' & coveragePercent & '%)
+					</div>';
 
 		// Add minimum time warning if applicable
 		if (hasMinTimeWarning) {
@@ -162,6 +124,4 @@ component {
 	public string function generateIndexHtmlContent(array reportData) {
 		return variables.index.generateIndexHtmlContent(reportData, variables.htmlEncoder, variables.displayUnit);
 	}
-
-	// Utility methods moved to HtmlUtils.cfc
 }
