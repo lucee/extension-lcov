@@ -262,10 +262,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(duplicateFound).toBeFalse("Found duplicate table rows in index page: " & arrayToList(duplicateDetails, "; "));
 
 		// Verify that each file appears exactly once with correct data
+		// Note: displayUnit="μs" is explicit (not "auto"), so execution time cells should not include units
 		expect(arrayLen(rowSignatures)).toBe(3, "Should have 3 unique rows");
-		expect(rowSignatures).toInclude("file1.cfm|8 / 10|80.0|1,000 μs", "Should include file1.cfm row");
-		expect(rowSignatures).toInclude("file2.cfm|5 / 20|25.0|2,000 μs", "Should include file2.cfm row");
-		expect(rowSignatures).toInclude("file3.cfm|12 / 15|80.0|1,500 μs", "Should include file3.cfm row");
+		expect(rowSignatures).toInclude("file1.cfm|8 / 10|80.0|1,000", "Should include file1.cfm row");
+		expect(rowSignatures).toInclude("file2.cfm|5 / 20|25.0|2,000", "Should include file2.cfm row");
+		expect(rowSignatures).toInclude("file3.cfm|12 / 15|80.0|1,500", "Should include file3.cfm row");
 	}
 
 }

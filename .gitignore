@@ -5,3 +5,4 @@
 /.claude
 /tests/artifacts/sampleExl
 /temp-full-workflow-test
+/source/components/lucee/extension/lcov/version.cfc

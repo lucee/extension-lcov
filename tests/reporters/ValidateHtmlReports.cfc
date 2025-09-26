@@ -114,7 +114,7 @@ component {
 		var lineRows = htmlParser.select(fileSection[1], "[data-line-row][data-line-number]");
 		expect(arrayLen(lineRows)).toBeGT(0, "Should have line rows in file section 0 of [" & reportPath & "]");
 
-		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.expectedDisplayUnit);
 		var coverageData = jsonData.coverage["0"]; // First file coverage data
 		var verifiedCount = 0;
 
@@ -131,7 +131,7 @@ component {
 
 					// Use the EXACT same logic as HtmlFileSection.cfc
 					var timeMicros = timeFormatter.convertTime(jsonTimeNanos, sourceUnit, "μs");
-					var expectedTimeFormatted = timeFormatter.formatTime(timeMicros, arguments.expectedDisplayUnit, true);
+					var expectedTimeFormatted = timeFormatter.format(timeMicros);
 
 					// Compare HTML value with expected formatted value
 					if (htmlTimeText != "") {
@@ -180,7 +180,7 @@ component {
 		var reportRows = htmlParser.select(doc, "[data-file-row]");
 		expect(arrayLen(reportRows)).toBeGT(0, "Should have report rows in [" & indexHtmlPath & "]");
 
-		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.expectedDisplayUnit);
 		var verifiedIndexCount = 0;
 
 		for (var row in reportRows) {
@@ -198,8 +198,8 @@ component {
 							// Use the EXACT same logic as HtmlIndex.cfc for formatting times
 							var sourceUnit = structKeyExists(report, "unit") ? report["unit"] : "μs";
 							var executionTimeMicros = timeFormatter.convertTime(report.executionTime, sourceUnit, "μs");
-							// Use formatTime with the configured displayUnit and let it determine precision
-							var expectedTimeFormatted = timeFormatter.formatTime(executionTimeMicros, arguments.expectedDisplayUnit);
+							// Use format method with the configured displayUnit
+							var expectedTimeFormatted = timeFormatter.format(executionTimeMicros);
 
 							if (htmlTimeText != "") {
 								expect(htmlTimeText).toBe(expectedTimeFormatted,
@@ -243,7 +243,8 @@ component {
 		// Format using same logic as HtmlIndex.cfc
 		// For auto mode, use independent auto-selection for the total time (not just pass "auto")
 		var totalTimeUnit = (arguments.expectedDisplayUnit == "auto") ? "auto" : arguments.expectedDisplayUnit;
-		var expectedTotalDisplay = timeFormatter.formatTime(totalExecutionTimeMicroseconds, totalTimeUnit);
+		var totalTimeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var expectedTotalDisplay = totalTimeFormatter.formatTime(totalExecutionTimeMicroseconds, totalTimeUnit, true);
 
 		if (summaryTotalText != "") {
 			expect(summaryTotalText).toBe(expectedTotalDisplay,
@@ -286,7 +287,7 @@ component {
 	 * Validates execution time formatting includes commas for values >= 1000
 	 */
 	public void function validateExecutionTimeFormatting(required string cellText, required string displayUnit) {
-		// Extract numeric part (remove commas and units)
+		// Extract numeric part (remove commas and units if present)
 		var numericPart = reReplace(arguments.cellText, "\s+[a-zA-Zμ]+$", "");
 		var cleanValue = reReplace(numericPart, ",", "", "all");
 
@@ -301,6 +302,18 @@ component {
 		} else {
 			// Values < 1000 should NOT have commas
 			expect(arguments.cellText).notToInclude(",", "Values < 1000 should not include comma separators: '" & arguments.cellText & "' (value: " & numericValue & ")");
+		}
+
+		// In auto mode, execution time cells should include units
+		// In explicit mode, execution time cells should NOT include units (units are in headers)
+		if (arguments.displayUnit == "auto") {
+			// Auto mode: cells should have units
+			var hasUnit = find("μs", arguments.cellText) || find("ms", arguments.cellText) || find(" s", arguments.cellText) || find("ns", arguments.cellText);
+			expect(hasUnit).toBeTrue("Auto mode execution time cells should include units: '" & arguments.cellText & "'");
+		} else {
+			// Explicit mode: cells should NOT have units
+			var hasUnit = find("μs", arguments.cellText) || find("ms", arguments.cellText) || find(" s", arguments.cellText) || find("ns", arguments.cellText);
+			expect(hasUnit).toBeFalse("Explicit mode execution time cells should NOT include units: '" & arguments.cellText & "' (displayUnit: " & arguments.displayUnit & ")");
 		}
 	}
 

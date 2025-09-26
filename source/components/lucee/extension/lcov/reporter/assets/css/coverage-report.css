@@ -6,6 +6,8 @@
 	--border-color: #ddd;
 	--link-color: #0066cc;
 	--link-hover-color: #0052a3;
+	--file-header-bg: #0066cc;
+	--file-header-hover-bg: #0052a3;
 	--header-bg: #f8f9fa;
 	--header-border: #dee2e6;
 	--table-header-bg: #f8f9fa;
@@ -44,6 +46,7 @@
 		--border-color: #444;
 		--link-color: #6699ff;
 		--link-hover-color: #4d79ff;
+		--file-header-bg: #4d79a3;
 		--header-bg: #2a2a2a;
 		--header-border: #555;
 		--table-header-bg: #2a2a2a;
@@ -82,6 +85,8 @@ body.light-mode {
 	--border-color: #ddd;
 	--link-color: #0066cc;
 	--link-hover-color: #0052a3;
+	--file-header-bg: #0066cc;
+	--file-header-hover-bg: #0052a3;
 	--header-bg: #f8f9fa;
 	--header-border: #dee2e6;
 	--table-header-bg: #f8f9fa;
@@ -119,6 +124,8 @@ body.dark-mode {
 	--border-color: #444;
 	--link-color: #6699ff;
 	--link-hover-color: #4d79ff;
+	--file-header-bg: #4d79a3;
+	--file-header-hover-bg: #3d6699;
 	--header-bg: #2a2a2a;
 	--header-border: #555;
 	--table-header-bg: #2a2a2a;
@@ -347,7 +354,7 @@ tbody tr:nth-child(even) {
 }
 
 .file-header {
-	background-color: var(--link-color);
+	background-color: var(--file-header-bg);
 	color: white;
 	border: 1px solid var(--header-border);
 	border-radius: 5px 5px 0 0;
@@ -357,7 +364,7 @@ tbody tr:nth-child(even) {
 }
 
 .file-header:hover {
-	background-color: var(--link-hover-color);
+	background-color: var(--file-header-hover-bg);
 }
 
 .file-header a {
@@ -591,4 +598,38 @@ body.dark-mode .min-time-warning,
 		border-left-color: #f39c12;
 		color: #f1c40f;
 	}
+}
+
+/* Version Footer Styles */
+.lcov-version-footer {
+	margin-top: 2rem;
+	padding: 1rem 0;
+	border-top: 1px solid var(--border-color);
+	text-align: center;
+	font-size: 0.85rem;
+	color: var(--text-color);
+	opacity: 0.7;
+}
+
+.lcov-version-footer .footer-text {
+	line-height: 1.4;
+}
+
+.lcov-version-footer a {
+	color: var(--link-color);
+	text-decoration: none;
+}
+
+.lcov-version-footer a:hover {
+	color: var(--link-hover-color);
+	text-decoration: underline;
+}
+
+.lcov-version-footer .version-number {
+	font-weight: 600;
+	color: var(--link-color);
+}
+
+.lcov-version-footer .lucee-version {
+	font-weight: 500;
 }

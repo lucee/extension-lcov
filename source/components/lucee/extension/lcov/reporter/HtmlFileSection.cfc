@@ -8,10 +8,11 @@ component {
 	public string function generateFileSection(required numeric fileIndex, required result result,
 				required any htmlEncoder, required any heatmapCalculator, required any displayUnit) localmode=true {
 		var legend = new HtmlLegend();
-		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.displayUnit);
+		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
 
 		var filePath = result.getFileItem(arguments.fileIndex, "path");
-		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder);
+		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder, htmlUtils);
 
 		var stats = result.getFileItem(arguments.fileIndex);
 		var totalExecutionTime = result.getStatsProperty("totalExecutionTime");
@@ -78,7 +79,7 @@ component {
 	 * @return String HTML for the table opening and header
 	 */
 	private string function generateTableHeader(required string tableClass, required string displayUnit, required array cssRules) {
-		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.displayUnit);
 		var html = '<style>' & chr(10) & chr(9) & arrayToList(arguments.cssRules, chr(10) & chr(9)) & chr(10) & '</style>';
 		html &= '<table class="code-table sortable-table ' & arguments.tableClass & '">'
 			& '<thead>'
@@ -86,7 +87,7 @@ component {
 					& '<th class="line-number" data-sort-type="numeric">Line</th>'
 					& '<th class="code-cell" data-sort-type="text">Code</th>'
 					& '<th class="exec-count" data-sort-type="numeric">Count</th>'
-					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader(arguments.displayUnit) & '</th>'
+					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader() & '</th>'
 				& '</tr>'
 			& '</thead>'
 			& '<tbody>';
@@ -131,7 +132,7 @@ component {
 				// Format execution time
 				if (timeVal > 0) {
 					var timeMicros = arguments.timeFormatter.convertTime(timeVal, arguments.sourceUnit, "μs");
-					execTime = arguments.timeFormatter.formatTime(timeMicros, arguments.displayUnit, true); // Include units
+					execTime = arguments.timeFormatter.format(timeMicros);
 				}
 
 				// Apply heatmap classes
@@ -224,12 +225,12 @@ component {
 	 * @return String HTML for file header section
 	 */
 	private string function generateFileHeader(required numeric fileIndex, required string filePath,
-			required result result, required any htmlEncoder) {
+			required result result, required any htmlEncoder, required any htmlUtils) {
 		var vscodeLink = "vscode://file/" & replace(arguments.filePath, "\", "/", "all");
 		return '<div class="file-section" data-file-section data-file-index="' & arguments.fileIndex & '" data-filename="' & arguments.htmlEncoder.htmlAttributeEncode(arguments.filePath) & '">'
 			& '<div class="file-header">'
 				& '<h3><a href="' & vscodeLink & '" class="file-header-link">'
-				& arguments.htmlEncoder.htmlEncode(arguments.result.getFileDisplayPath(arguments.filePath))
+				& arguments.htmlEncoder.htmlEncode(arguments.htmlUtils.safeContractPath(arguments.filePath))
 				& '</a></h3>'
 			& '</div>'
 			& '<div class="file-content">';
@@ -247,7 +248,7 @@ component {
 	private string function generateStatsSection(required struct stats, required numeric totalExecutionTime,
 			required any timeFormatter, required string sourceUnit, required string displayUnit) {
 		var totalExecutionTimeMicros = arguments.timeFormatter.convertTime(arguments.totalExecutionTime, arguments.sourceUnit, "μs");
-		var timeDisplay = arguments.timeFormatter.formatTime(totalExecutionTimeMicros, arguments.displayUnit);
+		var timeDisplay = arguments.timeFormatter.formatTime(totalExecutionTimeMicros, arguments.displayUnit, true);
 		return '<div class="stats">'
 			& '<strong>Lines Executed:</strong> <span class="lines-executed">' & numberFormat(arguments.stats.totalExecutions) & '</span> | '
 			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span> | '

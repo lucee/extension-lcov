@@ -8,6 +8,7 @@ component {
 
 		var header = new HtmlReportHeader();
 		var htmlAssets = new HtmlAssets();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.displayUnit);
 		var html = '<!DOCTYPE html>
 		<html lang="en">
 			<head>
@@ -44,7 +45,6 @@ component {
 		var totalLinesHit = 0;
 		var totalLinesFound = 0;
 		var totalExecutionTimeMicroseconds = 0;
-		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
 		for (var result in arguments.results) {
 			if (isNumeric(result["totalLinesHit"])) totalLinesHit += result["totalLinesHit"];
 			if (isNumeric(result["totalLinesFound"])) totalLinesFound += result["totalLinesFound"];
@@ -57,8 +57,8 @@ component {
 		}
 		var percentCovered = (totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "00.0") & '%' : '0%';
 
-		// Format total execution time using TimeFormatter
-		var totalTimeDisplay = timeFormatter.formatTime(totalExecutionTimeMicroseconds, arguments.displayUnit);
+		// Format total execution time - always include units for summary clarity
+		var totalTimeDisplay = timeFormatter.formatTime(totalExecutionTimeMicroseconds, arguments.displayUnit, true);
 
 		html &= '<div class="summary" data-coverage-summary'
 			& ' data-total-reports=''' & arrayLen(arguments.results) & ''''
@@ -96,7 +96,7 @@ component {
 						<th data-sort-type="text">Script Name</th>
 						<th data-sort-type="numeric">Coverage</th>
 						<th data-sort-type="numeric" style="font-style: italic;" data-dir="asc">Percentage (%)</th>
-						<th data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader(arguments.displayUnit) & '</th>
+						<th data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader() & '</th>
 					</tr>
 				</thead>
 				<tbody>';
@@ -117,12 +117,10 @@ component {
 				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") : '-';
 				var formattedTime = "";
 				if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
-					var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
-					// Convert from source unit to microseconds before passing to formatTime
+					// Convert from source unit to microseconds before passing to format
 					var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
 					var executionTimeMicros = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
-					// Use formatTime with the configured displayUnit and let it determine precision
-					formattedTime = timeFormatter.formatTime(executionTimeMicros, arguments.displayUnit);
+					formattedTime = timeFormatter.format(executionTimeMicros);
 				}
 				var timestamp = structKeyExists(result, "timestamp") ? result["timestamp"] : "";
 
@@ -153,9 +151,9 @@ component {
 				html &= '<td class="script-name"><a href="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</a></td>';
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
 				html &= '<td class="percentage' & coverageClass & '">' & percentCovered & '</td>';
-				// Add data-sort-value with raw microsecond value for proper numeric sorting
+				// Add data-value with raw microsecond value for proper numeric sorting
 				var sortValue = (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) ? executionTimeMicros : 0;
-				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-sort-value="' & sortValue & '">' & formattedTime & '</td>';
+				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-value="' & sortValue & '">' & formattedTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}
 
@@ -163,6 +161,11 @@ component {
 		}
 
 			html &= '</div>';
+
+			// Add version footer
+			var footer = new lucee.extension.lcov.reporter.HtmlFooter();
+			html &= footer.generateFooter();
+
 			html &= htmlAssets.getDarkModeScript();
 			html &= htmlAssets.getTableSortScript();
 			html &= '</body></html>';

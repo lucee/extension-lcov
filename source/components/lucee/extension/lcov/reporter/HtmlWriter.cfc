@@ -29,17 +29,20 @@ component {
 	public string function generateHtmlContent(result) {
 		// result is a model/result.cfc object
 		var scriptName = result.getMetadataProperty("script-name");
+		var outputFilename = result.getOutputFilename();
+		var prefix = (left(outputFilename, 8) == "request-") ? "Request: " : "File: ";
+		var displayName = prefix & scriptName;
 		var time = result.getMetadataProperty("execution-time");
 		var unit = result.getMetadataProperty("unit");
 
-		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(variables.displayUnit);
 		var timeMicros = timeFormatter.convertTime(time, unit, "μs");
-		var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit);
+		var timeDisplay = timeFormatter.format(timeMicros);
 
 		// Extract value and unit from formatted display
 		var parts = listToArray(timeDisplay, " ");
 		var execTimeValue = reReplace(parts[1], ",", "", "all"); // Remove commas for numeric operations
-		var execTimeUnit = parts[2];
+		var execTimeUnit = arrayLen(parts) > 1 ? parts[2] : variables.displayUnit;
 		var fileCoverageJson = result.getOutputFilename() & ".json";
 		var linesFound = result.getStatsProperty("totalLinesFound");
 		var linesHit = result.getStatsProperty("totalLinesHit");
@@ -72,7 +75,7 @@ component {
 					<div class="header-top">
 						<div class="header-content">'
 							& variables.header.getReportTitleHeader() & '
-							<h1>' & variables.htmlEncoder.htmlEncode(scriptName) & ' <span class="file-path-subtitle">('
+							<h1>' & variables.htmlEncoder.htmlEncode(displayName) & ' <span class="file-path-subtitle">('
 								& variables.htmlEncoder.htmlEncode(numberFormat(execTimeValue))
 								& ' ' & variables.htmlEncoder.htmlEncode(execTimeUnit) & ')</span></h1>
 						</div>
@@ -110,6 +113,11 @@ component {
 		}
 
 		html &= '</div>';
+
+		// Add version footer
+		var footer = new lucee.extension.lcov.reporter.HtmlFooter();
+		html &= footer.generateFooter();
+
 		html &= variables.htmlAssets.getDarkModeScript();
 		html &= variables.htmlAssets.getTableSortScript();
 		html &= '</body></html>';

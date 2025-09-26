@@ -1,16 +1,37 @@
 component {
-	// Shared helpers for encoding, formatting, etc. (if needed)
+
+	/**
+	 * Constructor to configure the TimeFormatter instance
+	 * @displayUnit String display unit ("auto", "ms", "s", etc.)
+	 * @return TimeFormatter instance
+	 */
+	public TimeFormatter function init(string displayUnit = "auto") {
+		variables.displayUnit = arguments.displayUnit;
+		variables.includeUnits = (arguments.displayUnit == "auto");
+		return this;
+	}
+
+	/**
+	 * Simple format method using instance configuration
+	 * @microseconds Numeric time in microseconds (canonical internal unit)
+	 * @return String formatted time with or without unit based on instance config
+	 */
+	public string function format(required numeric microseconds) {
+		return formatTime(arguments.microseconds, variables.displayUnit, variables.includeUnits);
+	}
 
 	/**
 	 * Get the appropriate header text for execution time columns
-	 * @displayUnit String display unit ("auto", "ms", "s", etc.)
+	 * Uses instance displayUnit if available, otherwise requires displayUnit parameter
+	 * @displayUnit String display unit ("auto", "ms", "s", etc.) - optional if instance configured
 	 * @return String header text
 	 */
-	public string function getExecutionTimeHeader(required string displayUnit) {
-		if (arguments.displayUnit == "auto") {
+	public string function getExecutionTimeHeader(string displayUnit) {
+		var unit = structKeyExists(arguments, "displayUnit") ? arguments.displayUnit : variables.displayUnit;
+		if (unit == "auto") {
 			return "Execution Time";
 		} else {
-			return "Execution Time (" & arguments.displayUnit & ")";
+			return "Execution Time (" & unit & ")";
 		}
 	}
 
@@ -27,13 +48,13 @@ component {
 			throw("Invalid time value: " & arguments.microseconds, "InvalidTimeValueError");
 		}
 		if (arguments.microseconds == 0) {
-			// For zero values, always return μs unless specific unit requested
+			// For zero values, respect includeUnits parameter
 			if (arguments.targetUnit != "auto") {
 				var unitInfo = getUnitInfo(arguments.targetUnit);
 				var _mask = arguments.mask ?: unitInfo.mask;
-				return "0 " & arguments.targetUnit;
+				return arguments.includeUnits ? "0 " & arguments.targetUnit : "0";
 			}
-			return "0 μs";
+			return arguments.includeUnits ? "0 μs" : "0";
 		}
 
 		var unit = arguments.targetUnit;

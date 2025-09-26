@@ -28,8 +28,35 @@ description: "${description}"
 lucee-core-version: "${luceeCoreVersion}"
 </echo>
     </target>
+
+    <target name="createVersionFile" depends="createManifest" description="create version.cfc file">
+        <!-- Get git commit hash if available -->
+        <exec executable="git" outputproperty="git.commit" failifexecutionfails="false" errorproperty="">
+            <arg value="rev-parse"/>
+            <arg value="--short"/>
+            <arg value="HEAD"/>
+        </exec>
+        <property name="git.commit" value="unknown"/>
+
+        <!-- Get git branch if available -->
+        <exec executable="git" outputproperty="git.branch" failifexecutionfails="false" errorproperty="">
+            <arg value="rev-parse"/>
+            <arg value="--abbrev-ref"/>
+            <arg value="HEAD"/>
+        </exec>
+        <property name="git.branch" value="unknown"/>
+
+        <!-- Create version.cfc in source directory -->
+        <echo file="${src}/components/lucee/extension/lcov/version.cfc">// Auto-generated - DO NOT MODIFY
+component {
+	public string function getVersion() {
+		return "${bundleversion}";
+	}
+}
+</echo>
+    </target>
     
-    <target name="zip" depends="createManifest" description="generate the distribution">
+    <target name="zip" depends="createVersionFile" description="generate the distribution">
         <!-- copy the logo -->
         <copy todir="${temp}/META-INF" failonerror="false">
             <fileset dir="${srcImg}/">
