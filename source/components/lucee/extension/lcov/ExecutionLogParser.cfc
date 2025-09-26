@@ -334,8 +334,8 @@ component accessors="true" {
 			if ( !fileExists( path ) ) {
 				throw(
 					type="ExecutionLogParser.SourceFileNotFound",
-					message="Source file referenced in execution log does not exist",
-					detail="File path: " & path & " (index: " & num & ") - The execution log references a source file that cannot be found. This typically happens when parsing logs from a different system or after files have been moved/deleted."
+					message="Source file [#path#] referenced in execution log does not exist",
+					detail="File path: [" & path & "] (index: " & num & ") - The execution log references a source file that cannot be found. This typically happens when parsing logs from a different system or after files have been moved/deleted."
 				);
 			}
 
