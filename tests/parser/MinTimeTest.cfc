@@ -49,7 +49,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		});
 
-		describe("Static execution log parsing", function() {
+		// use for local testing, .exl files require the source files to be present
+
+		xdescribe("Static execution log parsing", function() {
 
 			it("parses static example 1 from misParse artifacts", function() {
 				testParseStaticExlFile(1);
