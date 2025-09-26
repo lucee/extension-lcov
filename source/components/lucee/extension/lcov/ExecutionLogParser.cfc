@@ -332,9 +332,11 @@ component accessors="true" {
 
 			// Early file existence check
 			if ( !fileExists( path ) ) {
-				variables.fileIgnoreCache[ path ] = "file doesn't exist [" & num & "]";
-				skipped[ path ] = "file doesn't exist";
-				continue;
+				throw(
+					type="ExecutionLogParser.SourceFileNotFound",
+					message="Source file referenced in execution log does not exist",
+					detail="File path: " & path & " (index: " & num & ") - The execution log references a source file that cannot be found. This typically happens when parsing logs from a different system or after files have been moved/deleted."
+				);
 			}
 
 			// Early allow/block list filtering
