@@ -159,25 +159,28 @@ component {
 	*/
 	private string function createHtmlPath(struct result) {
 		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.getExeLog() );
-		// Ensure parent directory exists before writing file
+
+		// Check directory exists first to avoid expandPath issues with non-existent directories
 		if (!directoryExists(directory)) {
-			// Recursively create parent directories
-			directoryCreate(directory, true);
+			throw(message="HTML output directory does not exist: " & directory);
 		}
+
 		// Ensure directory ends with separator
 		if (len(directory) && !right(directory, 1) == "/" && !right(directory, 1) == "\") {
 			directory = directory & "/";
 		}
+
 		var newFileName = result.getOutputFilename();
 		// Require outputFilename to be set, fail fast if not present
 		if (len(newFileName) eq 0) {
 			throw(message="Result model must have outputFilename set for HTML report generation.");
-		}		
+		}
 		// Ensure .html extension
 		if (!right(newFileName, 5) == ".html") {
 			newFileName &= ".html";
 		}
-		var fullPath = expandPath(directory & newFileName);
+		// Don't use expandPath - it has issues with directories in certain contexts
+		var fullPath = directory & newFileName;
 		return fullPath;
 	}
 
