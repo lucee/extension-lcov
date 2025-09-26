@@ -18,23 +18,23 @@ CURRENTLY still in early BETA, WIP subject to changed, not yet published!
 - Support for multiple time unit displays (seconds, milliseconds, microseconds, nanoseconds)
 - AST-based source code analysis for accurate line counting (TBD)
 - Coverage statistics and reporting utilities
-- Can handle processing large logs from a single test suite execution run `option ={ separateFiles: true }`
+- Handles processing large logs from a single test suite execution run `option ={ separateFiles: true }`
 
 ## Limitations
 
-This extension consumes the Execution Logs from Lucee, it currently doesn't consider some block elmements as being executed, i.e. switch, component, function, etc
+This extension consumes the [Execution Logs](https://docs.lucee.org/recipes/execution-log.html) from Lucee, it currently doesn't consider some block elmements as being executed, i.e. switch, component, function, etc.
+
+Processing large logs (ie.e 500Mb+) from test suite runs, requires a lot of filtering and de-duplication, be patient!
 
 ## HTML Reports
 
 <img width="1242" height="1210" alt="image" src="https://github.com/user-attachments/assets/e23f726a-d0da-4ec0-bb39-d815a362babc" />
 
-## VS Code
+## VS Code Integration
 
-The LCOV files produced by this extension can be visualised in VSCODE
-https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters
+The LCOV files produced by this extension can be visualised in VS Code via the [Coverage Gutters](https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters) extension
 
 <img width="636" height="717" alt="image" src="https://github.com/user-attachments/assets/e1848c17-47cc-4ef6-b82c-974734e7fbad" />
-
 
 # Functions
 
