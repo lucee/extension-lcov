@@ -58,7 +58,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		});
 
-		describe("HTML Reporter Edge Cases", function() {
+		// use for local testing, .exl files require the source files to be present
+
+		xdescribe("HTML Reporter Edge Cases", function() {
 
 			it("validates static example 1, known to cause problems", function() {
 				testMisParse(1);
