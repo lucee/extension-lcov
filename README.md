@@ -28,7 +28,6 @@ This extension consumes the Execution Logs from Lucee, it currently doesn't cons
 
 <img width="1242" height="1210" alt="image" src="https://github.com/user-attachments/assets/e23f726a-d0da-4ec0-bb39-d815a362babc" />
 
-
 ## VS Code
 
 The LCOV files produced by this extension can be visualised in VSCODE
@@ -42,8 +41,15 @@ https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gu
 
 The extension provides easy-to-use functions for code coverage analysis:
 
+Any directories being passed as arguments must already exist!
+
+#### Capturing Logs
+
 - **lcovStartLogging(adminPassword, executionLogDir="", options={})** - Start execution logging with ResourceExecutionLog
 - **lcovStopLogging(adminPassword, className="lucee.runtime.engine.ResourceExecutionLog")** - Stop execution logging
+
+#### Analiysing and Reporting
+
 - **lcovGenerateAllReports(executionLogDir, outputDir, options={})** - Generate LCOV, HTML, and JSON reports
 - **lcovGenerateLcov(executionLogDir, outputFile="", options={})** - Generate LCOV format file only
 - **lcovGenerateHtml(executionLogDir, outputDir, options={})** - Generate HTML reports only
@@ -55,24 +61,29 @@ The extension provides easy-to-use functions for code coverage analysis:
 The `options` struct can include the following configuration parameters:
 
 ### General Options
-- **verbose** (boolean, default: false) - Enable verbose logging during processing
-- **displayUnit** (string, default: "micro") - Time unit for display: "nano", "micro", "milli", "second"
-- **unit** (string, default: "micro") - Time unit for execution logging: "nano", "micro", "milli", "second"
+
+- **verbose** (boolean, default: false) - Enables verbose logging during processing
+- **displayUnit** (string, default: `micro`) - Time unit for display: `auto`, `nano`, `micro`, `milli`, `second`
+- **unit** (string, default: `micro`) - Time unit for execution logging: `nano`, `micro` or `milli`
 - **minTime** (numeric, default: 0) - Minimum execution time threshold for logging
 
 ### File Filtering
+
 - **allowList** (array, default: []) - Array of file paths/patterns to include (when specified, only these files are processed)
 - **blocklist** (array, default: []) - Array of file paths/patterns to exclude from processing
 
 ### HTML Report Options
+
 - **separateFiles** (boolean, default: false) - Generate separate HTML files for each source file instead of by execution run
 - **title** (string, default: "Code Coverage Report") - Title for HTML reports
 - **includeTimestamp** (boolean, default: true) - Include timestamp in report headers
 
 ### AST Options
+
 - **useAstForLinesFound** (boolean, default: true) - Use AST-based analysis for accurate executable line counting
 
 ### Execution Logging Options
+
 - **className** (string, default: "lucee.runtime.engine.ResourceExecutionLog") - Java class name for execution logging
 - **executionLogDir** (string, default: auto-generated) - Directory for storing .exl execution log files
 
@@ -168,7 +179,7 @@ Install the extension through the Lucee Administrator or deploy the .lex file ma
 ## Requirements
 
 - Lucee 7.0.0.372-SNAPSHOT or higher
-- Java 11+
+- Java 11+, 21+ recommend for performance reasons
 
 ## License
 
