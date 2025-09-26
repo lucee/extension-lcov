@@ -48,8 +48,8 @@ Any directories being passed as arguments must already exist!
 
 ### Capturing Logs
 
-- **lcovStartLogging(adminPassword, executionLogDir="", options={})** - Start execution logging with ResourceExecutionLog
-- **lcovStopLogging(adminPassword, className="lucee.runtime.engine.ResourceExecutionLog")** - Stop execution logging
+- `lcovStartLogging( adminPassword, executionLogDir="", options={} )` - Start execution logging with ResourceExecutionLog
+- ``lcovStopLogging( adminPassword, className="lucee.runtime.engine.ResourceExecutionLog" )` - Stop execution logging
 
 Execution Logging Options
 
@@ -58,20 +58,20 @@ Execution Logging Options
 
 ### Analysing and Reporting
 
-- **lcovGenerateAllReports(executionLogDir, outputDir, options={})** - Generate LCOV, HTML, and JSON reports
-- **lcovGenerateLcov(executionLogDir, outputFile="", options={})** - Generate LCOV format file only
-- **lcovGenerateHtml(executionLogDir, outputDir, options={})** - Generate HTML reports only
-- **lcovGenerateJson(executionLogDir, outputDir, options={})** - Generate JSON reports only
-- **lcovGenerateSummary(executionLogDir, options={})** - Generate coverage statistics only
+- `lcovGenerateAllReports( executionLogDir, outputDir, options={} )` - Generate LCOV, HTML, and JSON reports
+- `lcovGenerateLcov( executionLogDir, outputFile="", options={} )` - Generate LCOV format file only
+- `lcovGenerateHtml( executionLogDir, outputDir, options={} )` - Generate HTML reports only
+- `lcovGenerateJson( executionLogDir, outputDir, options={} )` - Generate JSON reports only
+- `lcovGenerateSummary( executionLogDir, options={} )` - Generate coverage statistics only
 
 ### General Options
 
 The `options` struct can include the following configuration parameters:
 
-- **verbose** (boolean, default: false) - Enables verbose logging during processing
-- **displayUnit** (string, default: `micro`) - Time unit for display: `auto`, `nano`, `micro`, `milli`, `second`
-- **unit** (string, default: `micro`) - Time unit for execution logging: `nano`, `micro` or `milli`
-- **minTime** (numeric, default: 0) - Minimum execution time threshold for logging
+- **verbose** Enables verbose logging during processing, default `false`
+- **displayUnit** - Time unit for display: `auto`, `nano`, `micro`, `milli`, `second` - default `false`
+- **unit** - Time unit for execution logging: `nano`, `micro` or `milli`, default `micro`
+- **minTime** - Minimum execution time threshold for logging, default `0`
 
 File Filtering
 
@@ -80,13 +80,13 @@ File Filtering
 
 HTML Report Options
 
-- **separateFiles** - Generate separate HTML files for each source file instead of per request
+- **separateFiles** - Generate separate HTML files for each source file instead of per request, default `false`
 - **title** Title for HTML reports
 - **includeTimestamp** - Include timestamp in report headers, `boolean=true`
 
 AST Options
 
-LCOV differentiates between executable lines and non-executable lines, aka `linesFound`. I.e. comment is ignored and doesn't count missing towards line coverage.
+LCOV differentiates between executable lines and non-executable lines, aka `linesFound`. I.e. comment is non-executable and therefore ignored so it doesn't count towards missing line coverage.
 
 - **useAstForLinesFound** (boolean, default: true) - Use [AST-based](https://docs.lucee.org/recipes/ast.html) analysis for accurate executable line counting, otherwise it uses a simpler non AST approach.
 
