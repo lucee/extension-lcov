@@ -22,24 +22,12 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	}
 
 	/**
-	 * Process blocks with streamlined overlap detection and caching
-	 * Major performance improvements over original version
+	 * Process line-based blocks with overlap detection
+	 * Blocks are already defined by line numbers [fileIdx, startLine, endLine, execTime]
 	 */
-	public struct function excludeOverlappingBlocks(blocksByFile, files, lineMappingsCache, boolean blocksAreLineBased = false) {
+	public struct function overlapFilterLineBased(blocksByFile, files, lineMappingsCache) {
 		var startTime = getTickCount();
-		var totalBlocks = 0;
-
-		// Count total blocks for logging
-		for (var fileIdx in arguments.blocksByFile) {
-			totalBlocks += arrayLen(arguments.blocksByFile[fileIdx]);
-		}
-
 		var coverage = [=];
-		var executableLinesCache = {};
-		for (var fileIdx in arguments.files) {
-			executableLinesCache[fileIdx] = structKeyExists(arguments.files[fileIdx], "executableLines") ?
-				arguments.files[fileIdx].executableLines : {};
-		}
 
 		// Process each file's blocks
 		for (var fileIdx in arguments.blocksByFile) {
@@ -51,31 +39,23 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 			var blocks = arguments.blocksByFile[fileIdx];
 			var f = {};
 
-			// Get pre-computed executable lines for this file
-			var executableLines = executableLinesCache[fileIdx];
+			// Get executable lines for this file
+			var executableLines = structKeyExists(arguments.files[fileIdx], "executableLines")
+				? arguments.files[fileIdx].executableLines : {};
 
-			// Use overlap-aware filtering to match original logic and pass all tests
-			var filteredBlocks = filterOverlappingBlocks(blocks, arguments.blocksAreLineBased, lineMapping, mappingLen, filePath);
+			// Filter overlapping blocks (line-based)
+			var filteredBlocks = filterOverlappingBlocksLineBased(blocks);
 
-			// OPTIMIZATION: Process blocks in batch with minimal conversions
+			// Process line-based blocks
 			for (var b = 1; b <= arrayLen(filteredBlocks); b++) {
 				var block = filteredBlocks[b];
-				var startLine = 0;
-				var endLine = 0;
-
-				if (arguments.blocksAreLineBased) {
-					startLine = block[2];
-					endLine = block[3];
-				} else {
-					// Use optimized character position lookup
-					   startLine = LinePositionUtils::getLineFromCharacterPosition(block[2], lineMapping, mappingLen);
-					   endLine = LinePositionUtils::getLineFromCharacterPosition(block[3], lineMapping, mappingLen, startLine);
-				}
+				var startLine = block[2];
+				var endLine = block[3];
 
 				if (startLine == 0) startLine = 1;
 				if (endLine == 0) endLine = startLine;
 
-				// OPTIMIZATION: Only process executable lines
+				// Add execution time to each line in the range
 				for (var l = startLine; l <= endLine; l++) {
 					if (structKeyExists(executableLines, l)) {
 						if (!structKeyExists(f, l)) {
@@ -92,8 +72,78 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("excludeOverlappingBlocks: Completed " & structCount(coverage)
-			& " files in " & totalTime & "ms ===");
+		logger("overlapFilterLineBased: Completed " & structCount(coverage)
+			& " files in " & totalTime & "ms");
+		return coverage;
+	}
+
+	/**
+	 * Process position-based (character offset) blocks with overlap detection
+	 * Blocks are defined by character positions [fileIdx, startPos, endPos, execTime]
+	 * Distributes execution time across spanned lines to avoid inflation
+	 */
+	public struct function overlapFilterPositionBased(blocksByFile, files, lineMappingsCache) {
+		var startTime = getTickCount();
+		var coverage = [=];
+
+		// Process each file's blocks
+		for (var fileIdx in arguments.blocksByFile) {
+			if (!structKeyExists(arguments.files, fileIdx)) continue;
+
+			var filePath = arguments.files[fileIdx].path;
+			var lineMapping = arguments.lineMappingsCache[filePath];
+			var mappingLen = arrayLen(lineMapping);
+			var blocks = arguments.blocksByFile[fileIdx];
+			var f = {};
+
+			// Get executable lines for this file
+			var executableLines = structKeyExists(arguments.files[fileIdx], "executableLines")
+				? arguments.files[fileIdx].executableLines : {};
+
+			// Filter overlapping blocks (position-based)
+			var filteredBlocks = filterOverlappingBlocksPositionBased(blocks, lineMapping, mappingLen);
+
+			// Process position-based blocks
+			for (var b = 1; b <= arrayLen(filteredBlocks); b++) {
+				var block = filteredBlocks[b];
+
+				// Convert character positions to line numbers
+				var startLine = LinePositionUtils::getLineFromCharacterPosition(block[2], lineMapping, mappingLen);
+				var endLine = LinePositionUtils::getLineFromCharacterPosition(block[3], lineMapping, mappingLen, startLine);
+
+				if (startLine == 0) startLine = 1;
+				if (endLine == 0) endLine = startLine;
+
+				// Calculate how many executable lines this block spans
+				var executableLineCount = 0;
+				for (var l = startLine; l <= endLine; l++) {
+					if (structKeyExists(executableLines, l)) {
+						executableLineCount++;
+					}
+				}
+
+				// Distribute execution time evenly across executable lines
+				var timePerLine = executableLineCount > 0 ? (block[4] / executableLineCount) : block[4];
+
+				// Add distributed execution time to each line
+				for (var l = startLine; l <= endLine; l++) {
+					if (structKeyExists(executableLines, l)) {
+						if (!structKeyExists(f, l)) {
+							f[l] = [1, timePerLine];
+						} else {
+							f[l][1] += 1;
+							f[l][2] += timePerLine;
+						}
+					}
+				}
+			}
+
+			coverage[fileIdx] = f;
+		}
+
+		var totalTime = getTickCount() - startTime;
+		logger("overlapFilterPositionBased: Completed " & structCount(coverage)
+			& " files in " & totalTime & "ms");
 		return coverage;
 	}
 
@@ -120,9 +170,92 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	}
 
 	/**
-	* Streamlined overlap detection with character-based filtering
+	* Filter overlapping blocks for line-based data
+	* Blocks are already defined by line numbers [fileIdx, startLine, endLine, execTime]
 	*/
-	private array function filterOverlappingBlocks(blocks, blocksAreLineBased, lineMapping, mappingLen, filePath) {
+	private array function filterOverlappingBlocksLineBased(blocks) {
+		var filteredBlocks = [];
+		var blockRanges = [];
+
+		// Build block ranges for comparison
+		for (var i = 1; i <= arrayLen(blocks); i++) {
+			var block = blocks[i];
+			var startLine = block[2];
+			var endLine = block[3];
+
+			if (startLine == 0) startLine = 1;
+			if (endLine == 0) endLine = startLine;
+
+			blockRanges.append({
+				index: i,
+				startLine: startLine,
+				endLine: endLine,
+				span: endLine - startLine + 1,
+				block: block
+			});
+		}
+
+		// Check for whole-file blocks
+		var hasWholeFileBlock = false;
+		for (var i = 1; i <= arrayLen(blockRanges); i++) {
+			if (blockRanges[i].startLine <= 1 && blockRanges[i].span >= 10) {
+				hasWholeFileBlock = true;
+				break;
+			}
+		}
+
+		if (hasWholeFileBlock) {
+			// Sort by span size (smallest first)
+			arraySort(blockRanges, function(a, b) {
+				return a.span - b.span;
+			});
+
+			// Keep only the most specific blocks
+			var keptBlocks = [];
+			for (var i = 1; i <= arrayLen(blockRanges); i++) {
+				var current = blockRanges[i];
+				var shouldKeep = true;
+
+				// Check if this block is encompassed by a smaller block we're keeping
+				for (var j = 1; j <= arrayLen(keptBlocks); j++) {
+					var kept = keptBlocks[j];
+					if (kept.startLine >= current.startLine && kept.endLine <= current.endLine && kept.span < current.span) {
+						shouldKeep = false;
+						break;
+					}
+				}
+
+				if (shouldKeep) {
+					// Remove any blocks this one encompasses
+					var newKeptBlocks = [];
+					for (var k = 1; k <= arrayLen(keptBlocks); k++) {
+						var existing = keptBlocks[k];
+						if (!(current.startLine <= existing.startLine && current.endLine >= existing.endLine && current.span > existing.span)) {
+							newKeptBlocks.append(existing);
+						}
+					}
+					newKeptBlocks.append(current);
+					keptBlocks = newKeptBlocks;
+				}
+			}
+
+			// Convert back to blocks array
+			for (var i = 1; i <= arrayLen(keptBlocks); i++) {
+				filteredBlocks.append(keptBlocks[i].block);
+			}
+		} else {
+			// No whole-file blocks detected, return original blocks
+			filteredBlocks = blocks;
+		}
+
+		return filteredBlocks;
+	}
+
+	/**
+	* Filter overlapping blocks for position-based (character offset) data
+	* Blocks are defined by character positions [fileIdx, startPos, endPos, execTime]
+	*/
+	private array function filterOverlappingBlocksPositionBased(blocks, lineMapping, mappingLen) {
 		var filteredBlocks = [];
 		var blockRanges = [];
 		// Convert all blocks to line ranges for comparison

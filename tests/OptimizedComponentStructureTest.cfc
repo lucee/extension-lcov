@@ -46,7 +46,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			arrayAppend(methods, func.name);
 		}
 
-		expect(methods).toInclude("excludeOverlappingBlocks");
+		expect(methods).toInclude("filterOverlappingBlocksLineBased");
+		expect(methods).toInclude("filterOverlappingBlocksPositionBased");
 	}
 
 	/**
@@ -114,8 +115,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			arrayAppend(developBlockMethods, func.name);
 		}
 
-		expect(stableBlockMethods).toInclude("excludeOverlappingBlocks");
-		expect(developBlockMethods).toInclude("excludeOverlappingBlocks");
+		expect(stableBlockMethods).toInclude("filterOverlappingBlocksLineBased");
+		expect(stableBlockMethods).toInclude("filterOverlappingBlocksPositionBased");
+		expect(developBlockMethods).toInclude("filterOverlappingBlocksLineBased");
+		expect(developBlockMethods).toInclude("filterOverlappingBlocksPositionBased");
 
 		// Compare CoverageStats methods
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();

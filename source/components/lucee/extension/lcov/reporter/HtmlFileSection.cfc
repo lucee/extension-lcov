@@ -110,10 +110,18 @@ component {
 	private string function generateTableRows(required struct coverage, required array fileLines,
 			required struct executableLines, required struct countHeatmap, required struct timeHeatmap,
 			required any htmlEncoder, required any timeFormatter, required string sourceUnit, required string displayUnit) {
-		var html = "";
+		// Use array for StringBuilder pattern - much faster than string concatenation
+		var htmlParts = [];
 		var nl = chr(10);
 
-		for (var i = 1; i <= arrayLen(arguments.fileLines); i++) {
+		// Pre-cache for performance
+		var fileLineCount = arrayLen(arguments.fileLines);
+
+		// Reserve capacity to minimize array resizing
+		arrayResize(htmlParts, fileLineCount * 6);
+		var partIndex = 0;
+
+		for (var i = 1; i <= fileLineCount; i++) {
 			var lineData = arguments.coverage[i] ?: [];
 			var hasData = arrayLen(lineData) > 0;
 			var rowClass = hasData ? "executed" : (structKeyExists(arguments.executableLines, i) ? "not-executed" : "non-executable");
@@ -122,6 +130,7 @@ component {
 			var execTime = "";
 			var countClass = "exec-count";
 			var timeClass = "exec-time";
+			var sortValue = 0;
 
 			if (hasData) {
 				var countVal = lineData[1];
@@ -129,13 +138,14 @@ component {
 
 				execCount = countVal > 0 ? numberFormat(countVal) : "";
 
-				// Format execution time
+				// Format execution time and cache conversion
 				if (timeVal > 0) {
 					var timeMicros = arguments.timeFormatter.convertTime(timeVal, arguments.sourceUnit, "μs");
 					execTime = arguments.timeFormatter.format(timeMicros);
+					sortValue = timeMicros;
 				}
 
-				// Apply heatmap classes
+				// Apply heatmap classes - optimized getValueClass already returns empty string for 0
 				if (countVal > 0) {
 					var additionalCountClass = arguments.countHeatmap.getValueClass(countVal);
 					if (additionalCountClass != "") countClass &= " " & additionalCountClass;
@@ -147,15 +157,17 @@ component {
 				}
 			}
 
-			html &= '<tr class="' & rowClass & '" data-line-row data-line-number="' & i & '" data-line-hit="' & (hasData ? "true" : "false") & '">'  & nl
-				& '<td class="line-number">' & i & '</td>' & nl
-				& '<td class="code-cell">' & arguments.htmlEncoder.htmlEncode(arguments.fileLines[i]) & '</td>' & nl
-				& '<td class="' & countClass & '">' & execCount & '</td>' & nl
-				& '<td class="' & timeClass & '" data-execution-time-cell data-sort-value="' & (hasData && arrayLen(lineData) >= 2 ? arguments.timeFormatter.convertTime(lineData[2], arguments.sourceUnit, "μs") : 0) & '">' & execTime & '</td>' & nl
-				& '</tr>' & nl;
+			// Build HTML using array parts (StringBuilder pattern)
+			htmlParts[++partIndex] = '<tr class="' & rowClass & '" data-line-row data-line-number="' & i & '" data-line-hit="' & (hasData ? "true" : "false") & '">' & nl;
+			htmlParts[++partIndex] = '<td class="line-number">' & i & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="code-cell">' & arguments.htmlEncoder.htmlEncode(arguments.fileLines[i]) & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="' & countClass & '">' & execCount & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="' & timeClass & '" data-execution-time-cell data-sort-value="' & sortValue & '">' & execTime & '</td>' & nl;
+			htmlParts[++partIndex] = '</tr>' & nl;
 		}
 
-		return html;
+		// Single join at the end - much faster than repeated concatenation
+		return arrayToList(htmlParts, "");
 	}
 
 	/**

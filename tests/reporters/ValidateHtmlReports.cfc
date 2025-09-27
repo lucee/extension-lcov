@@ -157,6 +157,9 @@ component {
 
 		// Ensure we verified at least some lines with execution time data
 		expect(verifiedCount).toBeGT(0, "Should have verified at least one line with execution time data in [" & reportPath & "]");
+
+		// Also validate that line times sum to file total
+		validateExecutionTimeTotals(arguments.reportPath);
 	}
 
 	/**
@@ -314,6 +317,62 @@ component {
 			// Explicit mode: cells should NOT have units
 			var hasUnit = find("μs", arguments.cellText) || find("ms", arguments.cellText) || find(" s", arguments.cellText) || find("ns", arguments.cellText);
 			expect(hasUnit).toBeFalse("Explicit mode execution time cells should NOT include units: '" & arguments.cellText & "' (displayUnit: " & arguments.displayUnit & ")");
+		}
+	}
+
+	/**
+	 * Validates that individual line execution times sum to the file total
+	 */
+	public void function validateExecutionTimeTotals(required string reportPath) {
+		// Find corresponding JSON file
+		var jsonPath = replace(arguments.reportPath, ".html", ".json");
+		expect(fileExists(jsonPath)).toBeTrue("Corresponding JSON file should exist");
+
+		// Read and parse JSON data
+		var jsonContent = fileRead(jsonPath);
+		var jsonData = deserializeJSON(jsonContent);
+
+		// Get coverage data for first file
+		var coverageData = jsonData.coverage["0"];
+
+		// Sum up all line execution times
+		var lineTimeTotal = 0;
+		var lineCount = 0;
+
+		for (var lineNum in coverageData) {
+			var lineData = coverageData[lineNum];
+			if (arrayLen(lineData) >= 2) {
+				lineTimeTotal += lineData[2]; // execution time is second element
+				lineCount++;
+			}
+		}
+
+		// Get file total from metadata - look for it in various locations
+		var fileTotal = 0;
+		if (structKeyExists(jsonData, "executionTime")) {
+			fileTotal = jsonData.executionTime;
+		} else if (structKeyExists(jsonData, "metadata") && structKeyExists(jsonData.metadata, "executionTime")) {
+			fileTotal = jsonData.metadata.executionTime;
+		} else if (structKeyExists(jsonData, "files") && structKeyExists(jsonData.files, "0") && structKeyExists(jsonData.files["0"], "executionTime")) {
+			// files is a struct with string keys "0", "1", etc.
+			fileTotal = jsonData.files["0"].executionTime;
+		} else {
+			// Skip validation if we can't find the file total
+			return;
+		}
+
+		// Compare totals
+		if (fileTotal > 0 && lineTimeTotal > 0) {
+			var difference = abs(fileTotal - lineTimeTotal);
+			var percentDiff = (difference / fileTotal) * 100;
+
+			expect(lineTimeTotal).toBe(fileTotal,
+				"Line execution times should sum to file total in [" & jsonPath & "]" & chr(10)
+				& "Sum of line times: " & lineTimeTotal & chr(10)
+				& "File total: " & fileTotal & chr(10)
+				& "Difference: " & difference & " (" & numberFormat(percentDiff, '0.00') & "%)" & chr(10)
+				& "Lines with data: " & lineCount
+			);
 		}
 	}
 

@@ -84,7 +84,13 @@ component accessors="true" {
 			lines = listToArray(fileRead(arguments.exlPath), chr(10), true, false);
 		} catch (any e) {
 			logger("Error reading file [" & arguments.exlPath & "]: " & e.message);
-			return { "sections": {}, "fileCoverage": {} };
+			// Return empty result object instead of plain struct
+			var emptyResult = new lucee.extension.lcov.model.result();
+			emptyResult.setMetadata({});
+			emptyResult.setFiles({});
+			emptyResult.setFileCoverage([]);
+			emptyResult.setExeLog(arguments.exlPath);
+			return emptyResult;
 		}
 
 		// cleanup, the last row is often empty
@@ -109,7 +115,13 @@ component accessors="true" {
 					section = 1; // Start files section
 				} else if ( emptyLineCount === 2 ) {
 					section = 2; // Start coverage section - use arraySlice for performance
-					fileCoverage = arraySlice(lines, i + 1, totalLines - i);
+					// Fix: Check if there are lines remaining before slicing
+					if (i < totalLines) {
+						fileCoverage = arraySlice(lines, i + 1, totalLines - i);
+					} else {
+						fileCoverage = []; // No coverage data
+						logger("WARNING: No coverage data found in execution log file [#arguments.exlPath#]. This typically occurs when the request failed or threw an error.");
+					}
 					break; // Bail out - we have everything we need
 				}
 			} else {
@@ -151,7 +163,8 @@ component accessors="true" {
 
 		if ( structCount( coverage.getFiles() ) == 0 && arrayLen( coverage.getFileCoverage() ) == 0 ) {
 			logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
-			return {};
+			// Return the empty coverage result object instead of plain struct
+			return coverage;
 		}
 
 		// OPTIMIZATION: Pre-aggregate coverage data before expensive processing
@@ -209,7 +222,8 @@ component accessors="true" {
 		}
 
 		// STAGE 1.5: Exclude overlapping blocks
-		aggregated =  utils.excludeOverlappingBlocks(aggregated, files, lineMappingsCache);
+		// TODO: Determine if this should use overlapFilterLineBased or overlapFilterPositionBased
+		aggregated =  utils.overlapFilter(aggregated, files, lineMappingsCache);
 		if (variables.verbose) {
 			var remaining = 0;
 			for (var key in aggregated) {
@@ -262,53 +276,6 @@ component accessors="true" {
 			"parallelProcessing": false
 		});
 		coverageData.setCoverage(coverage);
-		return coverage;
-	}
-
-	/**
-	* Process pre-aggregated coverage data
-	*/
-	private struct function processAggregatedCoverage(struct aggregatedCoverage, struct files, string exlPath) {
-		var coverage = {};
-
-		// Process each unique position once with aggregated data
-		for (var key in arguments.aggregatedCoverage) {
-			var pos = arguments.aggregatedCoverage[key];
-			var fileIdx = pos.fileIdx;
-
-			if (!structKeyExists(arguments.files, fileIdx)) continue;
-			var fpath = arguments.files[fileIdx].path;
-
-			// Get line mappings once per file
-			if (!structKeyExists(variables.lineMappingsCache, fpath)) {
-				variables.lineMappingsCache[fpath] = variables.CoverageBlockProcessor.buildCharacterToLineMapping(
-					variables.fileContentsCache[fpath]
-				);
-			}
-
-			var lineMapping = variables.lineMappingsCache[fpath];
-			var mappingLen = arrayLen(lineMapping);
-
-			// Convert to lines once per unique position
-			var startLine = getLineFromCharacterPosition(pos.startPos, fpath, lineMapping, mappingLen);
-			var endLine = getLineFromCharacterPosition(pos.endPos, fpath, lineMapping, mappingLen, startLine);
-
-			// Initialize file coverage if needed
-			if (!structKeyExists(coverage, fileIdx)) {
-				coverage[fileIdx] = {};
-			}
-
-			// Aggregate line coverage
-			for (var lineNum = startLine; lineNum <= endLine; lineNum++) {
-				var lineKey = toString(lineNum);
-				if (!structKeyExists(coverage[fileIdx], lineKey)) {
-					coverage[fileIdx][lineKey] = [0, 0]; // [count, time]
-				}
-				coverage[fileIdx][lineKey][1] += pos.count;
-				coverage[fileIdx][lineKey][2] += pos.totalTime;
-			}
-		}
-
 		return coverage;
 	}
 

@@ -86,7 +86,10 @@ function sortTable(th, sortDefault) {
 							break;
 					}
 				} else {
-					if (cell.dataset.value)
+					// Check for data-sort-value attribute first (used for execution times)
+					if (cell.dataset.sortValue)
+						val = cell.dataset.sortValue;
+					else if (cell.dataset.value)
 						val = cell.dataset.value;
 					// Handle formatted numbers with commas and units (e.g., "1,234 μs" or "56.7%")
 					var cleanVal = val.replace(/[^\d.,%-]/g, ''); // Keep digits, commas, periods, %, -

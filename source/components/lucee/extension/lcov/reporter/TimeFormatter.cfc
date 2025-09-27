@@ -79,53 +79,64 @@ component {
 			value = convertTime(arguments.microseconds, "μs", arguments.targetUnit);
 		}
 
-		var unitInfo = getUnitInfo(unit);
-		var _mask = arguments.mask ?: unitInfo.mask;
+		// OPTIMIZATION: Skip numberFormat for small integers (0-999)
+		// These don't need formatting and toString is 86% faster
+		var formattedValue;
+		if (value < 1000 && value == int(value)) {
+			formattedValue = toString(int(value));
+		} else {
+			// Only get mask when we actually need it for numberFormat
+			var _mask = arguments.mask ?: "";
+			if (_mask == "") {
+				// Only seconds needs decimal places
+				_mask = (unit == "s") ? "0.00," : ",";
+			}
+			formattedValue = numberFormat(value, _mask);
+		}
 
-		var formattedValue = numberFormat(value, _mask);
 		return arguments.includeUnits ? formattedValue & " " & unit : formattedValue;
 	}
 
 	
 	/**
 	 * Convert time between units with consistent parameters and no precision loss
+	 * OPTIMIZED: Using integer math and simple switch for performance
 	 * @value Numeric time value to convert
-	 * @fromUnit String unit to convert from (ns, μs, ms, s, nano, micro, milli, second)
-	 * @toUnit String unit to convert to (ns, μs, ms, s, nano, micro, milli, second)
-	 * @return Numeric converted time value (integers for ns/μs, numeric for ms/s)
+	 * @fromUnit String unit to convert from (ns, μs, ms, s)
+	 * @toUnit String unit to convert to (ns, μs, ms, s)
+	 * @return Numeric converted time value
 	 */
 	public numeric function convertTime(required numeric value, required string fromUnit, required string toUnit) {
-		if (!isNumeric(arguments.value) || arguments.value < 0) {
-			throw("Invalid time value: " & arguments.value, "InvalidTimeValueError");
-		}
+		// Fast path for zero
 		if (arguments.value == 0) {
 			return 0;
 		}
-		if (!isValidTimeUnit(arguments.fromUnit)) {
-			var allUnits = getSupportedTimeUnits();
-			for (var unitName in getUnits()) {
-				arrayAppend(allUnits, unitName);
-			}
-			throw("Invalid fromUnit: " & arguments.fromUnit & ". Supported units: " & arrayToList(allUnits), "InvalidTimeUnitError");
-		}
-		if (!isValidTimeUnit(arguments.toUnit)) {
-			var allUnits = getSupportedTimeUnits();
-			for (var unitName in getUnits()) {
-				arrayAppend(allUnits, unitName);
-			}
-			throw("Invalid toUnit: " & arguments.toUnit & ". Supported units: " & arrayToList(allUnits), "InvalidTimeUnitError");
+
+		// Fast path for same unit
+		if (arguments.fromUnit == arguments.toUnit) {
+			return arguments.value;
 		}
 
-		// Normalize unit names to symbols
-		var fromSymbol = normalizeUnit(arguments.fromUnit);
-		var toSymbol = normalizeUnit(arguments.toUnit);
+		// Convert to microseconds (base unit) using integer operations
+		var valueInMicroseconds = arguments.value;
 
-		// Convert to canonical microseconds first, then to target unit
-		var conversionFactors = getConversionFactors();
-		var valueInMicroseconds = arguments.value * conversionFactors[fromSymbol];
-		var result = valueInMicroseconds / conversionFactors[toSymbol];
+		switch(arguments.fromUnit) {
+			case "ns": valueInMicroseconds = arguments.value / 1000; break;
+			case "μs": valueInMicroseconds = arguments.value; break;
+			case "ms": valueInMicroseconds = arguments.value * 1000; break;
+			case "s": valueInMicroseconds = arguments.value * 1000000; break;
+		}
 
-		return result;
+		// Convert from microseconds to target unit
+		switch(arguments.toUnit) {
+			case "ns": return valueInMicroseconds * 1000;
+			case "μs": return valueInMicroseconds;
+			case "ms": return valueInMicroseconds / 1000;
+			case "s": return valueInMicroseconds / 1000000;
+		}
+
+		// Should never reach here with valid units
+		return valueInMicroseconds;
 	}
 
 	/**
