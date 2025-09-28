@@ -6,6 +6,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function run() {
 		describe("OverlapFilter - Position-Based Tests", function() {
+			it("should work with aggregated format and preserve execution counts", function() {
+				testAggregatedFormat();
+			});
+
 			it("should exclude large blocks that encompass smaller, more specific blocks", function() {
 				var develop = excludeLargeBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
 				var stable = excludeLargeBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
@@ -60,6 +64,60 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				testDenseCodeBlocks(stable, "stable");
 			});
 		});
+	}
+
+	// Test: Aggregated format with execution counts preservation
+	private void function testAggregatedFormat() {
+		var processor = variables.factory.getComponent(name="OverlapFilterPosition");
+
+		// Simulate aggregated data format: key -> [fileIdx, startPos, endPos, count, totalTime]
+		var aggregated = {
+			"1#chr(9)#1#chr(9)#10000": [1, 1, 10000, 5, 500],        // Large block executed 5 times, 500ms total
+			"1#chr(9)#1001#chr(9)#2000": [1, 1001, 2000, 10, 200],  // Small block executed 10 times, 200ms
+			"1#chr(9)#5001#chr(9)#6000": [1, 5001, 6000, 3, 60]     // Another small block, 3 times, 60ms
+		};
+
+		var files = { "1": { "path": "test.cfm", "executableLines": {} } };
+		var lineMappingsCache = {};
+
+		// Filter overlapping blocks
+		var result = processor.filter(aggregated, files, lineMappingsCache);
+
+		// Verify structure
+		expect(structCount(result)).toBe(2, "Should have 2 blocks after filtering out the large one");
+
+		// Verify the small blocks are preserved with their counts and times
+		var key1 = "1#chr(9)#1001#chr(9)#2000";
+		var key2 = "1#chr(9)#5001#chr(9)#6000";
+
+		expect(result).toHaveKey(key1, "Should have first small block");
+		expect(result).toHaveKey(key2, "Should have second small block");
+
+		// Verify execution counts and times are preserved
+		if (structKeyExists(result, key1)) {
+			var block1 = result[key1];
+			expect(arrayLen(block1)).toBe(5, "Block should have 5 elements");
+			expect(block1[4]).toBe(10, "First block should preserve count of 10");
+			expect(block1[5]).toBe(200, "First block should preserve total time of 200ms");
+		}
+
+		if (structKeyExists(result, key2)) {
+			var block2 = result[key2];
+			expect(arrayLen(block2)).toBe(5, "Block should have 5 elements");
+			expect(block2[4]).toBe(3, "Second block should preserve count of 3");
+			expect(block2[5]).toBe(60, "Second block should preserve total time of 60ms");
+		}
+
+		// Calculate total execution counts and times
+		var totalCount = 0;
+		var totalTime = 0;
+		for (var key in result) {
+			totalCount += result[key][4];
+			totalTime += result[key][5];
+		}
+
+		expect(totalCount).toBe(13, "Total execution count should be 13 (10+3, excluding the 5 from large block)");
+		expect(totalTime).toBe(260, "Total execution time should be 260ms (200+60, excluding 500 from large block)");
 	}
 
 	// Test: Basic large block exclusion with character positions

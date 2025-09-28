@@ -332,7 +332,7 @@ component accessors=true {
 		}
 
 		// Validate execution time consistency
-		var executionTimeProblems = [];// validateExecutionTime();
+		var executionTimeProblems = validateExecutionTime();
 		for (var problem in executionTimeProblems) {
 			arrayAppend(problems, problem);
 		}

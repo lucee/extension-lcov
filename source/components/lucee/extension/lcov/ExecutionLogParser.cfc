@@ -211,29 +211,27 @@ component accessors="true" {
 		var aggregator = new lucee.extension.lcov.CoverageAggregator();
 		var aggregationResult = aggregator.aggregateChunked(fileCoverage, validFileIds, totalLines);
 
-		/*
 		var exclusionStart = getTickCount();
 		if (variables.verbose) {
 			var beforeEntities = 0;
-			for (var key in aggregated) {
-				beforeEntities += structCount(aggregated[key]);
+			for (var key in aggregationResult.aggregated) {
+				beforeEntities += structCount(aggregationResult.aggregated[key]);
 			}
 			logger("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
 		}
 
-		// STAGE 1.5: Exclude overlapping blocks
-		// TODO: Determine if this should use overlapFilterLineBased or overlapFilterPositionBased
-		aggregated =  utils.overlapFilter(aggregated, files, lineMappingsCache);
+		// STAGE 1.5: Exclude overlapping blocks using position-based filtering
+		var overlapFilter = variables.factory.getComponent(name="OverlapFilterPosition");
+		aggregationResult.aggregated = overlapFilter.filter(aggregationResult.aggregated, files, lineMappingsCache);
 		if (variables.verbose) {
 			var remaining = 0;
-			for (var key in aggregated) {
-				remaining += structCount(aggregated[key]);
+			for (var key in aggregationResult.aggregated) {
+				remaining += structCount(aggregationResult.aggregated[key]);
 			}
 			logger("After excluding overlapping blocks, remaining aggregated entries: "
 				& numberFormat(remaining) & " (took "
 				& numberFormat(getTickCount() - exclusionStart) & "ms)");
 		}
-		*/
 
 		// STAGE 2: Process aggregated entries to line coverage
 		var processor = new lucee.extension.lcov.CoverageProcessor();

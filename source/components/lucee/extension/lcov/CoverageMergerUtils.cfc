@@ -95,7 +95,7 @@ component accessors=false {
 	 * This ensures all per-file data in the merged results is consistently keyed by the canonical, consecutive numeric fileIndex, with all paths and stats normalized for downstream consumers and reporting.
 	 */
 	public static result function initializeSourceFileEntry(required string sourceFilePath, required result sourceResult,
-			required string fileIndex, numeric mergedFileIndex = 0) {
+			required string fileIndex, numeric mergedFileIndex = 0, boolean separateFiles = true) {
 		if (!len(arguments.sourceFilePath)) {
 			throw(message="BUG: initializeSourceFileEntry called with empty sourceFilePath. fileIndex=" & arguments.fileIndex & ", sourceResult=" & serializeJSON(arguments.sourceResult));
 		}
@@ -107,11 +107,12 @@ component accessors=false {
 		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
 		entry.setMetadata("metadata": {
 			"script-name": htmlUtils.safeContractPath(arguments.sourceFilePath),
-			"execution-time": "0",
+			"execution-time": structKeyExists(metadataData, "execution-time") ? metadataData["execution-time"] : "0",
 			"unit": metadataData.unit ?: "μs"
 		});
 		entry.setExelog(arguments.sourceFilePath);
 		var files = entry.getFiles();
+		// Always use index 0 for separated files - each file gets its own result model
 		var idx = 0;
 		var filesStruct = {};
 		if (structKeyExists(filesData, arguments.fileIndex)) {
@@ -160,6 +161,30 @@ component accessors=false {
 			if (!structKeyExists(fileItem, "linesHit")) fileItem["linesHit"] = 0;
 		}
 		entry.setFileItem(idx, fileItem);
+
+		// Calculate stats from coverage to match validation requirements
+		var totalExecutions = 0;
+		var totalExecutionTime = 0;
+		if (structKeyExists(mergedCoverage, idx)) {
+			var coverageStruct = mergedCoverage[idx];
+			for (var lineNum in coverageStruct) {
+				var lineData = coverageStruct[lineNum];
+				if (isArray(lineData) && arrayLen(lineData) >= 2) {
+					totalExecutions += lineData[1];  // Hit count is at index 1
+					totalExecutionTime += lineData[2];  // Execution time is at index 2
+				}
+			}
+		}
+
+		// Update stats to match the coverage data
+		var stats = entry.getStats();
+		stats.totalExecutions = totalExecutions;
+		stats.totalExecutionTime = totalExecutionTime;
+		stats.totalLinesFound = fileItem["linesFound"];
+		stats.totalLinesHit = fileItem["linesHit"];
+		stats.totalLinesSource = fileItem["linesSource"] ?: 0;
+		entry.setStats(stats);
+
 		entry.validate();
 		return entry;
 	}

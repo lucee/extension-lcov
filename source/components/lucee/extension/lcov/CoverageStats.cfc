@@ -278,15 +278,12 @@ component accessors="true" {
 	*/
 	public static void function calculateStatsForMergedResults(required struct mergedResults) {
 		var statsCalculator = new CoverageStats();
+
+		// Calculate stats for each file
 		for (var fileIndex in arguments.mergedResults) {
 			var startTime = getTickCount();
 			var result = statsCalculator.calculateCoverageStats(arguments.mergedResults[fileIndex]);
 			// calculateCoverageStats returns the result with updated stats, so we don't need to set .stats manually
-			if (structKeyExists(result.getStats(), "totalExecutionTime")) {
-				var metadata = result.getMetadata();
-				metadata["execution-time"] = result.getStats().totalExecutionTime;
-				result.setMetadata(metadata);
-			}
 		}
 	}
 }

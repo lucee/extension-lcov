@@ -116,11 +116,19 @@ component {
 				var totalLinesFound = result["totalLinesFound"];
 				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") : '-';
 				var formattedTime = "";
-				if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
-					// Convert from source unit to microseconds before passing to format
+				// For per-file reports (file-*.html), use totalExecutionTime instead of executionTime
+				var isPerFileReport = left(htmlFile, 5) == "file-";
+				var timeValue = "";
+				if (isPerFileReport && structKeyExists(result, "totalExecutionTime") && isNumeric(result["totalExecutionTime"])) {
+					// Per-file reports: use totalExecutionTime which is already in microseconds
+					timeValue = result["totalExecutionTime"];
+				} else if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
+					// Request reports: use executionTime from metadata
 					var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
-					var executionTimeMicros = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
-					formattedTime = timeFormatter.format(executionTimeMicros);
+					timeValue = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
+				}
+				if (isNumeric(timeValue) && timeValue != "") {
+					formattedTime = timeFormatter.format(timeValue);
 				}
 				var timestamp = structKeyExists(result, "timestamp") ? result["timestamp"] : "";
 
@@ -152,7 +160,7 @@ component {
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
 				html &= '<td class="percentage' & coverageClass & '">' & percentCovered & '</td>';
 				// Add data-value with raw microsecond value for proper numeric sorting
-				var sortValue = (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) ? executionTimeMicros : 0;
+				var sortValue = isNumeric(timeValue) ? timeValue : 0;
 				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-value="' & sortValue & '">' & formattedTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}

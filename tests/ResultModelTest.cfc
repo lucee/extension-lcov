@@ -7,7 +7,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				Result.setMetadata({"script-name":"test.cfm","generated-by":"test","timestamp":123456});
 				Result.setStats({totalLinesFound:10,totalLinesHit:7,totalLinesSource:10,totalExecutions:1,totalExecutionTime:42});
 				Result.setFiles({});
-				Result.setCoverage({});
+				// Add coverage data that matches the stats
+				Result.setCoverage({"1": {"1": [1, 1, 42]}});  // File 1, Line 1: hit once, 1 execution, 42ms
 				expect(Result.getMetadataProperty("script-name")).toBe("test.cfm");
 				expect(Result.getStatsProperty("totalLinesFound")).toBe(10);
 				Result.validate();
@@ -23,6 +24,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			it("should get file stats for a file", function() {
 				var Result = new lucee.extension.lcov.model.result();
 				   Result.setStats({totalLinesFound:1,totalLinesHit:1,totalLinesSource:1,totalExecutions:1,totalExecutionTime:1});
+				   Result.setCoverage({"0": {"1": [1, 1, 1]}});  // Match stats: 1 execution, 1ms
 				   Result.setFileItem(0, {hits:5});
 				   expect(Result.getFileItem(0)).toBeStruct();
 				   expect(function(){Result.getFileItem(1);}).toThrow();
@@ -117,7 +119,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				Result.setMetadata({foo:"bar"});
 				Result.setStats({totalLinesFound:1,totalLinesHit:1,totalLinesSource:1,totalExecutions:1,totalExecutionTime:1});
 				Result.setFiles({});
-				Result.setCoverage({});
+				Result.setCoverage({"1": {"1": [1, 1, 1]}});  // Match stats: 1 execution, 1ms
 				expect(function(){Result.validate();}).notToThrow();
 			});
 		});

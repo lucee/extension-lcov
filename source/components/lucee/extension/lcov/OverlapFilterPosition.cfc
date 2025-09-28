@@ -15,20 +15,78 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 * Filter overlapping position-based blocks
 	 * Returns filtered blocks still in character position format
 	 */
-	public struct function filter(blocksByFile, files, lineMappingsCache) {
+	public struct function filter(aggregatedOrBlocksByFile, files, lineMappingsCache) {
 		var startTime = getTickCount();
 		var result = {};
+		var blocksByFile = {};
+
+		// Detect input format and convert if needed
+		var isAggregatedFormat = false;
+
+		// Check if this is aggregated format (has tab-delimited keys) or blocks format (numeric keys with array values)
+		for (var key in arguments.aggregatedOrBlocksByFile) {
+			var value = arguments.aggregatedOrBlocksByFile[key];
+			if (isArray(value) && arrayLen(value) > 0) {
+				if (isArray(value[1])) {
+					// This is blocksByFile format (array of arrays)
+					blocksByFile = arguments.aggregatedOrBlocksByFile;
+					break;
+				} else {
+					// This is aggregated format (single array with fileIdx as first element)
+					isAggregatedFormat = true;
+					break;
+				}
+			}
+		}
+
+		if (isAggregatedFormat) {
+			// Convert aggregated structure to blocks by file
+			for (var key in arguments.aggregatedOrBlocksByFile) {
+				var block = arguments.aggregatedOrBlocksByFile[key];
+				// Block format from aggregator: [fileIdx, startPos, endPos, count, totalTime]
+				var fileIdx = toString(block[1]);
+				if (!structKeyExists(blocksByFile, fileIdx)) {
+					blocksByFile[fileIdx] = [];
+				}
+				// Convert to overlap filter format: [fileIdx, startPos, endPos, execTime]
+				// Use totalTime as execTime for filtering purposes
+				arrayAppend(blocksByFile[fileIdx], [fileIdx, block[2], block[3], block[5]]);
+			}
+		}
 
 		// Process each file's blocks
-		for (var fileIdx in arguments.blocksByFile) {
-			var blocks = arguments.blocksByFile[fileIdx];
+		for (var fileIdx in blocksByFile) {
+			var blocks = blocksByFile[fileIdx];
 			// Filter overlapping blocks based on character positions
-			result[fileIdx] = filterOverlappingBlocks(blocks);
+			var filteredBlocks = filterOverlappingBlocks(blocks);
+
+			if (isAggregatedFormat) {
+				// Convert back to aggregated format for each filtered block
+				for (var fBlock in filteredBlocks) {
+					// Create key in same format as aggregator
+					var key = fileIdx & chr(9) & fBlock[2] & chr(9) & fBlock[3];
+					// Find original aggregated entry to preserve count information
+					if (structKeyExists(arguments.aggregatedOrBlocksByFile, key)) {
+						result[key] = arguments.aggregatedOrBlocksByFile[key];
+					} else {
+						// Fallback: reconstruct entry (shouldn't happen normally)
+						result[key] = [fileIdx, fBlock[2], fBlock[3], 1, fBlock[4]];
+					}
+				}
+			} else {
+				// Keep blocksByFile format for tests
+				result[fileIdx] = filteredBlocks;
+			}
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("OverlapFilterPosition: Filtered " & structCount(result)
-			& " files in " & totalTime & "ms");
+		if (isAggregatedFormat) {
+			logger("OverlapFilterPosition: Filtered " & structCount(arguments.aggregatedOrBlocksByFile)
+				& " entries to " & structCount(result) & " entries in " & totalTime & "ms");
+		} else {
+			logger("OverlapFilterPosition: Filtered " & structCount(result)
+				& " files in " & totalTime & "ms");
+		}
 		return result;
 	}
 
