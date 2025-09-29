@@ -97,6 +97,8 @@ component {
 						<th data-sort-type="numeric">Coverage</th>
 						<th data-sort-type="numeric" style="font-style: italic;" data-dir="asc">Percentage (%)</th>
 						<th data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader() & '</th>
+						<th data-sort-type="numeric" title="Time spent in called functions">Child Time</th>
+						<th data-sort-type="numeric" title="Time spent in own code (Execution - Child)">Own Time</th>
 					</tr>
 				</thead>
 				<tbody>';
@@ -155,6 +157,18 @@ component {
 					executionClass = " execution-heatmap-level-" & level;
 				}
 
+				// Extract call tree metrics from file stats
+				var childTimeSort = structKeyExists(result, "totalChildTime") ? result.totalChildTime : 0;
+				var childTime = childTimeSort > 0 ? timeFormatter.format(childTimeSort) : "";
+
+				// Calculate own time (execution time minus child time)
+				var ownTimeValue = 0;
+				if (isNumeric(timeValue) && timeValue > 0) {
+					ownTimeValue = timeValue - childTimeSort;
+					if (ownTimeValue < 0) ownTimeValue = 0; // Ensure non-negative
+				}
+				var ownTime = ownTimeValue > 0 ? timeFormatter.format(ownTimeValue) : "";
+
 				html &= '<tr data-file-row data-html-file="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '" data-script-name="' & arguments.htmlEncoder.htmlAttributeEncode(scriptName) & '">';
 				html &= '<td class="script-name"><a href="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</a></td>';
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
@@ -162,6 +176,8 @@ component {
 				// Add data-value with raw microsecond value for proper numeric sorting
 				var sortValue = isNumeric(timeValue) ? timeValue : 0;
 				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-value="' & sortValue & '">' & formattedTime & '</td>';
+				html &= '<td class="child-time" data-sort-value="' & childTimeSort & '">' & childTime & '</td>';
+				html &= '<td class="own-time" data-sort-value="' & ownTimeValue & '">' & ownTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}
 

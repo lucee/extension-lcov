@@ -7,7 +7,7 @@ component accessors="true" {
 	public function init(struct options = {}) {
 		// Store options and extract verbose flag
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		variables.verbose = arguments.options.verbose ?: false;
 				// List of node types that represent executable statements (expand as needed)
 		variables.executableTypes = [
 			"ExpressionStatement", "IfStatement", "SwitchCase", "WhileStatement", "ForStatement",
@@ -87,8 +87,7 @@ component accessors="true" {
 		var maxLine = arrayLen(sourceLines);
 		var invalidLines = [];
 		var filteredLines = {};
-		for (var k in executableLines) {
-			var n = isNumeric(k) ? k : 0;
+		for (var n in executableLines) {
 			if (n > 0 && (maxLine == 0 || n <= maxLine)) {
 				filteredLines[n] = true;
 			} else {
@@ -125,25 +124,25 @@ component accessors="true" {
 	public struct function countExecutableLinesSimple(required array sourceLines) {
 		var instrumentedLineCount = 0;
 		var executableLines = [=];
-		
+
 		for (var i = 1; i <= arrayLen(arguments.sourceLines); i++) {
 			var line = trim(arguments.sourceLines[i]);
-			
+
 			// Skip empty lines
 			if (len(line) == 0) {
 				continue;
 			}
-			
+
 			// Skip pure comment lines (starting with // or /* or *)
 			if (reFind("^(//|/\*|\*)", line)) {
 				continue;
 			}
-			
+
 			// Count this as an instrumentable line
 			instrumentedLineCount++;
 			executableLines[i] = true;
 		}
-		
+
 		return {
 			"count": instrumentedLineCount,
 			"executableLines": executableLines

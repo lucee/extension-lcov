@@ -4,6 +4,8 @@
 
 This extension provides LCOV code coverage reporting capabilities for Lucee CFML applications.
 
+Requires Lucee 7.0.1.7 or newer (requires AST enchancements)
+
 What is line coverage? It a report of what code was executed either by some sort of testing, which allows you to see which parts of the code based aren't being used or tested.
 > **Note**
 >

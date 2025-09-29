@@ -65,13 +65,14 @@ var stableBlockProcessor = factory.getCoverageBlockProcessor(useDevelop=false);
 var developBlockProcessor = factory.getCoverageBlockProcessor(useDevelop=true);
 ```
 
-Refer to [develop/README.md](source/components/lucee/extension/lcov/develop/README.md) for more details on the develop branch and its usage.
+See [develop/README.md](source/components/lucee/extension/lcov/develop/README.md) for more details on the develop branch and its usage.
 
 ### Assets
 
 - Assets are included inline, but read from normal `js` and `css` files.
 - No inline styles, CSS goes in `source/assets/css/coverage-report.css`
 - Accessibility is important, use strong color contrast for readability, in both dark and light modes.
+- numeric data in table cells should be right aligned via css
 
 ### Testing
 

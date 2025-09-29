@@ -267,6 +267,8 @@ component {
 			var validResults = utils.filterValidResults(results);
 			var mappings = utils.buildFileIndexMappings(validResults);
 			var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+			// Aggregate call tree metrics before calculating stats
+			merger.aggregateCallTreeMetricsForMergedResults(mergedResults, results);
 			new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
 			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.verbose);
 

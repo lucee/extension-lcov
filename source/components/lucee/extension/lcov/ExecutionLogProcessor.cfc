@@ -63,7 +63,6 @@ component {
 				& " (" & decimalFormat( info.size/1024 ) & " Kb)");
 			var result = exlParser.parseExlFile(
 				exlPath,
-				false, // generateHtml
 				arguments.options.allowList ?: [],
 				arguments.options.blocklist ?: [],
 				false, // useAstForLinesFound

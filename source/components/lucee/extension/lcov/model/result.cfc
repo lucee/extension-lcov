@@ -12,6 +12,9 @@ component accessors=true {
 	property name="outputFilename" type="string" default=""; // name of the output, without an file extension
 	property name="parserPerformance" type="struct" default="#{}#";
 	property name="fileCoverage" type="array" default="#[]#";
+	property name="callTree" type="struct" default="#{}#"; // call tree analysis data
+	property name="callTreeMetrics" type="struct" default="#{}#"; // call tree summary metrics
+	property name="isFile" type="boolean" default="false"; // true if this is a file-level result (merged), false if request-level
 
 
 	/**
@@ -299,6 +302,14 @@ component accessors=true {
 			}
 		}
 
+		// Validate isFile business rule: if isFile=true, files must have only one entry with key "0"
+		if (variables.isFile) {
+			var fileKeys = structKeyArray(variables.files);
+			if (arrayLen(fileKeys) != 1 || fileKeys[1] != "0") {
+				arrayAppend(problems, "When isFile=true, files struct must have exactly one entry with key '0', found: " & arrayToList(fileKeys));
+			}
+		}
+
 		// Example: validate each file entry
 		var filePaths = structKeyArray(variables.files);
 		for (var filePath in filePaths) {
@@ -411,5 +422,28 @@ component accessors=true {
 		}
 
 		return problems;
+	}
+
+	/**
+	 * Get call tree data for a specific file
+	 * @fileIndex The file index
+	 * @return Struct of call tree entries for this file
+	 */
+	public struct function getCallTreeForFile(required numeric fileIndex) {
+		var fileCallTree = {};
+
+		if (!structKeyExists(variables, "callTree") || !isStruct(variables.callTree)) {
+			return fileCallTree;
+		}
+
+		// Filter call tree entries for this file
+		for (var blockKey in variables.callTree) {
+			var block = variables.callTree[blockKey];
+			if (structKeyExists(block, "fileIdx") && block.fileIdx == arguments.fileIndex) {
+				fileCallTree[blockKey] = block;
+			}
+		}
+
+		return fileCallTree;
 	}
 }

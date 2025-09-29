@@ -80,6 +80,7 @@ component {
 			}
 		}
 
+
 		// Recalculate and synchronize all per-file stats
 		new CoverageStats().calculateStatsForMergedResults(mergedResults);
 		if (variables.debug) {
@@ -296,6 +297,59 @@ component {
 	}
 
 	/**
+	 * Aggregate call tree metrics from source results into merged results
+	 * This is needed when creating file-level results from request-level results
+	 * @mergedResults Struct of merged result objects keyed by canonical index
+	 * @sourceResults Struct of source result objects keyed by json path
+	 * @return void (modifies mergedResults in place)
+	 */
+	public void function aggregateCallTreeMetricsForMergedResults(
+		required struct mergedResults,
+		required struct sourceResults
+	) {
+		for (var canonicalIndex in arguments.mergedResults) {
+			var mergedResult = arguments.mergedResults[canonicalIndex];
+			var filePath = mergedResult.getFileItem(0).path;
+			var totalChildTime = 0;
+
+			// Sum up call tree metrics from source results that contain this file
+			for (var sourcePath in arguments.sourceResults) {
+				var sourceResult = arguments.sourceResults[sourcePath];
+				var resultFiles = sourceResult.getFiles();
+
+				// Check if this result contains the file we're merging
+				var containsFile = false;
+				var targetFileIdx = "";
+				for (var fileIdx in resultFiles) {
+					if (resultFiles[fileIdx].path == filePath) {
+						containsFile = true;
+						targetFileIdx = fileIdx;
+						break;
+					}
+				}
+
+				if (containsFile) {
+					var callTree = sourceResult.getCallTree();
+					// Sum up child times for blocks in this file
+					for (var blockKey in callTree) {
+						var block = callTree[blockKey];
+						// Check if this block belongs to the file we're processing
+						if (block.fileIdx == targetFileIdx && block.isChildTime) {
+							totalChildTime += block.executionTime;
+						}
+					}
+				}
+			}
+
+			// Set aggregated metrics on the merged result
+			var mergedMetrics = {
+				totalChildTime: totalChildTime
+			};
+			mergedResult.setCallTreeMetrics(mergedMetrics);
+		}
+	}
+
+	/**
 	 * mergedFileIndex: The canonical file index for the merged result model. In the current design, this should always be 0,
 	 * as all per-file data in the merged result is keyed by 0. This argument is retained for compatibility with previous logic
 	 * and for possible future multi-file support, but all access and writes should use 0 as the file index.
@@ -444,6 +498,7 @@ component {
 				var resultCopy = duplicate(arguments.currentResult);
 				resultCopy.setCoverage({});
 				resultCopy.setFileCoverage([]);
+				resultCopy.setIsFile(true); // Mark this as a file-level merged result
 				arguments.mergedResults[targetIndex] = resultCopy;
 
 				// Now merge the data

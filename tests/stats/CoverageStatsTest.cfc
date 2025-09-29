@@ -58,7 +58,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 		expect(arrayLen(files)).toBeGT(0, "Should find some .exl files");
 		for (var file in files) {
 
-			var result = parser.parseExlFile(file, false, [], [], false, true); // writeJsonCache=true
+			var result = parser.parseExlFile(file, [], [], false, true); // writeJsonCache=true
 
 			var resultJsonFile = replace(file, ".exl", ".json", "all");
 			expect( fileExists (resultJsonFile) ).toBeTrue("JSON file missing for " & file);

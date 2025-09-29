@@ -30,7 +30,7 @@ component {
 		// result is a model/result.cfc object
 		var scriptName = result.getMetadataProperty("script-name");
 		var outputFilename = result.getOutputFilename();
-		var prefix = (left(outputFilename, 8) == "request-") ? "Request: " : "File: ";
+		var prefix = result.getIsFile() ? "File: " : "Request: ";
 		var displayName = prefix & scriptName;
 		var time = result.getMetadataProperty("execution-time");
 		var unit = result.getMetadataProperty("unit");
@@ -105,9 +105,12 @@ component {
 				& ' <a href="' & variables.htmlEncoder.htmlAttributeEncode(fileCoverageJson) & '" target="_blank" class="file-link">'
 					& variables.htmlEncoder.htmlEncode(listLast(fileCoverageJson, "/\\")) & '</a></p>';
 
-		// Loop over canonical fileIndex keys in result.getFiles()
+		// Loop over canonical fileIndex keys in result.getFiles() - sorted numerically
 		var filesStruct = result.getFiles();
-		for (var fileIndex in filesStruct) {
+		var fileIndexes = structKeyArray(filesStruct);
+		arraySort(fileIndexes, "numeric", "asc");
+
+		for (var fileIndex in fileIndexes) {
 			if (!isNumeric(fileIndex)) throw(type="InvalidFileIndex", message="Only numeric fileIndex keys are allowed [fileIndex=#fileIndex#]");
 			html &= variables.fileSection.generateFileSection(fileIndex, result, variables.htmlEncoder, variables.heatmapCalculator, variables.displayUnit);
 		}

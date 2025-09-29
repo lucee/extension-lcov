@@ -19,7 +19,7 @@ component accessors="true" {
 		// Use factory for code coverage helpers, support useDevelop override
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor");
-		variables.ast = new ExecutableLineCounter(arguments.options);
+		variables.ast = new ast.ExecutableLineCounter(arguments.options);
 		return this;
 	}
 
@@ -36,13 +36,13 @@ component accessors="true" {
 	/**
 	* Parse a single .exl file and extract sections and file coverage data
 	* @exlPath Path to the .exl file to parse
-	* @fileCoverage Reference to the cumulative file coverage structure (for LCOV generation)
-	* @needSingleFileCoverage Whether to return isolated coverage data for this file (for HTML generation)
 	* @allowList Array of allowed file patterns/paths
 	* @blocklist Array of blocked file patterns/paths
+	* @useAstForLinesFound Whether to use AST for determining executable lines
+	* @writeJsonCache Whether to write a JSON cache file
 	* @return Result object containing sections and fileCoverage data
 	*/
-	public result function parseExlFile(string exlPath, boolean needSingleFileCoverage = false,
+	public result function parseExlFile(string exlPath,
 		array allowList=[], array blocklist=[], boolean useAstForLinesFound = false, boolean writeJsonCache = false) {
 
 		var startTime = getTickCount();
@@ -233,6 +233,36 @@ component accessors="true" {
 				& numberFormat(getTickCount() - exclusionStart) & "ms)");
 		}
 
+		// STAGE 1.6: Call tree analysis using AST
+		var callTreeStart = getTickCount();
+		var callTreeData = {};
+		var callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer();
+		var callTreeResult = callTreeAnalyzer.analyzeCallTree(aggregationResult.aggregated, files);
+		var callTreeMetrics = callTreeAnalyzer.getCallTreeMetrics(callTreeResult);
+
+		callTreeData = {
+			"callTree": callTreeResult.blocks,
+			"callTreeMetrics": callTreeMetrics
+		};
+
+		if (variables.verbose) {
+			logger("Call tree analysis completed in " & numberFormat(getTickCount() - callTreeStart)
+				& "ms. Blocks: " & callTreeMetrics.totalBlocks
+				& ", Child time blocks: " & callTreeMetrics.childTimeBlocks
+				& ", Built-in blocks: " & callTreeMetrics.builtInBlocks);
+		}
+
+		// STAGE 1.7: Map call tree data to lines for display
+		var lineMapperStart = getTickCount();
+		var callTreeLineMapper = new lucee.extension.lcov.ast.CallTreeLineMapper();
+		var blockProcessor = factory.getComponent(name="CoverageBlockProcessor");
+		var lineCallTree = callTreeLineMapper.mapCallTreeToLines(callTreeResult, files, blockProcessor);
+
+		if (variables.verbose) {
+			logger("Call tree line mapping completed in " & numberFormat(getTickCount() - lineMapperStart)
+				& "ms. Lines with call tree data: " & structCount(lineCallTree));
+		}
+
 		// STAGE 2: Process aggregated entries to line coverage
 		var processor = new lucee.extension.lcov.CoverageProcessor();
 		var processingResult = processor.processAggregatedToLineCoverage(
@@ -243,6 +273,10 @@ component accessors="true" {
 		);
 		var coverage = processingResult.coverage;
 		var processingTime = processingResult.processingTime;
+
+		// Enrich coverage with call tree line data (own time and child time)
+		coverage = callTreeLineMapper.enrichCoverageWithCallTree(coverage, lineCallTree);
+
 		var totalTime = getTickCount() - start;
 		var timePerOriginalLine = totalLines > 0 ? numberFormat((totalTime / totalLines), "0.00") : "0";
 		var timePerAggregatedEntry = aggregationResult.aggregatedEntries > 0 ? numberFormat((processingTime / aggregationResult.aggregatedEntries), "0.00") : "0";
@@ -260,7 +294,7 @@ component accessors="true" {
 			"processingTime": totalTime,
 			"timePerLine": timePerOriginalLine,
 			"totalLines": totalLines,
-			"optimizationsApplied": ["pre-aggregation", "array-storage", "reference-variables", "direct-chr9"],
+			"optimizationsApplied": ["pre-aggregation", "array-storage", "reference-variables", "direct-chr9", "ast-call-tree"],
 			"preAggregation": {
 				"originalEntries": totalLines,
 				"aggregatedEntries": aggregationResult.aggregatedEntries,
@@ -274,7 +308,13 @@ component accessors="true" {
 			"parallelProcessing": false
 		});
 		coverageData.setCoverage(coverage);
-		return coverage;
+
+		// Add call tree data if available
+		if (!structIsEmpty(callTreeData)) {
+			coverageData.setCallTree(callTreeData.callTree);
+			coverageData.setCallTreeMetrics(callTreeData.callTreeMetrics);
+		}
+		return coverageData;
 	}
 
 	/**
@@ -351,26 +391,37 @@ component accessors="true" {
 				var sourceLines = readFileAsArrayBylines( path );
 				var lineInfo = {};
 
+				// Always get AST for call tree analysis
+				var ast = astFromPath( path );
+
+				// TEMP write the ast to a debug file
+				var astDebugPath = path & ".ast.json";
+				systemOutput("Generated AST for " & path & " saved as " & astDebugPath, true);
+				fileWrite( astDebugPath, serializeJSON(var=ast, compact=false) );
+				
+				
+
 				if (arguments.useAstForLinesFound) {
-					var ast = astFromPath( path );
 					lineInfo = variables.ast.countExecutableLinesFromAst( ast );
 				} else {
 					lineInfo = variables.ast.countExecutableLinesSimple( sourceLines );
 				}
 
-				   files[ num ] = {
-					   "path": path,
-					   "linesSource": arrayLen( variables.lineMappingsCache[ path] ),
-					   "linesFound": lineInfo.count,
-					   "lines": sourceLines,
-					   "executableLines": lineInfo.executableLines
-				   };
+				files[ num ] = {
+					"path": path,
+					"linesSource": arrayLen( variables.lineMappingsCache[ path] ),
+					"linesFound": lineInfo.count,
+					"lines": sourceLines,
+					"executableLines": lineInfo.executableLines,
+					"ast": ast  // Store AST for call tree analysis
+				};
 			}
 		}
 
 		var validFiles = structCount(files);
 		var skippedFiles = structCount(skipped);
-		logger("Post Filter: " & validFiles & " valid files, " & skippedFiles & " skipped, in "
+		logger("Post Filter: " & validFiles & " valid files, " 
+			& skippedFiles & " skipped, in "
 			& numberFormat(getTickCount() - startFiles) & "ms");
 
 		return {

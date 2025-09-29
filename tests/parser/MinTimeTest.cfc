@@ -9,7 +9,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testDataGenerator = new "../GenerateTestData"(testName="MinTimeTest");
 		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
 
-		variables.debug = true;
+		variables.debug = false;
 
 		// Clean up any logging that might be enabled from previous runs
 		try {

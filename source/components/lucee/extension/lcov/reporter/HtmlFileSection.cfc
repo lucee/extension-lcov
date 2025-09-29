@@ -33,7 +33,7 @@ component {
 		var heatmapData = generateHeatmaps(executionData.countValues, executionData.timeValues, tableClass, heatmapCalculator);
 
 		html &= generateTableHeader(tableClass, displayUnit, heatmapData.cssRules);
-		html &= generateTableRows(coverage, fileLines, executableLines,
+		html &= generateTableRows(arguments.fileIndex, coverage, fileLines, executableLines,
 			heatmapData.countHeatmap, heatmapData.timeHeatmap,
 			htmlEncoder, timeFormatter, sourceUnit, displayUnit);
 
@@ -88,6 +88,7 @@ component {
 					& '<th class="code-cell" data-sort-type="text">Code</th>'
 					& '<th class="exec-count" data-sort-type="numeric">Count</th>'
 					& '<th class="exec-time" data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader() & '</th>'
+					& '<th class="child-time" data-sort-type="numeric">Child Time</th>'
 				& '</tr>'
 			& '</thead>'
 			& '<tbody>';
@@ -96,6 +97,7 @@ component {
 
 	/**
 	 * Generates the table rows HTML
+	 * @fileIndex The canonical file index (numeric)
 	 * @coverage The coverage data structure
 	 * @fileLines Array of file lines
 	 * @executableLines Structure of executable lines
@@ -107,7 +109,7 @@ component {
 	 * @displayUnit Display unit object
 	 * @return String HTML for table rows
 	 */
-	private string function generateTableRows(required struct coverage, required array fileLines,
+	private string function generateTableRows(required numeric fileIndex, required struct coverage, required array fileLines,
 			required struct executableLines, required struct countHeatmap, required struct timeHeatmap,
 			required any htmlEncoder, required any timeFormatter, required string sourceUnit, required string displayUnit) {
 		// Use array for StringBuilder pattern - much faster than string concatenation
@@ -117,8 +119,8 @@ component {
 		// Pre-cache for performance
 		var fileLineCount = arrayLen(arguments.fileLines);
 
-		// Reserve capacity to minimize array resizing
-		arrayResize(htmlParts, fileLineCount * 6);
+		// Reserve capacity to minimize array resizing (7 parts per row for 6 columns)
+		arrayResize(htmlParts, fileLineCount * 7);
 		var partIndex = 0;
 
 		for (var i = 1; i <= fileLineCount; i++) {
@@ -128,41 +130,60 @@ component {
 
 			var execCount = "";
 			var execTime = "";
+			var childTime = "";
 			var countClass = "exec-count";
 			var timeClass = "exec-time";
+			var childTimeClass = "child-time";
 			var sortValue = 0;
+			var childTimeSortValue = 0;
 
 			if (hasData) {
 				var countVal = lineData[1];
 				var timeVal = lineData[2];
+				var isChildTime = arrayLen(lineData) >= 3 ? lineData[3] : false;
 
 				execCount = countVal > 0 ? numberFormat(countVal) : "";
 
 				// Format execution time and cache conversion
 				if (timeVal > 0) {
 					var timeMicros = arguments.timeFormatter.convertTime(timeVal, arguments.sourceUnit, "μs");
-					execTime = arguments.timeFormatter.format(timeMicros);
-					sortValue = timeMicros;
+					var formattedTime = arguments.timeFormatter.format(timeMicros);
+					var additionalTimeClass = arguments.timeHeatmap.getValueClass(timeVal);
+
+					// Show time in EITHER execution time column OR child time column, not both
+					if (isChildTime) {
+						// This line represents a function call - show time in child column only
+						childTime = formattedTime;
+						childTimeSortValue = timeMicros;
+						if (additionalTimeClass != "") childTimeClass &= " " & additionalTimeClass;
+						// Leave execution time column empty
+						execTime = "";
+						sortValue = 0;
+					} else {
+						// Regular code execution - show time in execution column only
+						execTime = formattedTime;
+						sortValue = timeMicros;
+						if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
+						// Leave child time column empty
+						childTime = "";
+						childTimeSortValue = 0;
+					}
 				}
 
-				// Apply heatmap classes - optimized getValueClass already returns empty string for 0
+				// Apply heatmap classes for count
 				if (countVal > 0) {
 					var additionalCountClass = arguments.countHeatmap.getValueClass(countVal);
 					if (additionalCountClass != "") countClass &= " " & additionalCountClass;
-				}
-
-				if (timeVal > 0) {
-					var additionalTimeClass = arguments.timeHeatmap.getValueClass(timeVal);
-					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
 				}
 			}
 
 			// Build HTML using array parts (StringBuilder pattern)
 			htmlParts[++partIndex] = '<tr class="' & rowClass & '" data-line-row data-line-number="' & i & '" data-line-hit="' & (hasData ? "true" : "false") & '">' & nl;
-			htmlParts[++partIndex] = '<td class="line-number">' & i & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="line-number"><a href="##F' & arguments.fileIndex & '-L' & i & '" id="F' & arguments.fileIndex & '-L' & i & '" class="line-anchor">' & i & '</a></td>' & nl;
 			htmlParts[++partIndex] = '<td class="code-cell">' & arguments.htmlEncoder.htmlEncode(arguments.fileLines[i]) & '</td>' & nl;
 			htmlParts[++partIndex] = '<td class="' & countClass & '">' & execCount & '</td>' & nl;
 			htmlParts[++partIndex] = '<td class="' & timeClass & '" data-execution-time-cell data-sort-value="' & sortValue & '">' & execTime & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="' & childTimeClass & '" data-child-time-cell data-sort-value="' & childTimeSortValue & '">' & childTime & '</td>' & nl;
 			htmlParts[++partIndex] = '</tr>' & nl;
 		}
 
@@ -192,7 +213,7 @@ component {
 				arguments.countValues,
 				min(5, max(1, arrayLen(arguments.countValues))),
 				arguments.tableClass,
-				"exec-count.count-level",
+				"count-level",
 				countMinColor,
 				countMaxColor,
 				"asc",
@@ -210,7 +231,7 @@ component {
 				arguments.timeValues,
 				min(10, max(1, arrayLen(arguments.timeValues))),
 				arguments.tableClass,
-				"exec-time.time-level",
+				"time-level",
 				timeMinColor,
 				timeMaxColor,
 				"desc",
@@ -261,10 +282,19 @@ component {
 			required any timeFormatter, required string sourceUnit, required string displayUnit) {
 		var totalExecutionTimeMicros = arguments.timeFormatter.convertTime(arguments.totalExecutionTime, arguments.sourceUnit, "μs");
 		var timeDisplay = arguments.timeFormatter.formatTime(totalExecutionTimeMicros, arguments.displayUnit, true);
+
+		// Format Child Time if available
+		var childTimeDisplay = "";
+		if (structKeyExists(arguments.stats, "totalChildTime") && arguments.stats.totalChildTime > 0) {
+			var childTimeMicros = arguments.timeFormatter.convertTime(arguments.stats.totalChildTime, "ns", "μs");
+			childTimeDisplay = ' | <strong>Child Time:</strong> <span class="child-time">' & arguments.timeFormatter.formatTime(childTimeMicros, arguments.displayUnit, true) & '</span>';
+		}
+
 		return '<div class="stats">'
 			& '<strong>Lines Executed:</strong> <span class="lines-executed">' & numberFormat(arguments.stats.totalExecutions) & '</span> | '
 			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span> | '
 			& '<strong>Lines Covered:</strong> <span class="lines-covered">' & arguments.stats.linesHit & ' of ' & arguments.stats.linesFound & '</span>'
+			& childTimeDisplay
 			& '</div>';
 	}
 }

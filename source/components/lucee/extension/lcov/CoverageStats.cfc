@@ -1,6 +1,6 @@
 component accessors="true" {
 
-	variables.debug = true;
+	variables.debug = false;
 
 	/**
 	* Calculate LCOV-style statistics from merged coverage data
@@ -70,14 +70,16 @@ component accessors="true" {
 			"totalLinesHit": 0, // total lines executed
 			"totalLinesSource": 0, // total lines in source file
 			"totalExecutions": 0, // total function executions
-			"totalExecutionTime": 0 // total time spent executing
+			"totalExecutionTime": 0, // total time spent executing
+			"totalChildTime": 0 // total child time from call tree
 		};
 		var fileStats = {
 			"linesFound": 0, // number of executable lines
 			"linesHit": 0, // number of lines executed
 			"linesSource": 0, // total lines in source file
 			"totalExecutions": 0, // total function executions for this file
-			"totalExecutionTime": 0 // total time spent executing for this file
+			"totalExecutionTime": 0, // total time spent executing for this file
+			"totalChildTime": 0 // child time from call tree for this file
 		};
 
 		var filesData = arguments.result.getFiles();
@@ -99,6 +101,7 @@ component accessors="true" {
 			fileInfo.linesHit = 0;
 			fileInfo.totalExecutions = 0;
 			fileInfo.totalExecutionTime = 0;
+			fileInfo.totalChildTime = 0;
 
 			// linesHit, totalExecutions, totalExecutionTime remain 0 until coverage is processed
 			totalStats.totalLinesFound += fileInfo.linesFound;
@@ -123,7 +126,7 @@ component accessors="true" {
 				for (var j = 1; j <= arrayLen(lineNumbers); j++) {
 					var lineNum = lineNumbers[j];
 					var lineData = filecoverage[lineNum];
-					// lineData[1] is hit count, lineData[2] is execution time
+					// lineData[1] is hit count, lineData[2] is execution time, lineData[3] is isChildTime (optional)
 					if (isNumeric(lineData[1]) && lineData[1] > 0 && structKeyExists(executableLines, lineNum)) {
 						totalStats.totalLinesHit++;
 						fileInfo.linesHit++;
@@ -132,10 +135,20 @@ component accessors="true" {
 					totalStats.totalExecutionTime += lineData[2];
 					fileInfo.totalExecutions += lineData[1];
 					fileInfo.totalExecutionTime += lineData[2];
+
+					// If this line has child time flag and it's true, add execution time to child time
+					if (arrayLen(lineData) >= 3 && lineData[3] == true) {
+						totalStats.totalChildTime += lineData[2];
+						fileInfo.totalChildTime += lineData[2];
+					}
 				}
 			}
 			// fileinfo is passed by reference and updated in place
 		});
+
+		// Child time is now calculated from coverage data in the loop above
+		// where we check lineData[3] for the isChildTime flag
+
 		arguments.result.setStats(totalStats);
 
 		var validationError = arguments.result.validate(throw=false);

@@ -51,18 +51,24 @@ component labels="lcov" extends="org.lucee.cfml.test.LuceeTestCase" {
 		var componentFiles = [];
 		for (var row in files) {
 			if (right(row.name, 4) == ".cfc") {
-				arrayAppend(componentFiles, row.name);
+				// Build relative path from develop folder
+				var relativePath = replace(row.directory, developPath, "");
+				relativePath = replace(relativePath, "\", "/", "all");
+				if (left(relativePath, 1) == "/") {
+					relativePath = mid(relativePath, 2, len(relativePath));
+				}
+				var componentName = listFirst(row.name, ".");
+				if (len(relativePath) > 0) {
+					componentName = relativePath & "/" & componentName;
+				}
+				componentName = replace(componentName, "/", ".", "all");
+				arrayAppend(componentFiles, componentName);
 			}
 		}
 		if (len(componentFiles) eq 0) {
 			throw "No develop components found, wrong path [#developPath#].";
 		}
-		var developComponentNames = [];
-		for (var file in componentFiles) {
-			var base = listFirst(file, ".");
-			arrayAppend(developComponentNames, base);
-		}
-		return developComponentNames;
+		return componentFiles;
 	};
 
 }

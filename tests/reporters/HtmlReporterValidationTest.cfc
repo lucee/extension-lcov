@@ -8,7 +8,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest");
 		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
 
-		variables.debug = true;
+		variables.debug = false;
 		variables.validator = new ValidateHtmlReports();
 		// add validator methods as mixins
 		var validatorMeta = getMetaData(variables.validator);
@@ -54,6 +54,72 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			it("auto-selects appropriate units when displayUnit=auto", function() {
 				testHtmlUnitDisplay(unit="micro", minTime=10, testName="unit-micro-display-auto", displayUnit="auto");
+			});
+
+		});
+
+		describe("Child Time Display Validation", function() {
+
+			it("validates child time is displayed correctly in HTML reports", function() {
+				// Generate test data with function calls to create child time
+				var testName = "child-time-validation";
+				var outputDir = tempDir & "/" & testName & "/html/";
+
+				// Run the CallTreeReportGenerationTest which generates reports with child time
+				var reportGen = new "../ast/CallTreeReportGenerationTest"();
+				reportGen.beforeAll();
+				try {
+					reportGen.testCallTreeReportGeneration();
+
+					// Get the generated output directory from that test
+					var generatedDir = reportGen.testDataGenerator.getGeneratedArtifactsDir() & "/raw/html-separate/";
+
+					// Validate child time display
+					validateChildTimeDisplay(generatedDir, debug=variables.debug);
+
+				} finally {
+					reportGen.afterAll();
+				}
+			});
+
+			it("validates child time and own time calculations in index", function() {
+				// Use existing generated test data if available
+				var testDir = variables.tempDir & "/../CallTreeReportGenerationTest/raw/html-separate/";
+
+				if (directoryExists(testDir)) {
+					validateIndexChildTime(testDir, debug=variables.debug);
+				} else {
+					// Generate fresh test data
+					var reportGen = new "../ast/CallTreeReportGenerationTest"();
+					reportGen.beforeAll();
+					try {
+						reportGen.testCallTreeReportGeneration();
+						var generatedDir = reportGen.testDataGenerator.getGeneratedArtifactsDir() & "/raw/html-separate/";
+						validateIndexChildTime(generatedDir, debug=variables.debug);
+					} finally {
+						reportGen.afterAll();
+					}
+				}
+			});
+
+			it("validates child time exclusivity with execution time", function() {
+				// Use existing generated test data if available
+				var testDir = variables.tempDir & "/../CallTreeReportGenerationTest/raw/html-separate/";
+
+				if (directoryExists(testDir)) {
+					validateChildTimeExclusivity(testDir);
+				} else {
+					// Generate fresh test data
+					var reportGen = new "../ast/CallTreeReportGenerationTest"();
+					reportGen.beforeAll();
+					try {
+						reportGen.testCallTreeReportGeneration();
+						var generatedDir = reportGen.testDataGenerator.getGeneratedArtifactsDir() & "/raw/html-separate/";
+						validateChildTimeExclusivity(generatedDir);
+					} finally {
+						reportGen.afterAll();
+					}
+				}
 			});
 
 		});

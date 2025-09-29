@@ -16,7 +16,7 @@ component accessors="true" {
 
 	/**
 	 * Get a component (develop or stable) by name, passing init args if provided
-	 * @name The name of the component (e.g. "CoverageBlockProcessor", "CoverageStats")
+	 * @name The name of the component (e.g. "CoverageBlockProcessor", "CoverageStats", "ast.ExecutableLineCounter")
 	 * @initArgs Optional struct of arguments to pass to init()
 	 * @overrideUseDevelop [optional] - override the global flag for this call
 	 */

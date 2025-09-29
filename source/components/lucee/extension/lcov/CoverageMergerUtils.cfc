@@ -102,6 +102,7 @@ component accessors=false {
 		var path = arguments.sourceResult.getFileItem(arguments.fileIndex).path;
 		var filesData = arguments.sourceResult.getFiles();
 		var entry = new lucee.extension.lcov.model.result();
+		entry.setIsFile(true); // Mark this as a file-level result
 		entry.initStats();
 		var metadataData = arguments.sourceResult.getMetadata();
 		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();

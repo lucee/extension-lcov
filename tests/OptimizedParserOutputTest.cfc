@@ -49,7 +49,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var testFiles = directoryList(variables.stableTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
-							var parserResult = stableParser.parseExlFile(testExlFile, false, [], [], false, true); // writeJsonCache=true
+							var parserResult = stableParser.parseExlFile(testExlFile, [], [], false, true); // writeJsonCache=true
 
 							expect(isInstanceOf(parserResult, "lucee.extension.lcov.model.result")).toBeTrue();
 							expect(parserResult.getMetadata()).notToBeEmpty();
@@ -63,7 +63,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var testFiles = directoryList(variables.developTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
-							var parserResult = developParser.parseExlFile(testExlFile, false, [], [], false, true); // writeJsonCache=true
+							var parserResult = developParser.parseExlFile(testExlFile, [], [], false, true); // writeJsonCache=true
 
 							expect(isInstanceOf(parserResult, "lucee.extension.lcov.model.result")).toBeTrue();
 							expect(parserResult.getMetadata()).notToBeEmpty();
@@ -352,11 +352,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var stableLineData = stableFileCoverage[lineNum];
 				var devLineData = devFileCoverage[lineNum];
 
-				// Both should be arrays with 2 elements: [hitCount, executionTime]
+				// Both should be arrays with 2 or 3 elements: [hitCount, executionTime] or [hitCount, executionTime, isChildTime]
 				expect(stableLineData).toBeArray();
 				expect(devLineData).toBeArray();
-				expect(stableLineData).toHaveLength(2);
-				expect(devLineData).toHaveLength(2);
+				// Allow 2 or 3 elements (3rd element is optional isChildTime flag)
+				expect(arrayLen(stableLineData) >= 2 && arrayLen(stableLineData) <= 3).toBeTrue("stableLineData should have 2-3 elements");
+				expect(arrayLen(devLineData) >= 2 && arrayLen(devLineData) <= 3).toBeTrue("devLineData should have 2-3 elements");
 
 				// Hit counts should match (Lucee will handle string/number conversion)
 				expect(stableLineData[1]).toBe(devLineData[1]);

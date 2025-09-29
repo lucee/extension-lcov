@@ -12,7 +12,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
 
 		variables.verbose = true;
-		variables.debug = true;
+		variables.debug = false;
 	}
 
 	// Leave test artifacts for inspection - no cleanup in afterAll

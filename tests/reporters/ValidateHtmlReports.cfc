@@ -430,4 +430,319 @@ component {
 		throw("Could not detect display unit from parsed HTML document");
 	}
 
+	/**
+	 * Validates that child time values are correctly displayed in HTML reports
+	 * @outputDir The directory containing generated HTML files
+	 * @debug Whether to output debug information
+	 */
+	public void function validateChildTimeDisplay(required string outputDir, boolean debug = false) {
+		// 1. Validate index.html child time column
+		validateIndexChildTime(arguments.outputDir, arguments.debug);
+
+		// 2. Validate individual report file child time columns
+		validateReportChildTime(arguments.outputDir, arguments.debug);
+
+		// 3. Validate child time consistency between JSON and HTML
+		validateChildTimeDataConsistency(arguments.outputDir, arguments.debug);
+
+		// 4. Validate that child time and execution time are mutually exclusive
+		validateChildTimeExclusivity(arguments.outputDir);
+	}
+
+	/**
+	 * Validates child time column in index.html
+	 */
+	private void function validateIndexChildTime(required string outputDir, boolean debug = false) {
+		var indexPath = arguments.outputDir & "index.html";
+		expect(fileExists(indexPath)).toBeTrue("Index HTML file should exist");
+
+		var indexContent = fileRead(indexPath);
+		var htmlParser = new testAdditional.HtmlParser();
+		var doc = htmlParser.parseHtml(indexContent);
+
+		// Check for child time column header
+		var childTimeHeaders = htmlParser.select(doc, "th:contains('Child Time')");
+		expect(arrayLen(childTimeHeaders)).toBeGTE(1, "Should have Child Time column header in index.html");
+
+		// Check for own time column header (new addition)
+		var ownTimeHeaders = htmlParser.select(doc, "th:contains('Own Time')");
+		expect(arrayLen(ownTimeHeaders)).toBeGTE(1, "Should have Own Time column header in index.html");
+
+		// Check for child time data cells
+		var childTimeCells = htmlParser.select(doc, "td.child-time");
+		expect(arrayLen(childTimeCells)).toBeGT(0, "Should have child time cells in index.html");
+
+		// Check for own time data cells
+		var ownTimeCells = htmlParser.select(doc, "td.own-time");
+		expect(arrayLen(ownTimeCells)).toBeGT(0, "Should have own time cells in index.html");
+
+		// Validate that child time values are numeric and formatted correctly
+		var hasNonZeroChildTime = false;
+		var hasNonZeroOwnTime = false;
+
+		for (var i = 1; i <= arrayLen(childTimeCells); i++) {
+			var childCell = childTimeCells[i];
+			var childText = trim(htmlParser.getText(childCell));
+			var childSortValue = htmlParser.getAttr(childCell, "data-sort-value");
+
+			// Get corresponding own time and execution time cells
+			var ownCell = (i <= arrayLen(ownTimeCells)) ? ownTimeCells[i] : "";
+			var ownText = (ownCell != "") ? trim(htmlParser.getText(ownCell)) : "";
+			var ownSortValue = (ownCell != "") ? htmlParser.getAttr(ownCell, "data-sort-value") : "0";
+
+			// Get execution time from same row
+			var row = htmlParser.select(doc, "tr[data-file-row]:nth-of-type(" & i & ")");
+			var execCell = arrayLen(row) > 0 ? htmlParser.select(row[1], "[data-execution-time-cell]") : [];
+			var execSortValue = arrayLen(execCell) > 0 ? htmlParser.getAttr(execCell[1], "data-value") : "0";
+
+			if (childText != "" && childSortValue != "0") {
+				hasNonZeroChildTime = true;
+
+				// Child time should be formatted with commas for values >= 1000
+				var numericValue = parseNumber(childSortValue);
+				if (numericValue >= 1000) {
+					expect(childText).toInclude(",", "Child time >= 1000 should have comma separators: " & childText);
+				}
+
+				// Verify sort value matches displayed value (without commas)
+				var cleanDisplayValue = reReplace(childText, "[^0-9]", "", "all");
+				expect(cleanDisplayValue).toBe(childSortValue, "Child time display should match sort value");
+			}
+
+			if (ownText != "" && ownSortValue != "0") {
+				hasNonZeroOwnTime = true;
+			}
+
+			// Validate Own Time = Execution Time - Child Time
+			if (isNumeric(execSortValue) && isNumeric(childSortValue) && isNumeric(ownSortValue)) {
+				var expectedOwnTime = parseNumber(execSortValue) - parseNumber(childSortValue);
+				if (expectedOwnTime < 0) expectedOwnTime = 0;
+
+				expect(parseNumber(ownSortValue)).toBe(expectedOwnTime,
+					"Own time should equal execution time minus child time. " &
+					"Exec: " & execSortValue & ", Child: " & childSortValue &
+					", Own: " & ownSortValue & ", Expected Own: " & expectedOwnTime);
+			}
+		}
+
+		// For tests with function calls, we should have non-zero child time
+		if (arguments.debug) {
+			systemOutput("Index has non-zero child time: " & hasNonZeroChildTime, true);
+			systemOutput("Index has non-zero own time: " & hasNonZeroOwnTime, true);
+		}
+	}
+
+	/**
+	 * Validates child time columns in individual report files
+	 */
+	private void function validateReportChildTime(required string outputDir, boolean debug = false) {
+		var reportFiles = directoryList(arguments.outputDir, false, "path", "*.html");
+
+		for (var reportPath in reportFiles) {
+			if (findNoCase("index.html", reportPath)) continue;
+
+			var reportContent = fileRead(reportPath);
+			var htmlParser = new testAdditional.HtmlParser();
+			var doc = htmlParser.parseHtml(reportContent);
+
+			// Check for child time column header
+			var childTimeHeaders = htmlParser.select(doc, "th:contains('Child Time')");
+			expect(arrayLen(childTimeHeaders)).toBeGTE(1,
+				"Should have Child Time column header in report: " & getFileFromPath(reportPath));
+
+			// Get line rows with time data
+			var lineRows = htmlParser.select(doc, "[data-line-row]");
+			var childTimeCount = 0;
+			var executionOnlyCount = 0;
+
+			for (var row in lineRows) {
+				var childTimeCell = htmlParser.select(row, "td.child-time");
+				var execTimeCell = htmlParser.select(row, "td.execution-time");
+
+				if (arrayLen(childTimeCell) > 0 && arrayLen(execTimeCell) > 0) {
+					var childText = trim(htmlParser.getText(childTimeCell[1]));
+					var execText = trim(htmlParser.getText(execTimeCell[1]));
+
+					if (childText != "") {
+						childTimeCount++;
+						// If there's child time, execution time cell should be empty
+						expect(execText).toBe("",
+							"Line with child time should have empty execution time in " &
+							getFileFromPath(reportPath) & " at line " &
+							htmlParser.getAttr(row, "data-line-number"));
+					} else if (execText != "") {
+						executionOnlyCount++;
+						// If there's execution time, child time should be empty
+						expect(childText).toBe("",
+							"Line with execution time should have empty child time in " &
+							getFileFromPath(reportPath) & " at line " &
+							htmlParser.getAttr(row, "data-line-number"));
+					}
+				}
+			}
+
+			if (arguments.debug) {
+				systemOutput("Report " & getFileFromPath(reportPath) &
+					" - Lines with child time: " & childTimeCount &
+					", Lines with execution time only: " & executionOnlyCount, true);
+			}
+		}
+	}
+
+	/**
+	 * Validates that child time data in HTML matches JSON data
+	 */
+	private void function validateChildTimeDataConsistency(required string outputDir, boolean debug = false) {
+		// Check index.json for child time totals
+		var indexJsonPath = arguments.outputDir & "index.json";
+		if (fileExists(indexJsonPath)) {
+			var indexData = deserializeJSON(fileRead(indexJsonPath));
+
+			// Read index.html
+			var indexHtmlPath = arguments.outputDir & "index.html";
+			var htmlContent = fileRead(indexHtmlPath);
+			var htmlParser = new testAdditional.HtmlParser();
+			var doc = htmlParser.parseHtml(htmlContent);
+
+			var reportRows = htmlParser.select(doc, "[data-file-row]");
+
+			for (var row in reportRows) {
+				var htmlFile = htmlParser.getAttr(row, "data-html-file");
+				var childTimeCell = htmlParser.select(row, "td.child-time");
+
+				if (arrayLen(childTimeCell) > 0) {
+					var sortValue = htmlParser.getAttr(childTimeCell[1], "data-sort-value");
+					var htmlChildTime = isNumeric(sortValue) ? parseNumber(sortValue) : 0;
+
+					// Find matching report in JSON
+					for (var report in indexData) {
+						if (structKeyExists(report, "htmlFile") && report.htmlFile == htmlFile) {
+							if (structKeyExists(report, "totalChildTime")) {
+								expect(htmlChildTime).toBe(report.totalChildTime,
+									"Child time mismatch for " & htmlFile &
+									" - HTML: " & htmlChildTime & ", JSON: " & report.totalChildTime);
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		// Check individual report JSON files
+		var jsonFiles = directoryList(arguments.outputDir, false, "path", "*.json");
+
+		for (var jsonPath in jsonFiles) {
+			if (findNoCase("index.json", jsonPath)) continue;
+
+			var jsonData = deserializeJSON(fileRead(jsonPath));
+			var htmlPath = replace(jsonPath, ".json", ".html");
+
+			if (fileExists(htmlPath) && structKeyExists(jsonData, "coverage")) {
+				var totalChildTimeFromLines = 0;
+				var totalExecutionTime = 0;
+
+				// Sum up child time from coverage data
+				for (var fileIdx in jsonData.coverage) {
+					var fileCoverage = jsonData.coverage[fileIdx];
+					for (var lineNum in fileCoverage) {
+						var lineData = fileCoverage[lineNum];
+						if (arrayLen(lineData) >= 2) {
+							totalExecutionTime += lineData[2];
+							// Check if line has child time flag (3rd element)
+							if (arrayLen(lineData) >= 3 && lineData[3] == true) {
+								totalChildTimeFromLines += lineData[2]; // Add execution time as child time
+							}
+						}
+					}
+				}
+
+				// Validate child time against HTML
+				var reportContent = fileRead(htmlPath);
+				var htmlParser = new testAdditional.HtmlParser();
+				var reportDoc = htmlParser.parseHtml(reportContent);
+
+				// Check individual line child times
+				for (var fileIdx in jsonData.coverage) {
+					var fileSection = htmlParser.select(reportDoc, "[data-file-section][data-file-index='" & fileIdx & "']");
+					if (arrayLen(fileSection) == 0) continue;
+
+					var fileCoverage = jsonData.coverage[fileIdx];
+					for (var lineNum in fileCoverage) {
+						var lineData = fileCoverage[lineNum];
+						if (arrayLen(lineData) >= 3) {
+							var isChildTime = lineData[3];
+							var lineRow = htmlParser.select(fileSection[1], "[data-line-row][data-line-number='" & lineNum & "']");
+
+							if (arrayLen(lineRow) > 0) {
+								var childCell = htmlParser.select(lineRow[1], "td.child-time");
+								var execCell = htmlParser.select(lineRow[1], "td.execution-time");
+
+								if (arrayLen(childCell) > 0 && arrayLen(execCell) > 0) {
+									var childText = trim(htmlParser.getText(childCell[1]));
+									var execText = trim(htmlParser.getText(execCell[1]));
+
+									if (isChildTime == true) {
+										// Should have child time, not execution time
+										expect(childText != "").toBeTrue(
+											"Line " & lineNum & " marked as child time in JSON should show child time in HTML");
+										expect(execText == "").toBeTrue(
+											"Line " & lineNum & " marked as child time should not show execution time");
+									} else {
+										// Should have execution time, not child time
+										expect(execText != "" || lineData[2] == 0).toBeTrue(
+											"Line " & lineNum & " not marked as child time should show execution time (unless zero)");
+										expect(childText == "").toBeTrue(
+											"Line " & lineNum & " not marked as child time should not show child time");
+									}
+								}
+							}
+						}
+					}
+				}
+
+				if (arguments.debug) {
+					systemOutput("File " & getFileFromPath(jsonPath) &
+						" - Total execution time: " & totalExecutionTime &
+						", Total child time: " & totalChildTimeFromLines, true);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Validates that child time and execution time are mutually exclusive per line
+	 */
+	public void function validateChildTimeExclusivity(required string outputDir) {
+		var reportFiles = directoryList(arguments.outputDir, false, "path", "*.html");
+
+		for (var reportPath in reportFiles) {
+			if (findNoCase("index.html", reportPath)) continue;
+
+			var reportContent = fileRead(reportPath);
+			var htmlParser = new testAdditional.HtmlParser();
+			var doc = htmlParser.parseHtml(reportContent);
+
+			var lineRows = htmlParser.select(doc, "[data-line-row]");
+
+			for (var row in lineRows) {
+				var execTimeCell = htmlParser.select(row, "td.execution-time");
+				var childTimeCell = htmlParser.select(row, "td.child-time");
+
+				if (arrayLen(execTimeCell) > 0 && arrayLen(childTimeCell) > 0) {
+					var execText = trim(htmlParser.getText(execTimeCell[1]));
+					var childText = trim(htmlParser.getText(childTimeCell[1]));
+					var lineNum = htmlParser.getAttr(row, "data-line-number");
+
+					// A line should have EITHER execution time OR child time, not both
+					if (execText != "" && childText != "") {
+						fail("Line " & lineNum & " should not have both execution and child time in " &
+							 getFileFromPath(reportPath) &
+							 " - Exec: " & execText & ", Child: " & childText);
+					}
+				}
+			}
+		}
+	}
+
 }

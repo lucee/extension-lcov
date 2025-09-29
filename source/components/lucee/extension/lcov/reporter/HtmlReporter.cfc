@@ -120,6 +120,7 @@ component {
 			"totalLinesHit": result.getStatsProperty("totalLinesHit"),
 			"totalExecutions": result.getStatsProperty("totalExecutions"),
 			"totalExecutionTime": result.getStatsProperty("totalExecutionTime"),
+			"totalChildTime": result.getStatsProperty("totalChildTime"),
 			"minTimeNano": result.getMetadataProperty("min-time-nano", 0)
 		};
 

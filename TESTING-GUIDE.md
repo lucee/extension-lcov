@@ -12,7 +12,7 @@ This guide covers all testing practices, tools, and workflows for the Lucee LCOV
 
 ## Test Artifacts
 
-Leave artifacts in place for review. Use `GenerateTestData` component in `beforeAll()` with the test name - it handles directory creation and cleanup. Add comment "Leave test artifacts for inspection - no cleanup in afterAll" and omit `afterAll()` method.
+Leave artifacts in place for review. Use `GenerateTestData` component in `beforeAll()` with the test name - it handles directory creation and cleanup. Omit the `afterAll()` method.
 
 ## Writing Tests
 
@@ -41,6 +41,27 @@ Leave artifacts in place for review. Use `GenerateTestData` component in `before
 - Do not cap, clamp, or auto-correct values in core logic or tests. All mismatches and invalid states should result in immediate failure.
 - Avoid long tests (>500 lines); split them into smaller tests if they get too large, but ask first.
 - When running tests and an error occurs, always show the developer the error before acting on the error, propose changes. Always provide a summary of any errors or warnings produced.
+- never comment out a test, use xit or xdescribe instead
+
+## GenerateTestData Component
+
+Always use the `GenerateTestData` component for test setup unless there's a specific reason not to. This component:
+- Handles test directory creation and management
+- Executes test artifacts to generate real execution logs
+- Provides consistent test data generation across all tests
+- Manages cleanup automatically
+
+Example usage:
+```cfscript
+function beforeAll() {
+    variables.testDataGenerator = new "../GenerateTestData"(testName="MyTest");
+    variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
+        adminPassword: request.SERVERADMINPASSWORD,
+        fileFilter: "specific-file.cfm"  // Optional: filter which files to execute
+    );
+    variables.testDir = variables.testData.coverageDir;
+}
+```
 
 ## Test-Driven Development Workflow
 

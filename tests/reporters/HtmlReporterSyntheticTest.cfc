@@ -26,7 +26,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			linesFound: 10,
 			linesHit: 7,
 			totalExecutions: 17,
-			totalExecutionTime: 123
+			totalExecutionTime: 123,
+			totalChildTime: 0
 		});
 		// Add per-file stats to match model expectations
 		// Use numeric file indices for all per-file data
@@ -165,7 +166,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			totalLinesFound: 10,
 			totalLinesHit: 8,
 			coveragePercentage: 80,
-			totalExecutionTime: 1000
+			totalExecutionTime: 1000,
+			totalChildTime: 0
 		});
 		result1.setMetadata({ "script-name": "file1.cfm", "execution-time": 1000 });
 		arrayAppend(results, result1);
@@ -177,7 +179,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			totalLinesFound: 20,
 			totalLinesHit: 5,
 			coveragePercentage: 25,
-			totalExecutionTime: 2000
+			totalExecutionTime: 2000,
+			totalChildTime: 0
 		});
 		result2.setMetadata({ "script-name": "file2.cfm", "execution-time": 2000 });
 		arrayAppend(results, result2);
@@ -189,7 +192,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			totalLinesFound: 15,
 			totalLinesHit: 12,
 			coveragePercentage: 80,
-			totalExecutionTime: 1500
+			totalExecutionTime: 1500,
+			totalChildTime: 0
 		});
 		result3.setMetadata({ "script-name": "file3.cfm", "execution-time": 1500 });
 		arrayAppend(results, result3);
@@ -205,7 +209,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				htmlFile: result.getOutputFilename() & ".html",
 				totalLinesHit: result.getStats().totalLinesHit,
 				totalLinesFound: result.getStats().totalLinesFound,
-				executionTime: result.getStats().totalExecutionTime
+				executionTime: result.getStats().totalExecutionTime,
+				totalChildTime: result.getStats().totalChildTime
 			};
 			arrayAppend(resultsData, resultData);
 		}
