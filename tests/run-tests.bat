@@ -1,4 +1,4 @@
-@echo off
+echo off
 echo Running LCOV Extension Tests
 
 echo.
@@ -27,14 +27,17 @@ set LUCEE_BUILD_ENV=
 set testLabels=lcov
 set testFilter=%testFilter%
 set testServices=none
+set testExcludeDefault=true
 set HTTPBIN_PORT=
 set HTTPBIN_SERVER=noexist
 SET LUCEE_CASCADING_WRITE_TO_VARIABLES_LOG=deloy
+SET LUCEE_JAR=
+REM D:\work\lucee7\loader\target\lucee-7.0.1.7-SNAPSHOT.jar
 
 if exist tests\generated-artifacts rmdir /s /q tests\generated-artifacts
 
 rem Run tests using script-runner (use proper ant syntax)
-ant -buildfile="d:\work\script-runner\build.xml" -Dwebroot="d:\work\lucee7\test" -Dexecute="bootstrap-tests.cfm" -DtestHideJavaStack="true" -DextensionDir="D:\work\lucee-extensions\extension-lcov\target" -DluceeVersionQuery="7/all/light" -DtestAdditional="d:\work\lucee-extensions\extension-lcov\tests" -DtestLabels="%testLabels%" -DtestFilter="%testFilter%" -DtestExcludeDefault="true" -DtestServices="%testServices%"
+ant -buildfile="d:\work\script-runner\build.xml" -Dwebroot="d:\work\lucee7\test" -Dexecute="bootstrap-tests.cfm" -DtestHideJavaStack="true" -DextensionDir="D:\work\lucee-extensions\extension-lcov\target" -DluceeVersionQuery="7/all/light" -DtestAdditional="d:\work\lucee-extensions\extension-lcov\tests"  -DluceeJar="%LUCEE_JAR%"
 
 echo.
 echo Test run complete!

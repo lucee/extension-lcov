@@ -9,13 +9,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			adminPassword=variables.adminPassword
 		);
 		variables.testLogDir = variables.testData.coverageDir;
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 		
 		variables.outputDir = variables.tempDir & "/output";
 		directoryCreate(variables.outputDir);
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 
 	function run() {

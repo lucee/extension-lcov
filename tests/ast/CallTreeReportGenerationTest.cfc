@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="CallTreeReportGenerationTest" {
 
 	function beforeAll() {
+		variables.debug = false;
 		// Use GenerateTestData with test name and ast subfolder
 		variables.testDataGenerator = new "../GenerateTestData"(
 			testName="CallTreeReportGenerationTest",
@@ -53,8 +54,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				// Debug: Write the full result to see what we got
 				var debugPath = variables.outputDir & "/debug-result.json";
 				fileWrite(debugPath, serializeJSON(result));
-				systemOutput("Debug result written to: " & debugPath, true);
-				systemOutput("CallTree has " & structCount(callTree) & " entries", true);
+				if (variables.debug) systemOutput("Debug result written to: " & debugPath, true);
+				if (variables.debug) systemOutput("CallTree has " & structCount(callTree) & " entries", true);
 
 				expect(structCount(callTree)).toBeGT(0, "Result should have call tree data");
 
@@ -68,7 +69,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 				// Create output directory for HTML
 				var htmlOutputDir = variables.outputDir & "/html";
-				systemOutput("Creating HTML output directory: " & htmlOutputDir, true);	
+				if (variables.debug) systemOutput("Creating HTML output directory: " & htmlOutputDir, true);	
 				if (!directoryExists(htmlOutputDir)) {
 					directoryCreate(htmlOutputDir, true);
 				}
@@ -124,15 +125,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 				// Create output directory for separate HTML files
 				var htmlOutputDir = variables.outputDir & "/html-separate";
-				systemOutput("Creating HTML output directory for separate files: " & htmlOutputDir, true);
+				if (variables.debug) systemOutput("Creating HTML output directory for separate files: " & htmlOutputDir, true);
 				if (!directoryExists(htmlOutputDir)) {
 					directoryCreate(htmlOutputDir, true);
 				}
 
 				// Generate HTML report with separateFiles: true
-				systemOutput("Generating HTML with separateFiles: true", true);
-				systemOutput("  executionLogDir: " & variables.testDir, true);
-				systemOutput("  outputDir: " & htmlOutputDir, true);
+				if (variables.debug) systemOutput("Generating HTML with separateFiles: true", true);
+				if (variables.debug) systemOutput("  executionLogDir: " & variables.testDir, true);
+				if (variables.debug) systemOutput("  outputDir: " & htmlOutputDir, true);
 				var htmlResult = lcovGenerateHtml(
 					executionLogDir: variables.testDir,
 					outputDir: htmlOutputDir,

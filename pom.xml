@@ -14,7 +14,7 @@
         <maven.compiler.target>11</maven.compiler.target>
         <id>e99e43a5-c10e-41e9-878bfc82baad1c01</id>
         <bundlename>org.lucee.lcov.extension</bundlename>
-        <luceeCoreVersion>7.0.1.6</luceeCoreVersion>
+        <luceeCoreVersion>7.0.1.6-SNAPSHOT</luceeCoreVersion>
         <releaseType>server</releaseType>
         <label>LCOV Code Coverage Extension</label>
         <release.url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</release.url>

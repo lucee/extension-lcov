@@ -23,8 +23,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			fileDelete(expectedJsonFile);
 		}
 
-		systemOutput("Test EXL file: #testExlFile#");
-		systemOutput("Expected JSON file: #expectedJsonFile#");
+		//systemOutput("Test EXL file: #testExlFile#");
+		//systemOutput("Expected JSON file: #expectedJsonFile#");
 
 		// Verify .exl file exists
 		expect(fileExists(testExlFile)).toBeTrue("Test .exl file should exist");
@@ -75,7 +75,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(structKeyExists(jsonData, "stats")).toBeTrue("JSON should have stats");
 		expect(structKeyExists(jsonData, "coverage")).toBeTrue("JSON should have coverage");
 
-		systemOutput("✓ JSON file successfully created and validated at: #expectedJsonFile#");
+		//systemOutput("✓ JSON file successfully created and validated at: #expectedJsonFile#");
 	}
 
 	public void function testJsonFileContainsExpectedStructure() {
@@ -110,9 +110,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Verify coverage structure exists
 		expect(isStruct(jsonData.coverage)).toBeTrue("Coverage should be a struct");
-
-		systemOutput("✓ JSON file structure validated successfully");
+		
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 }

@@ -4,13 +4,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.adminPassword = request.SERVERADMINPASSWORD;
 
-		// Create test directory
-		variables.tempDir = expandPath("/testdata/ExecutionLogParserExceptionTest");
-		if (!directoryExists(variables.tempDir)) {
-			directoryCreate(variables.tempDir);
-		}
+		// Use the standard test data generator for consistent paths
+		variables.testDataGenerator = new "../GenerateTestData"(testName="ExecutionLogParserExceptionTest");
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
-		// Leave test artifacts for inspection - no cleanup in afterAll
+		// Use existing error test files
+		variables.errorFilesDir = expandPath("/testAdditional/artifacts/error");
+
+		
 	}
 
 	function run() {
@@ -20,12 +21,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// This simulates what happens when a request fails or throws an error
 				var testExlPath = variables.tempDir & "/minimal.exl";
 
-				// Create a test file so it exists
-				var testFilePath = variables.tempDir & "/test-file.cfm";
-				// avoid CFML parsing issues by breaking up the cfscript tag
-				fileWrite(testFilePath, "<"& "cf" & "script>" & chr(10) &
-					"// test file" & chr(10) &
-					"</" & "cf" & "script>");
+				// Use an existing error test file
+				var testFilePath = variables.errorFilesDir & "/broken.cfm";
 
 				var content = [
 					"unit=MICROSECONDS",
@@ -44,17 +41,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// This should NOT throw an error about arraySlice after fix
 				var result = {};
 				var errorThrown = false;
+				var errorMessage = "";
+				var errorDetail = "";
 				try {
 					result = parser.parseExlFile(testExlPath);
 				} catch (any e) {
 					errorThrown = true;
+					errorMessage = e.message;
+					errorDetail = e.detail ?: "";
 					// If error occurs, it shouldn't be arraySlice related
 					expect(e.message).notToInclude("Offset cannot be greater than size of the array",
 						"Should not have arraySlice error after fix. Got: #e.message#");
 				}
 
 				// After fix, it should parse successfully
-				expect(errorThrown).toBeFalse("Parser should not throw error after fix");
+				expect(errorThrown).toBeFalse("Parser should not throw error after fix. Error: #errorMessage# Detail: #errorDetail#");
 				expect(isObject(result)).toBeTrue("Should return a result object");
 				expect(isInstanceOf(result, "lucee.extension.lcov.model.result")).toBeTrue("Should be a result component");
 				// Use the getter method instead of direct access
@@ -66,12 +67,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Another edge case - file ends right after files section
 				var testExlPath = variables.tempDir & "/no-coverage.exl";
 
-				// Create a test file so it exists
-				var testFilePath = variables.tempDir & "/test-file2.cfm";
-				// avoid CFML parsing issues by breaking up the cfscript tag
-				fileWrite(testFilePath, "<" & "cf" & "script>" & chr(10) &
-					"// test file 2" & chr(10) &
-					"</" & "cf" & "script>");
+				// Use an existing error test file
+				var testFilePath = variables.errorFilesDir & "/runtime-error.cfm";
 
 				var content = [
 					"unit=MICROSECONDS",
@@ -87,14 +84,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// After fix, this should parse successfully
 				var errorThrown = false;
+				var errorMessage = "";
+				var errorDetail = "";
 				var result = {};
 				try {
 					result = parser.parseExlFile(testExlPath);
 				} catch (any e) {
 					errorThrown = true;
+					errorMessage = e.message;
+					errorDetail = e.detail ?: "";
 				}
 
-				expect(errorThrown).toBeFalse("Parser should not throw error after fix");
+				expect(errorThrown).toBeFalse("Parser should not throw error after fix. Error: #errorMessage# Detail: #errorDetail#");
 				expect(isObject(result)).toBeTrue("Should return a result object");
 				expect(isInstanceOf(result, "lucee.extension.lcov.model.result")).toBeTrue("Should be a result component");
 			});

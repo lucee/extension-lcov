@@ -3,6 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.testDataHelper = new "../GenerateTestData"("synthetic-html");
+		variables.debug = false;
 	}
 
 	/**
@@ -10,7 +11,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 */
 	function testHtmlReporterWithSyntheticData() {
 		var HtmlReporter = new lucee.extension.lcov.reporter.HtmlReporter();
-		var outDir = variables.testDataHelper.getGeneratedArtifactsDir();
+		var outDir = variables.testDataHelper.getOutputDir();
 		HtmlReporter.setOutputDir(outDir);
 		// Synthetic result object: 2 files, one fully covered, one partially covered
 		// Use a CFC instance to match the model API and allow member access
@@ -74,7 +75,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Generate HTML report and get the file path
 		// HtmlReporter uses its instance displayUnit now
 		var htmlPath = HtmlReporter.generateHtmlReport(syntheticResult);
-		systemOutput("Generated HTML path: " & htmlPath, true);
+		if (variables.debug) {
+			systemOutput("Generated HTML path: " & htmlPath, true);
+		}
 
 		// Read the generated HTML file
 		var html = fileRead(htmlPath);
@@ -83,7 +86,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Write the HTML content to a file for inspection
 		var htmlOutPath = outDir & "/synthetic-html-content.html";
 		fileWrite(htmlOutPath, html);
-		systemOutput("Wrote HTML content to: " & htmlOutPath, true);
+		if (variables.debug) {
+			systemOutput("Wrote HTML content to: " & htmlOutPath, true);
+		}
 
 		// Assert: file sections exist for all files using JSoup selectors
 		var files = syntheticResult.getFiles();
@@ -154,7 +159,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 */
 	function testHtmlIndexWithMultipleResults() {
 		var HtmlIndex = new lucee.extension.lcov.reporter.HtmlIndex();
-		var outDir = variables.testDataHelper.getGeneratedArtifactsDir();
+		var outDir = variables.testDataHelper.getOutputDir();
 
 		// Create synthetic results array with 3 different files
 		var results = [];
@@ -227,7 +232,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Write HTML content for inspection
 		var htmlOutPath = outDir & "/index-content.html";
 		fileWrite(htmlOutPath, html);
-		systemOutput("Wrote index HTML content to: " & htmlOutPath, true);
+		if (variables.debug) {
+			systemOutput("Wrote index HTML content to: " & htmlOutPath, true);
+		}
 
 		// Check for duplicate rows in the reports table
 		var reportRows = htmlParser.select(doc, "table.reports-table tbody tr[data-file-row]");
@@ -262,7 +269,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 
 		// Log all row signatures for debugging
-		systemOutput("Row signatures found: " & serializeJSON(rowSignatures), true);
+		if (variables.debug) {
+			systemOutput("Row signatures found: " & serializeJSON(rowSignatures), true);
+		}
 
 		expect(duplicateFound).toBeFalse("Found duplicate table rows in index page: " & arrayToList(duplicateDetails, "; "));
 

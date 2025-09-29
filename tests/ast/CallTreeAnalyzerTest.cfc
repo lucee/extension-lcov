@@ -105,8 +105,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(result.metrics.childTimeBlocks).toBeGTE(0);
 			});
 
-			it("should handle built-in function calls", function() {
-				// Test with built-in functions
+			it("should exclude built-in functions from child time", function() {
+				// Test that built-in functions are NOT tracked as child time
 				var aggregated = {};
 				aggregated[arrayToList(["0", 50, 600, 1], chr(9))] = ["0", 50, 600, 1, 10000];   // main
 				aggregated[arrayToList(["0", 150, 400, 1], chr(9))] = ["0", 150, 400, 1, 6000];   // arrayLen call
@@ -141,17 +141,25 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
 
-				// Check that built-in functions are identified
+				// Built-in functions should NOT be marked as child time
+				// They are part of regular execution, not child time
+				var childTimeCount = 0;
 				var builtInCount = 0;
 				for (var key in result.blocks) {
 					var block = result.blocks[key];
+					if (block.isChildTime) {
+						childTimeCount++;
+					}
 					if (block.isBuiltIn) {
 						builtInCount++;
 					}
 				}
 
-				expect(builtInCount).toBeGTE(1, "Should identify at least one built-in function");
-				expect(result.metrics.builtInBlocks).toBeGTE(1);
+				// Built-in functions are not tracked as child time anymore
+				expect(childTimeCount).toBe(0, "Built-in functions should not be marked as child time");
+				expect(builtInCount).toBe(0, "Built-in functions should not have isBuiltIn flag since they're not in callsMap");
+				expect(result.metrics.childTimeBlocks).toBe(0, "No blocks should be marked as child time for built-ins");
+				expect(result.metrics.builtInBlocks).toBe(0, "Built-in blocks metric should be 0");
 			});
 
 			it("should generate child time metrics", function() {
@@ -201,7 +209,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			it("should run call-tree-test.cfm and analyze results", function() {
 				// Enable coverage logging
-				var exlDir = variables.testDataGenerator.getGeneratedArtifactsDir() & "exl";
+				var exlDir = variables.testDataGenerator.getOutputDir() & "exl";
 				if (!directoryExists(exlDir)) {
 					directoryCreate(exlDir);
 				}
@@ -289,5 +297,5 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		});
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 }

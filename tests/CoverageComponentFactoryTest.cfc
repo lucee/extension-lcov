@@ -9,7 +9,7 @@ component labels="lcov" extends="org.lucee.cfml.test.LuceeTestCase" {
 
 				var testData = [];
 				for (var name in variables.developComponentNames) {
-					arrayAppend(testData, {name=name, useDevelop=false, options={verbose=true}, expectedUseDevelop=false});
+					arrayAppend(testData, {name=name, useDevelop=false, options={verbose=false}, expectedUseDevelop=false});
 					arrayAppend(testData, {name=name, useDevelop=true, options={verbose=false}, expectedUseDevelop=true});
 					//arrayAppend(testData, {name=name, useDevelop="", options={verbose=false}, expectedUseDevelop=""});
 				}

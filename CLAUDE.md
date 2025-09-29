@@ -12,6 +12,12 @@ This is a Lucee LCOV extension that:
 
 ## Building and Testing
 
+Always use linux style paths (/d/work instead of d:\work) with Git Bash on Windows
+
+Always show the errors a script throws, ask how to continue
+
+
+
 ### Build Extension
 ```bash
 mvn package
@@ -48,21 +54,23 @@ ant -f "d:/work/script-runner/build.xml" \
     -DluceeVersionQuery="7/all/jar"
 ```
 
-## Testing Guidelines
+## Testing
 
-- Tests go in `/tests` folder
-- Use TestBox framework
-- All tests extend `org.lucee.cfml.test.LuceeTestCase`
-- Always use label "lcov" and pass `-DtestLabels="lcov"`
-- Use `systemOutput()` instead of `writeOutput()` for console output
-- **Test Artifacts**: Leave artifacts in place for review. Use `GenerateTestData` component in `beforeAll()` with the test name - it handles directory creation and cleanup. Add comment "Leave test artifacts for inspection - no cleanup in afterAll" and omit `afterAll()` method.
-- Use matchers from TestBox expectations
-- Avoid try catch unless adding useful error info (then rethrow with cause)
-- Split large tests into smaller ones
-- Only test public API methods, not private methods
-- Admin password stored in `request.SERVERADMINPASSWORD`
-- **Variable Scoping**: In standalone CFML scripts (.cfm files), don't use `var` keyword outside functions - it causes "Unsupported Context for Local Scope" errors. Use unscoped variables instead: `myVar = "value"` not `var myVar = "value"`
-- **Testing Tip**: In `expect()` assertions, use the actual result value as the message instead of custom text. This provides actionable feedback showing exactly what the test received when it fails: `expect(result.length()).toBeLT(100, result)` instead of `expect(result.length()).toBeLT(100, "Should have minimal content")`
+See [TESTING-GUIDE.md](TESTING-GUIDE.md) for comprehensive testing documentation including:
+- Test organization and structure
+- Writing tests with TestBox
+- Using GenerateTestData component
+- Test-Driven Development workflow
+- Running tests with script-runner
+- Best practices and guidelines
+
+## CFML Tips
+
+See [CFML-TIPS.md](CFML-TIPS.md) for CFML-specific guidance including:
+- Variable scoping rules
+- Quoting and escaping
+- Performance optimization
+- Common pitfalls and solutions
 
 ## Concurrent Execution
 Script-runner supports concurrent execution:

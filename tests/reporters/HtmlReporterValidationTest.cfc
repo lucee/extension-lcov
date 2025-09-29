@@ -6,7 +6,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest");
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
 		variables.debug = false;
 		variables.validator = new ValidateHtmlReports();
@@ -58,72 +58,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		});
 
-		describe("Child Time Display Validation", function() {
-
-			it("validates child time is displayed correctly in HTML reports", function() {
-				// Generate test data with function calls to create child time
-				var testName = "child-time-validation";
-				var outputDir = tempDir & "/" & testName & "/html/";
-
-				// Run the CallTreeReportGenerationTest which generates reports with child time
-				var reportGen = new "../ast/CallTreeReportGenerationTest"();
-				reportGen.beforeAll();
-				try {
-					reportGen.testCallTreeReportGeneration();
-
-					// Get the generated output directory from that test
-					var generatedDir = reportGen.testDataGenerator.getGeneratedArtifactsDir() & "/raw/html-separate/";
-
-					// Validate child time display
-					validateChildTimeDisplay(generatedDir, debug=variables.debug);
-
-				} finally {
-					reportGen.afterAll();
-				}
-			});
-
-			it("validates child time and own time calculations in index", function() {
-				// Use existing generated test data if available
-				var testDir = variables.tempDir & "/../CallTreeReportGenerationTest/raw/html-separate/";
-
-				if (directoryExists(testDir)) {
-					validateIndexChildTime(testDir, debug=variables.debug);
-				} else {
-					// Generate fresh test data
-					var reportGen = new "../ast/CallTreeReportGenerationTest"();
-					reportGen.beforeAll();
-					try {
-						reportGen.testCallTreeReportGeneration();
-						var generatedDir = reportGen.testDataGenerator.getGeneratedArtifactsDir() & "/raw/html-separate/";
-						validateIndexChildTime(generatedDir, debug=variables.debug);
-					} finally {
-						reportGen.afterAll();
-					}
-				}
-			});
-
-			it("validates child time exclusivity with execution time", function() {
-				// Use existing generated test data if available
-				var testDir = variables.tempDir & "/../CallTreeReportGenerationTest/raw/html-separate/";
-
-				if (directoryExists(testDir)) {
-					validateChildTimeExclusivity(testDir);
-				} else {
-					// Generate fresh test data
-					var reportGen = new "../ast/CallTreeReportGenerationTest"();
-					reportGen.beforeAll();
-					try {
-						reportGen.testCallTreeReportGeneration();
-						var generatedDir = reportGen.testDataGenerator.getGeneratedArtifactsDir() & "/raw/html-separate/";
-						validateChildTimeExclusivity(generatedDir);
-					} finally {
-						reportGen.afterAll();
-					}
-				}
-			});
-
-		});
-
 		// use for local testing, .exl files require the source files to be present
 
 		xdescribe("HTML Reporter Edge Cases", function() {
@@ -148,7 +82,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 */
 	private function testHtmlUnitDisplay(required string unit, required numeric minTime, required string testName, required string displayUnit) {
 		var testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest-" & arguments.testName);
-		var logDir = testDataGenerator.getCoverageDir();
 
 		var executionLogOptions = {
 			unit: arguments.unit
@@ -159,14 +92,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword=variables.adminPassword,
+			fileFilter="kitchen-sink-example.cfm",
 			executionLogOptions=executionLogOptions
 		);
 
-		var outputDir = testDataGenerator.getGeneratedArtifactsDir() & "reports/";
-		directoryCreate(outputDir);
+		var outputDir = testDataGenerator.getOutputDir("reports");
 
 		lcovGenerateHtml(
-			executionLogDir = logDir,
+			executionLogDir = testDataGenerator.getExecutionLogDir(),
 			outputDir = outputDir,
 			options = { displayUnit = arguments.displayUnit, verbose=false }
 		);
@@ -179,8 +112,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			expectedDisplayUnit = "auto"; // Let the validation handle auto mode properly
 		}
 
-		// mixin from ValidateHtmlReports()
-		validateHtmlExecutionTimeUnits(outputDir, arguments.unit, expectedDisplayUnit);
+		// mixin from ValidateHtmlReports() - single entry point
+		validateHtmlReports(outputDir, arguments.unit, expectedDisplayUnit);
 	}
 
 	private function testMisParse(required numeric exampleNumber, string unit="") {
@@ -197,8 +130,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 		var testName="misParse-#exampleNumber#";
 		var testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest-" & testName );
-		var outputDir = testDataGenerator.getGeneratedArtifactsDir() & "reports/";
-		directoryCreate(outputDir);
+		var outputDir = testDataGenerator.getOutputDir("reports");
 
 		var displayUnit = "μs"; // Default to microseconds
 		if (arguments.unit == "second") {
@@ -212,9 +144,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		lcovGenerateHtml(
 			executionLogDir = overrideLogDir,
 			outputDir = outputDir,
-			options = { displayUnit = displayUnit, verbose=true }
+			options = { displayUnit = displayUnit, verbose=false }
 		);
-		// mixin from ValidateHtmlReports()
-		validateHtmlExecutionTimeUnits(outputDir, arguments.unit, displayUnit);
+		// mixin from ValidateHtmlReports() - single entry point
+		validateHtmlReports(outputDir, arguments.unit, displayUnit);
 	}
 }

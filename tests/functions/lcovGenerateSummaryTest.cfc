@@ -9,13 +9,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			adminPassword=variables.adminPassword
 		);
 		variables.testLogDir = variables.testData.coverageDir;
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
-		variables.verbose = true;
+		variables.verbose=false;
 		variables.debug = false;
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 
 	/**
@@ -213,8 +213,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 
 		if (variables.debug) {
-			systemOutput("source: " & executionLogDir, true);
-			systemOutput("result: " & serializeJSON(result), true);
+			if (variables.debug) systemOutput("source: " & executionLogDir, true);
+			if (variables.debug) systemOutput("result: " & serializeJSON(result), true);
 		}
 
 		// Then
@@ -232,15 +232,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			// Verify data relationships and reasonable coverage percentage
 			if (fileData.linesFound > 0) {
 				var expectedPercentage = (fileData.linesHit / fileData.linesFound) * 100;
-				systemOutput(fileData, true);
+				if (variables.debug) systemOutput(fileData, true);
 
 				// Debug the relationship between linesHit and linesFound
 				if (fileData.linesHit > fileData.linesFound) {
-					systemOutput("DEBUG: linesHit > linesFound for file " & filePath, true);
-					systemOutput("  linesHit: " & fileData.linesHit, true);
-					systemOutput("  linesFound: " & fileData.linesFound, true);
-					systemOutput("  linesSource: " & fileData.linesSource, true);
-					systemOutput("  This violates the basic coverage rule that linesHit <= linesFound", true);
+					if (variables.debug) systemOutput("DEBUG: linesHit > linesFound for file " & filePath, true);
+					if (variables.debug) systemOutput("  linesHit: " & fileData.linesHit, true);
+					if (variables.debug) systemOutput("  linesFound: " & fileData.linesFound, true);
+					if (variables.debug) systemOutput("  linesSource: " & fileData.linesSource, true);
+					if (variables.debug) systemOutput("  This violates the basic coverage rule that linesHit <= linesFound", true);
 				}
 
 				expect(fileData.coveragePercentage).toBeCloseTo(expectedPercentage, 3,

@@ -10,7 +10,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		directoryCreate(variables.outputDir);
 	}
 	
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 	/**
 	 * @displayName "Given execution log data exists, When I generate all reports using extension functions, Then it should create LCOV, HTML, and JSON reports"

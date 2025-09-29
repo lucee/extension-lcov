@@ -1,8 +1,9 @@
 component {
 	
 	function init(
-		string testName = "GenerateTestData", 
-		string artifactsSubFolder = "") {
+			string testName = "GenerateTestData", 
+			string artifactsSubFolder = "") {
+		
 		var testDir = getDirectoryFromPath(getCurrentTemplatePath());
 		variables.testArtifactsPath = testDir & "artifacts/";
 		if (len(artifactsSubFolder)) {
@@ -24,6 +25,47 @@ component {
 		
 		return this;
 	}
+
+	/**
+	 * Get the directory where .exl execution log files are generated
+	 */
+	function getExecutionLogDir() {
+		return variables.tempCoverageDir;
+	}
+
+	/**
+	 * Get the directory where test artifacts are located
+	 */
+	function getSourceArtifactsDir() {
+		return variables.testArtifactsPath;
+	}
+	/**
+	 * Get the directory where generated artifacts are stored
+	 * Optionally specify a sub-directory (e.g. "reports") which will be created if it doesn't exist
+	 * @subDir Optional sub-directory under the generated artifacts directory
+	 * @return The full path to the generated artifacts directory (with trailing slash)
+	 */
+	function getOutputDir(string subDir = "") {
+		var outputPath = variables.generatedArtifactsDir;
+
+		if (len(arguments.subDir)) {
+			outputPath &= arguments.subDir & "/";
+			if (!directoryExists(outputPath)) {
+				directoryCreate(outputPath, true);
+			}
+		}
+
+		return outputPath;
+	}
+
+	/**
+	 * Generate .exl execution log files by executing test artifacts
+	 * 
+	 * @adminPassword The server admin password required to enable ResourceExecutionLog
+	 * @fileFilter Optional filter to select specific files (e.g. "kitchen-sink-example.cfm" or "*.cfm")
+	 * @executionLogOptions Struct of options to pass to Resource
+	 * @return Struct with coverageDir, fileCount, and coverageFiles (array of .exl files)
+	 */
 	
 	function generateExlFilesForArtifacts(required string adminPassword, 
 		string fileFilter = "", 
@@ -61,6 +103,15 @@ component {
 		// Ensure directory is always set to our temp coverage dir
 		logOptions.directory = variables.tempCoverageDir;
 
+		
+		// Execute test artifacts to generate coverage
+		var templatePath = contractPath(variables.testArtifactsPath);
+
+		// Get list of files in the directory, loop over them and call internalRequest
+		var fileCount = 0;
+		var filePattern = len(arguments.fileFilter) ? arguments.fileFilter : "*.cfm";
+		var files = getArtifactFiles(filePattern);
+
 		// Enable ResourceExecutionLog
 		exeLogger.enableExecutionLog(
 			class = "lucee.runtime.engine.ResourceExecutionLog",
@@ -68,67 +119,8 @@ component {
 			maxlogs = 0
 		);
 
-		// Execute test artifacts to generate coverage
-		var templatePath = contractPath(variables.testArtifactsPath);
-
-		// Get list of files in the directory, loop over them and call internalRequest
-		var fileCount = 0;
-		var filePattern = len(arguments.fileFilter) ? arguments.fileFilter : "*.cfm";
-		var files = directoryList(variables.testArtifactsPath, false, "name", filePattern);
-
-		// Validate that we found files matching the pattern
-		if (arrayLen(files) == 0) {
-			// Provide helpful error message
-			var availableFiles = directoryList(variables.testArtifactsPath, false, "name", "*.cfm");
-			var errorMessage = "No files found matching pattern: " & filePattern & " in " & variables.testArtifactsPath;
-			if (arrayLen(availableFiles) > 0) {
-				errorMessage &= chr(10) & "Available .cfm files: " & arrayToList(availableFiles, ", ");
-			} else {
-				errorMessage &= chr(10) & "No .cfm files found in directory";
-			}
-
-			// Disable execution log before throwing
-			exeLogger.disableExecutionLog(class: "lucee.runtime.engine.ResourceExecutionLog");
-
-			throw(
-				type = "GenerateTestData.NoMatchingFiles",
-				message = errorMessage
-			);
-		}
-
 		for (var _file in files) {
-			var urlArgs = {};
-			switch (_file) {
-				case "conditional.cfm":
-					urlArgs = [{ test: "default" }, { test: "test" }];
-					break;
-				case "exception.cfm":
-					urlArgs = [{}];// { error: "throw" }];
-					break;
-				default:
-					break;
-			}
-			try {
-				if (len(urlArgs) == 0) {
-					internalRequest(
-						template = templatePath & "/" & _file,
-						urls = urlArgs,
-						throwonerror = true
-					);
-					fileCount++;
-				} else {
-					for (var args in urlArgs) {
-						internalRequest(
-							template = templatePath & "/" & _file,
-							urls = args,
-							throwonerror = true
-						);
-						fileCount++;
-					}
-				}
-			} catch (any e) {
-				throw ( message="error with artifact: [" & _file & "] " & e.message, cause=e );
-			}
+			fileCount += executeArtifactFile(_file, templatePath);
 		}
 		
 		// Disable ResourceExecutionLog
@@ -141,16 +133,64 @@ component {
 			coverageFiles: directoryList(variables.tempCoverageDir, false, "name", "*.exl")
 		};
 	}
-	
-	function getCoverageDir() {
-		return variables.tempCoverageDir;
+
+	private array function getArtifactFiles(required string filePattern) {
+		var files = directoryList(variables.testArtifactsPath, false, "name", arguments.filePattern);
+
+		if (arrayLen(files) == 0) {
+			var availableFiles = directoryList(variables.testArtifactsPath, false, "name", "*.cfm");
+			var errorMessage = "No files found matching pattern: [#arguments.filePattern#] in [#variables.testArtifactsPath#]";
+			if (arrayLen(availableFiles) > 0) {
+				errorMessage &= chr(10) & "Available .cfm files: " & arrayToList(availableFiles, ", ");
+			} else {
+				errorMessage &= chr(10) & "No .cfm files found in directory";
+			}
+
+			throw(
+				type = "GenerateTestData.NoMatchingFiles",
+				message = errorMessage
+			);
+		}
+
+		return files;
 	}
-	
-	function getArtifactsPath() {
-		return variables.testArtifactsPath;
-	}
-	
-	function getGeneratedArtifactsDir() {
-		return variables.generatedArtifactsDir;
+
+	private numeric function executeArtifactFile(required string fileName, required string templatePath) {
+		var urlArgs = {};
+		switch (arguments.fileName) {
+			case "conditional.cfm":
+				urlArgs = [{ test: "default" }, { test: "test" }];
+				break;
+			case "exception.cfm":
+				urlArgs = [{}];
+				break;
+			default:
+				break;
+		}
+
+		var executionCount = 0;
+		try {
+			if (len(urlArgs) == 0) {
+				internalRequest(
+					template = arguments.templatePath & "/" & arguments.fileName,
+					urls = urlArgs,
+					throwonerror = true
+				);
+				executionCount++;
+			} else {
+				for (var args in urlArgs) {
+					internalRequest(
+						template = arguments.templatePath & "/" & arguments.fileName,
+						urls = args,
+						throwonerror = true
+					);
+					executionCount++;
+				}
+			}
+		} catch (any e) {
+			throw(message="Error with artifact: [#arguments.fileName#] " & e.message, cause=e);
+		}
+
+		return executionCount;
 	}
 }

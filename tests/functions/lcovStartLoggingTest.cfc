@@ -5,7 +5,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovStartLoggingTest");
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 		
 		// Clean up any logging that might be enabled from previous runs
 		try {
@@ -15,7 +15,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 	/**
 	 * @displayName "Given I call lcovStartLogging with just admin password, When the function executes, Then it should return a log directory path"

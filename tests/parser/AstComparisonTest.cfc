@@ -5,7 +5,7 @@ component extends="testbox.system.BaseSpec" {
 		
 		// Create test generator instance with test name - handles directory creation and cleanup
 	variables.testGenerator = new "../GenerateTestData"(testName="AstComparisonTest");
-		variables.testOutputDir = variables.testGenerator.getGeneratedArtifactsDir();
+		variables.testOutputDir = variables.testGenerator.getOutputDir();
 	}
 	
 	function run() {
@@ -25,7 +25,7 @@ component extends="testbox.system.BaseSpec" {
 			
 			it("should compare AST vs simple line counting approaches", function() {
 				// Get the generated EXL file
-				var coverageDir = variables.testGenerator.getCoverageDir();
+				var coverageDir = variables.testGenerator.getExecutionLogDir();
 				var exlFiles = directoryList(coverageDir, false, "path", "*.exl");
 				expect(exlFiles).toHaveLength(1);
 				
@@ -113,7 +113,7 @@ component extends="testbox.system.BaseSpec" {
 					return;
 				}
 				
-				var coverageDir = variables.testGenerator.getCoverageDir();
+				var coverageDir = variables.testGenerator.getExecutionLogDir();
 				var exlFiles = directoryList(coverageDir, false, "path", "*.exl");
 				var exlPath = exlFiles[1];
 				

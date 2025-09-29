@@ -26,3 +26,17 @@ var json = serializeJSON(data, true);
 In standalone CFML scripts (.cfm files), don't use `var` keyword outside functions - it causes "Unsupported Context for Local Scope" errors. Use unscoped variables instead:
 - ✅ Correct: `myVar = "value"`
 - ❌ Wrong: `var myVar = "value"`
+
+### CFML Tags in Test Strings
+
+When writing tests that need to output CFML tags as strings (e.g., writing test files with `<cfscript>` content), split the tags to prevent the parser from interpreting them:
+
+```cfml
+// Split tags to avoid parser interpretation
+fileWrite(testFile, "<" & "cf" & "script>test code<" & "/cf" & "script>");
+
+// This prevents the parser from executing the tags within the string
+```
+
+This is particularly important in test files where you're generating CFML code as test data.
+

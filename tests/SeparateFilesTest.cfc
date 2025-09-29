@@ -1,6 +1,7 @@
 
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
+		variables.debug = false;
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new GenerateTestData(testName="SeparateFilesTest");
@@ -12,7 +13,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 	function run() {
 		describe("mergeResults BDD steps", function() {
@@ -42,7 +43,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 		var options = {
 			separateFiles: false,
-			verbose: true
+			verbose: false
 		};
 
 		// When
@@ -75,7 +76,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 		var options = {
 			separateFiles: true,
-			verbose: true
+			verbose: false
 		};
 
 		// When
@@ -169,7 +170,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 		var options = {
 			separateFiles: true,
-			verbose: true
+			verbose: false
 		};
 
 		// When
@@ -215,9 +216,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			if (report.totalLinesFound > 0 && report.totalLinesHit > 0) {
 				hasNonZeroCoverage = true;
 				var coveragePercent = report.totalLinesFound > 0 ? (report.totalLinesHit / report.totalLinesFound) * 100 : 0;
-				systemOutput("Found report with coverage: " & report.scriptName & " - " & 
-					report.totalLinesHit & "/" & report.totalLinesFound & 
-					" (" & numberFormat(coveragePercent, "0.0") & "%)", true);
+				if (variables.debug) {
+					systemOutput("Found report with coverage: " & report.scriptName & " - " &
+						report.totalLinesHit & "/" & report.totalLinesFound &
+						" (" & numberFormat(coveragePercent, "0.0") & "%)", true);
+				}
 				break;
 			}
 		}

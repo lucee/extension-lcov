@@ -1,21 +1,22 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
+		variables.debug = false;
 		variables.adminPassword = request.SERVERADMINPASSWORD;
-		
+
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovGenerateLcovTest");
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword=variables.adminPassword
 		);
 		variables.testLogDir = variables.testData.coverageDir;
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
-		
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
+
 		variables.outputDir = variables.tempDir & "/output";
 		directoryCreate(variables.outputDir);
 	}
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 
 	/**
@@ -284,8 +285,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 * create it's own directory /data set for output
 	 */
 	function testGenerateLcovWithVerbose() {
-		systemOutput("", true);
-		systemOutput("Testing LCOV generation with verbose logging", true);
+		if (variables.debug) systemOutput("", true);
+		if (variables.debug) systemOutput("Testing LCOV generation with verbose logging", true);
 		
 		// Given - Create isolated test data for verbose test
 		// Use separate GenerateTestData instance for isolated verbose test
@@ -296,9 +297,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 		
 		var executionLogDir = verboseTestData.coverageDir;
-		var outputFile = verboseTestDataGenerator.getGeneratedArtifactsDir() & "/test-verbose.lcov";
+		var outputFile = verboseTestDataGenerator.getOutputDir() & "/test-verbose.lcov";
 		var options = {
-			verbose: true
+			verbose: false
 		};
 		
 		// When
@@ -333,7 +334,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 
 		var executionLogDir = multiFileData.coverageDir;
-		var outputFile = multiFileGenerator.getGeneratedArtifactsDir() & "/multi-file-regression.lcov";
+		var outputFile = multiFileGenerator.getOutputDir() & "/multi-file-regression.lcov";
 
 		// This should trigger the mergeResultsByFile -> LcovWriter integration path
 		var result = lcovGenerateLcov(

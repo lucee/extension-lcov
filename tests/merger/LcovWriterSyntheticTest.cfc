@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
+		variables.debug = false;
 		variables.testDataHelper = new "../GenerateTestData"("lcov-writer-synthetic");
 	}
 
@@ -11,7 +12,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Create synthetic merged coverage data that mimics what mergeResultsByFile returns
 		// This specifically tests the data contract between CoverageMerger and LcovWriter
 
-		var testDir = variables.testDataHelper.getGeneratedArtifactsDir();
+		var testDir = variables.testDataHelper.getOutputDir();
 		var file1Path = testDir & "/TestFile1.cfm";
 		var file2Path = testDir & "/TestFile2.cfm";
 		var file3Path = testDir & "/TestFile3.cfm";
@@ -65,13 +66,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter({});
 		var lcovContent = lcovWriter.buildLCOV(mergedCoverage, false);
 
-		systemOutput("Generated LCOV content:", true);
-		systemOutput(lcovContent, true);
+		if (variables.debug) {
+			systemOutput("Generated LCOV content:", true);
+			systemOutput(lcovContent, true);
+		}
 
 		// Write LCOV content for inspection
 		var lcovFile = testDir & "/synthetic-merged.lcov";
 		fileWrite(lcovFile, lcovContent);
-		systemOutput("Wrote LCOV to: " & lcovFile, true);
+		if (variables.debug) {
+			systemOutput("Wrote LCOV to: " & lcovFile, true);
+		}
 
 		// Parse and validate LCOV format
 		var lines = listToArray(lcovContent, chr(10));
@@ -139,8 +144,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Test relative path conversion
 		var lcovContentRelative = lcovWriter.buildLCOV(mergedCoverage, true);
-		systemOutput("Generated LCOV content with relative paths:", true);
-		systemOutput(lcovContentRelative, true);
+		if (variables.debug) {
+			systemOutput("Generated LCOV content with relative paths:", true);
+			systemOutput(lcovContentRelative, true);
+		}
 
 		// With relative paths, SF records should not contain full paths
 		var relativeSfLines = [];
@@ -156,9 +163,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(arrayLen(relativeSfLines)).toBe(3, "Should still have 3 SF records with relative path option");
 
 		// Log the actual relative paths for inspection
-		systemOutput("Relative SF paths:", true);
-		for (var sfPath in relativeSfLines) {
-			systemOutput("  " & sfPath, true);
+		if (variables.debug) {
+			systemOutput("Relative SF paths:", true);
+			for (var sfPath in relativeSfLines) {
+				systemOutput("  " & sfPath, true);
+			}
 		}
 	}
 
@@ -169,7 +178,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Create data structure with WRONG key mapping to demonstrate the bug
 		// This shows what happens when coverage is keyed by indices but accessed by file paths
 
-		var testDir = variables.testDataHelper.getGeneratedArtifactsDir();
+		var testDir = variables.testDataHelper.getOutputDir();
 		var file1Path = testDir & "/WrongTest.cfm";
 
 		var wrongStructure = {
@@ -219,7 +228,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 * @displayName "Test LcovWriter with single file (edge case)"
 	 */
 	function testLcovWriterWithSingleFile() {
-		var testDir = variables.testDataHelper.getGeneratedArtifactsDir();
+		var testDir = variables.testDataHelper.getOutputDir();
 		var singleFilePath = testDir & "/SingleFile.cfm";
 
 		var singleFileCoverage = {

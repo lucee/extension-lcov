@@ -130,7 +130,7 @@ component accessors="true" {
 				} else if ( section === 1 ) {
 					arrayAppend( files, line );
 				}
-			}	
+			}
 		}
 		logger("Processed " & totalLines & " lines in " & numberFormat(getTickCount() - start, "0.0") & "ms");
 		lines = ""; // free memory
@@ -178,7 +178,7 @@ component accessors="true" {
 
 		// Write JSON cache if requested
 		if (arguments.writeJsonCache) {
-			systemOutput("parseExlFile: Writing JSON cache to " & jsonPath, true);
+			logger("parseExlFile: Writing JSON cache to " & jsonPath);
 			fileWrite(jsonPath, coverage.toJson(pretty=false, excludeFileCoverage=true));
 		}
 
@@ -335,15 +335,6 @@ component accessors="true" {
 			var num = listFirst(line, ":");
 			var path = listRest(line, ":");
 
-			// Early file existence check
-			if ( !fileExists( path ) ) {
-				throw(
-					type="ExecutionLogParser.SourceFileNotFound",
-					message="Source file [#path#] referenced in execution log does not exist",
-					detail="File path: [" & path & "] (index: " & num & ") - The execution log references a source file that cannot be found. This typically happens when parsing logs from a different system or after files have been moved/deleted."
-				);
-			}
-
 			// Early allow/block list filtering
 			var skip = false;
 			if ( arrayLen( arguments.allowList ) > 0 ) {
@@ -376,6 +367,15 @@ component accessors="true" {
 			}
 
 			if ( !skip ) {
+				// Early file existence check
+				if ( !fileExists( path ) ) {
+					throw(
+						type="ExecutionLogParser.SourceFileNotFound",
+						message="Source file [#path#] referenced in execution log does not exist",
+						detail="File path: [" & path & "] (index: " & num & ") - The execution log references a source file that cannot be found. This typically happens when parsing logs from a different system or after files have been moved/deleted."
+					);
+				}
+
 				// Cache file contents immediately
 				if ( !structKeyExists( variables.fileContentsCache, path) ) {
 					variables.fileContentsCache[ path] = fileRead( path );
@@ -391,15 +391,15 @@ component accessors="true" {
 				var sourceLines = readFileAsArrayBylines( path );
 				var lineInfo = {};
 
-				// Always get AST for call tree analysis
-				var ast = astFromPath( path );
+				// systemOutput("Generating AST for [" & path & "]", true);
+				var ast = astFromString( fileRead( path ) );// astFromPath( path );
 
 				// TEMP write the ast to a debug file
+				/*
 				var astDebugPath = path & ".ast.json";
 				systemOutput("Generated AST for " & path & " saved as " & astDebugPath, true);
 				fileWrite( astDebugPath, serializeJSON(var=ast, compact=false) );
-				
-				
+				*/
 
 				if (arguments.useAstForLinesFound) {
 					lineInfo = variables.ast.countExecutableLinesFromAst( ast );
@@ -420,7 +420,7 @@ component accessors="true" {
 
 		var validFiles = structCount(files);
 		var skippedFiles = structCount(skipped);
-		logger("Post Filter: " & validFiles & " valid files, " 
+		logger("Post Filter: " & validFiles & " valid files, "
 			& skippedFiles & " skipped, in "
 			& numberFormat(getTickCount() - startFiles) & "ms");
 

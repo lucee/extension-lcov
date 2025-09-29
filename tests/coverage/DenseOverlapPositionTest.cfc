@@ -14,9 +14,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 
 		// Get the generated artifacts directory for output
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
-		// Leave test artifacts for inspection - no cleanup in afterAll
+		
 	}
 
 	function run() {

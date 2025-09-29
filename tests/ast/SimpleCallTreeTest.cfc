@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="SimpleCallTreeTest" {
 
 	function beforeAll() {
+		variables.debug = false;
 		// Use GenerateTestData with test name and ast subfolder
 		variables.testDataGenerator = new "../GenerateTestData"(
 			testName="SimpleCallTreeTest",
@@ -14,6 +15,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 		);
 
 		variables.testDir = variables.testData.coverageDir;
+		variables.debug = false;
 	}
 
 
@@ -27,10 +29,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 				if (arrayLen(exlFiles) > 0) {
 					var exlPath = exlFiles[1];
-					systemOutput("Parsing: " & exlPath, true);
+					if (variables.debug) systemOutput("Parsing: " & exlPath, true);
 
 					// Parse it
-					var parser = new lucee.extension.lcov.ExecutionLogParser(verbose: true);
+					var parser = new lucee.extension.lcov.ExecutionLogParser(verbose: false);
 					var result = parser.parseExlFile(
 						exlPath: exlPath,
 						allowList: [],
@@ -46,30 +48,31 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 							var fileName = listLast(replace(sourcePath, "\", "/", "all"), "/");
 							var astPath = variables.testDir & "/ast-" & fileName & "-id" & fileId & ".json";
 							fileWrite(astPath, serializeJSON(files[fileId].ast));
-							systemOutput("Saved AST for " & sourcePath & " to: " & astPath, true);
+							if (variables.debug) {
+								if (variables.debug) systemOutput("Saved AST for " & sourcePath & " to: " & astPath, true);
+							}
 
 							// Debug: Try extracting functions directly
 							var astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
 							var testFunctions = astCallAnalyzer.extractFunctions(files[fileId].ast);
-							systemOutput("Direct extraction found " & arrayLen(testFunctions) & " functions", true);
-							for (var func in testFunctions) {
-								systemOutput("  - Function: " & func.name & " at pos " & func.startPos & "-" & func.endPos, true);
+							if (variables.debug) {
+								if (variables.debug) systemOutput("Direct extraction found " & arrayLen(testFunctions) & " functions", true);
+								for (var func in testFunctions) {
+									if (variables.debug) systemOutput("  - Function: " & func.name & " at pos " & func.startPos & "-" & func.endPos, true);
+								}
 							}
 						}
 					}
 
-					// Debug: Check what's available in the result and call tree
-					systemOutput("Result has callTree: " & structKeyExists(result, "callTree"), true);
-					systemOutput("Result has getCallTree: " & structKeyExists(result, "getCallTree"), true);
-
 					// Check results - this triggers the call tree analysis
 					var callTree = result.getCallTree();
 					var metrics = result.getCallTreeMetrics();
-
-					systemOutput("Call tree entries: " & structCount(callTree), true);
-					systemOutput("Total blocks: " & metrics.totalBlocks, true);
-					systemOutput("Child time blocks: " & metrics.childTimeBlocks, true);
-					systemOutput("Built-in blocks: " & metrics.builtInBlocks, true);
+					if (variables.debug) {
+						if (variables.debug) systemOutput("Call tree entries: " & structCount(callTree), true);
+						if (variables.debug) systemOutput("Total blocks: " & metrics.totalBlocks, true);
+						if (variables.debug) systemOutput("Child time blocks: " & metrics.childTimeBlocks, true);
+						if (variables.debug) systemOutput("Built-in blocks: " & metrics.builtInBlocks, true);
+					}
 
 					// Save for inspection
 					fileWrite(variables.testDir & "/result.json", serializeJSON(result));

@@ -434,7 +434,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				// linesHit = union of (10,12,14,16,18,20,22) = 7 lines
 				// linesFound = union of all executableLines = 7 lines
 				// 7 <= 7, satisfying the basic coverage rule
-				systemOutput("Testing calculateDetailedStats with overlapping coverage - should now handle correctly", true);
+				//systemOutput("Testing calculateDetailedStats with overlapping coverage - should now handle correctly", true);
 
 				var stats = statsComponent.aggregateCoverageStats(jsonFilePaths);
 

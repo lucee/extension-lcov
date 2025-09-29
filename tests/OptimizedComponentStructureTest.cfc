@@ -1,6 +1,6 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
-	// Leave test artifacts for inspection - no cleanup in afterAll
+	
 
 	/**
 	 * Test that develop ExecutionLogParser can be instantiated and has expected methods

@@ -17,6 +17,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			var exlPath = variables.testData.COVERAGEDIR & exlFile;
 			variables.parsedResults[exlPath] = parser.parseExlFile(exlPath);
 		}
+		variables.verbose = false;
 	}
 
 	// BDD: Given/When/Then for each step in mergeResults
@@ -211,7 +212,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var mergedResults = variables.utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
 				new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
 				var outputDir = variables.testData.COVERAGEDIR & "/bdd/";
-				var writtenFiles = new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, outputDir, true);
+				var writtenFiles = new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, outputDir, variables.verbose);
 				expect(writtenFiles).toBeArray();
 				expect(arrayLen(writtenFiles)).toBeGT(0);
 

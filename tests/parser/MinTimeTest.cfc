@@ -7,7 +7,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="MinTimeTest");
-		variables.tempDir = variables.testDataGenerator.getGeneratedArtifactsDir();
+		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
 		variables.debug = false;
 
@@ -73,7 +73,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 */
 	private function testParseMetadata(required string unit, required numeric minTime, required string expectedUnitSymbol, required numeric expectedNanoValue) {
 		var testDataGenerator = new "../GenerateTestData"(testName="MinTimeTest-parse-" & arguments.unit & "-" & arguments.minTime);
-		var logDir = testDataGenerator.getCoverageDir();
+		var logDir = testDataGenerator.getExecutionLogDir();
 
 		var executionLogOptions = {
 			unit: arguments.unit

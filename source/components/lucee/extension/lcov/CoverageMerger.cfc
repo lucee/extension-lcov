@@ -537,7 +537,9 @@ component {
 		// Process each file in current result
 		for (var fileIndex in currentFiles) {
 			var filePath = currentFiles[fileIndex].path;
-			systemOutput("Merging coverage for file [#fileIndex#]: " & filePath, true);
+			if (variables.debug) {
+				systemOutput("Merging coverage for file [#fileIndex#]: " & filePath, true);
+			}
 			var hasCoverage = structKeyExists(currentCoverage, fileIndex);
 			if (!hasCoverage) {
 				throw "No coverage data for file index: " & fileIndex & " (path: " & filePath & ")";

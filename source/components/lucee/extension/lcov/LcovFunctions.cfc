@@ -541,8 +541,7 @@ component {
 		// write out merged to a json file a log it
 		var tempMerged = getTempFile("", "lcov-merged-", ".json");
 		fileWrite(tempMerged, serializeJSON(var=merged, compact=false));
-		systemOutput("DEBUG: Merged coverage data written to temp file: " & tempMerged, true);
-
+		
 		// Create LCOV writer with options and build LCOV format
 		var lcovWriter = new reporter.LcovWriter(arguments.options);
 		return lcovWriter.buildLCOV(merged.mergedCoverage, arguments.options.useRelativePath ?: false);
