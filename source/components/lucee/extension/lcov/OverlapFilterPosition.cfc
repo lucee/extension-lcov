@@ -57,8 +57,25 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		// Process each file's blocks
 		for (var fileIdx in blocksByFile) {
 			var blocks = blocksByFile[fileIdx];
+			var blockCountBefore = arrayLen(blocks);
+
 			// Filter overlapping blocks based on character positions
 			var filteredBlocks = filterOverlappingBlocks(blocks);
+			var blockCountAfter = arrayLen(filteredBlocks);
+
+			// VALIDATION: Overlap filtering must not result in zero coverage for a file
+			if (blockCountBefore > 0 && blockCountAfter == 0) {
+				// Get file path for better error message
+				var filePath = "unknown";
+				if (structKeyExists(arguments.files, fileIdx) && structKeyExists(arguments.files[fileIdx], "path")) {
+					filePath = arguments.files[fileIdx].path;
+				}
+				throw(
+					type = "OverlapFilterPosition.InvalidResult",
+					message = "Overlap filtering removed ALL coverage blocks for file index " & fileIdx,
+					detail = "File: " & filePath & ", Blocks before: " & blockCountBefore & ", Blocks after: " & blockCountAfter & ". This should never happen - overlap filtering should only remove nested/duplicate blocks, not all blocks."
+				);
+			}
 
 			if (isAggregatedFormat) {
 				// Convert back to aggregated format for each filtered block
@@ -76,6 +93,14 @@ component displayname="OverlapFilterPosition" accessors="true" {
 			} else {
 				// Keep blocksByFile format for tests
 				result[fileIdx] = filteredBlocks;
+			}
+
+			// Log per-file filtering if verbose
+			if (variables.verbose && blockCountBefore != blockCountAfter) {
+				var filePath = structKeyExists(arguments.files, fileIdx) && structKeyExists(arguments.files[fileIdx], "path")
+					? arguments.files[fileIdx].path
+					: "file index " & fileIdx;
+				logger("  Filtered file [" & filePath & "]: " & blockCountBefore & " blocks -> " & blockCountAfter & " blocks (removed " & (blockCountBefore - blockCountAfter) & ")");
 			}
 		}
 

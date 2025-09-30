@@ -536,7 +536,7 @@ component {
 	private string function buildLcovContent(required array jsonFilePaths, required struct options) {
 		// Process JSON files progressively without loading all into memory
 		var merger = new lucee.extension.lcov.CoverageMerger();
-		var merged = merger.mergeResultsByFile(arguments.jsonFilePaths);
+		var merged = merger.mergeResultsByFile(arguments.jsonFilePaths, arguments.options.verbose ?: false);
 
 		// write out merged to a json file a log it
 		var tempMerged = getTempFile("", "lcov-merged-", ".json");

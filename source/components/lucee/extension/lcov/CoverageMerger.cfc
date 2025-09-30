@@ -95,7 +95,7 @@ component {
 	 * @verbose Boolean flag for verbose logging
 	 * @return mergedResults struct
 	 */
-	public struct function mergeResultStructs(required struct results, boolean verbose=false) {
+	public struct function mergeResultStructs(required struct results, required boolean verbose) {
 		var validResults = lucee.extension.lcov.CoverageMergerUtils::filterValidResults(arguments.results);
 		var mappings = lucee.extension.lcov.CoverageMergerUtils::buildFileIndexMappings(validResults);
 		if (variables.debug) {
@@ -188,11 +188,11 @@ component {
 		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
 			var filePath = arguments.jsonFilePaths[i];
 			if (arguments.verbose) {
-				systemOutput("Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath, true);
+				systemOutput("mergeResultsByFile: Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath, true);
 			}
 
 			if (!fileExists(filePath)) {
-				throw(type="FileNotFound", message="JSON file not found: " & filePath);
+				throw(type="FileNotFound", message="mergeResultsByFile: JSON file not found: " & filePath);
 			}
 			// Load current result
 			var jsonContent = fileRead(filePath);
@@ -267,7 +267,7 @@ component {
 				for (var l in coverage[fKey]) {
 					if (maxLine > 0 && (l < 1 || l > maxLine)) {
 						throw(
-							"Invalid coverage data: line " & l & " is out of range for file " & realFile & " (max line: " & maxLine & ") in mergeResultsByFile. All lines: " & serializeJSON(sourceLines),
+							"mergeCoverageLines: Invalid coverage data: line " & l & " is out of range for file " & realFile & " (max line: " & maxLine & ") in mergeResultsByFile. All lines: " & serializeJSON(sourceLines),
 							"CoverageDataError"
 						);
 					}
@@ -375,14 +375,14 @@ component {
 				var targetLine = targetCoverage[ lineNumber ];
 				// Fail-fast: ensure both arrays are the same length and valid
 				if (!isArray(targetLine) || !isArray(sourceLine)) {
-					throw("Coverage line data is not an array at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
+					throw("mergeCoverageData: Coverage line data is not an array at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 				}
 				if (arrayLen(targetLine) != arrayLen(sourceLine)) {
-					throw("Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
+					throw("mergeCoverageData: Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 				}
 				for (var key=1; key <= arrayLen(sourceLine); key++) {
 					if (key > arrayLen(targetLine)) {
-						throw("Array index [" & key & "] out of range for targetLine (size=" & arrayLen(targetLine) & ") at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
+						throw("mergeCoverageData: Array index [" & key & "] out of range for targetLine (size=" & arrayLen(targetLine) & ") at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 					}
 					targetLine[ key ] += sourceLine[ key ];
 				}
@@ -417,7 +417,7 @@ component {
 			var tabPos = find(chr(9), coverageLine);
 			if (tabPos == 0) {
 				throw(
-					"Malformed fileCoverage line: [" & coverageLine & "]. " &
+					"mergeFileCoverageArray: Malformed fileCoverage line: [" & coverageLine & "]. " &
 					"Expected format: <fileIndex>\\t<startLine>\\t<endLine>\\t<hitCount> (4 tab-separated columns). " &
 					"No tab separator found.",
 					"CoverageDataError"
@@ -519,10 +519,15 @@ component {
 		for (var fileIndex in files) {
 			var filePath = files[fileIndex].path;
 			// Only add file if it has coverage data
-			if (structKeyExists(coverage, fileIndex) && !structKeyExists(arguments.merged.files, filePath)) {
-				arguments.merged.files[filePath] = files[fileIndex];
+			if (structKeyExists(coverage, fileIndex)) {
+				if (!structKeyExists(arguments.merged.files, filePath)) {
+					arguments.merged.files[filePath] = files[fileIndex];
+				}
 			} else {
-				throw "File index " & fileIndex & " (path: " & filePath & ") has no coverage data in the first result. Skipping.";
+				// Skip files without coverage data (e.g., files that were tracked but never executed)
+				if (variables.debug) {
+					systemOutput("initializeMergedByFileStructure: Skipping file index " & fileIndex & " (path: " & filePath & ") - no coverage data in first result", true);
+				}
 			}
 		}
 	}
@@ -537,13 +542,18 @@ component {
 		// Process each file in current result
 		for (var fileIndex in currentFiles) {
 			var filePath = currentFiles[fileIndex].path;
-			if (variables.debug) {
-				systemOutput("Merging coverage for file [#fileIndex#]: " & filePath, true);
-			}
 			var hasCoverage = structKeyExists(currentCoverage, fileIndex);
+
 			if (!hasCoverage) {
-				throw "No coverage data for file index: " & fileIndex & " (path: " & filePath & ")";
+				// Skip files without coverage data (e.g., files that were tracked but never executed)
+				if (variables.debug) {
+					systemOutput("mergeCurrentResultByFile: Skipping file index " & fileIndex & " (path: " & filePath & ") - no coverage data", true);
+				}
 				continue;
+			}
+
+			if (variables.debug) {
+				systemOutput("mergeCurrentResultByFile: Merging coverage for file [#fileIndex#]: " & filePath, true);
 			}
 
 			// Merge file metadata (executable lines, etc.)
@@ -564,22 +574,20 @@ component {
 			}
 
 			// Merge coverage data
-			if ( hasCoverage ) {
-				if (!structKeyExists(arguments.merged.coverage, filePath)) {
-					arguments.merged.coverage[filePath] = {};
-				}
+			if (!structKeyExists(arguments.merged.coverage, filePath)) {
+				arguments.merged.coverage[filePath] = {};
+			}
 
-				var sourceCoverage = currentCoverage[fileIndex];
-				var targetCoverage = arguments.merged.coverage[filePath];
+			var sourceCoverage = currentCoverage[fileIndex];
+			var targetCoverage = arguments.merged.coverage[filePath];
 
-				// Merge line coverage
-				for (var lineNum in sourceCoverage) {
-					if (!structKeyExists(targetCoverage, lineNum)) {
-						targetCoverage[lineNum] = sourceCoverage[lineNum];
-					} else {
-						// Add hit counts together
-						targetCoverage[lineNum][2] += sourceCoverage[lineNum][2];
-					}
+			// Merge line coverage
+			for (var lineNum in sourceCoverage) {
+				if (!structKeyExists(targetCoverage, lineNum)) {
+					targetCoverage[lineNum] = sourceCoverage[lineNum];
+				} else {
+					// Add hit counts together
+					targetCoverage[lineNum][2] += sourceCoverage[lineNum][2];
 				}
 			}
 		}

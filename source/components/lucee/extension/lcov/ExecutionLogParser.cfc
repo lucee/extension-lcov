@@ -349,6 +349,9 @@ component accessors="true" {
 						break;
 					}
 				}
+				if (skip) {
+					logger("Skipping file [" & path & "] - not in allowList");
+				}
 			}
 
 			if (!skip) {
@@ -361,6 +364,7 @@ component accessors="true" {
 						variables.fileIgnoreCache[ path ] = "found in blocklist [" & num & "]";
 						skip = true;
 						skipped[ path ] = path & " found in blocklist";
+						logger("Skipping file [" & path & "] - found in blocklist pattern [" & pattern & "]");
 						break;
 					}
 				}
@@ -423,6 +427,7 @@ component accessors="true" {
 		logger("Post Filter: " & validFiles & " valid files, "
 			& skippedFiles & " skipped, in "
 			& numberFormat(getTickCount() - startFiles) & "ms");
+			
 
 		return {
 			"files": files,
