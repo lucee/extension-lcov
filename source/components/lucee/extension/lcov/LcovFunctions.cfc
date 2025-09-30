@@ -276,8 +276,10 @@ component {
 			if (_options.verbose) {
 				systemOutput("Processing " & arrayLen(sourceFileJsons) & " source file JSONs for HTML generation", true);
 			}
+			
 			var resultFactory = new lucee.extension.lcov.model.result();
 			for (var jsonFile in sourceFileJsons) {
+				var start 	= getTickCount();
 				// Use result model's fromJson to ensure all required fields and validation
 				var sourceResult = resultFactory.fromJson(fileRead(jsonFile), true);
 				sourceResult.validate();
@@ -291,12 +293,10 @@ component {
 
 				if (_options.verbose) {
 					systemOutput("Processing JSON file: " & jsonFile, true);
-					systemOutput("  - Set exeLog to: " & sourceFilePath, true);
-					systemOutput("  - Attempting HTML report generation", true);
 				}
 				var htmlPath = htmlReporter.generateHtmlReport(sourceResult);
 				if (_options.verbose) {
-					systemOutput("  - HTML report generated: " & htmlPath, true);
+					systemOutput("  - HTML report generated in " & numberFormat(getTickCount() - start) & " ms, for " & htmlPath, true);
 				}
 			}
 		}

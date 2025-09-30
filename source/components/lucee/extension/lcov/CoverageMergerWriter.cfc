@@ -26,7 +26,8 @@ component accessors=false {
 				var idx = fileKeys[1];
 				var srcFile = files[idx];
 				// Fail fast if any required field is missing
-				var requiredFields = ["linesSource","linesFound","linesHit","path","totalExecutions","totalExecutionTime","lines","executableLines"];
+				// Note: executableLines removed from required fields - coverage now contains all executable lines
+				var requiredFields = ["linesSource","linesFound","linesHit","path","totalExecutions","totalExecutionTime","lines"];
 				for (var f in requiredFields) {
 					if (!structKeyExists(srcFile, f)) {
 						throw(message="BUG: Missing required field '" & f & "' in srcFile for canonical index " & canonicalIndex & ". srcFile: " & serializeJSON(srcFile));

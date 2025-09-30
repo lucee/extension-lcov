@@ -98,10 +98,12 @@ component {
 
 		html &= '</div>
 			<a href="index.html" class="back-link">Back to Index</a>
-			<p class="file-links"><strong>Log Files:</strong> <a href="'
+			<p class="file-links">
+			<strong>Log Files:</strong> <a href="'
 				& variables.htmlEncoder.htmlAttributeEncode(result.getExeLog()) & '" target="_blank" class="file-link">'
 				& variables.htmlEncoder.htmlEncode(listLast(result.getExeLog(), "/\\"))
-				& '</a> &nbsp;|&nbsp; <strong>Coverage JSON:</strong>'
+				& '</a> &nbsp;|&nbsp;
+			<strong>Coverage JSON:</strong>'
 				& ' <a href="' & variables.htmlEncoder.htmlAttributeEncode(fileCoverageJson) & '" target="_blank" class="file-link">'
 					& variables.htmlEncoder.htmlEncode(listLast(fileCoverageJson, "/\\")) & '</a></p>';
 

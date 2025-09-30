@@ -231,18 +231,8 @@ component {
 			for (var fKey in files) {
 				if (!structKeyExists(merged.files, files[fKey].path)) {
 					merged.files[files[fKey].path] = files[fKey];
-				} else {
-					// Merge executableLines from multiple runs of the same file
-					if (structKeyExists(files[fKey], "executableLines") && structKeyExists(merged.files[files[fKey].path], "executableLines")) {
-						var existingExecLines = merged.files[files[fKey].path].executableLines;
-						var newExecLines = files[fKey].executableLines;
-						for (var lineNum in newExecLines) {
-							if (!structKeyExists(existingExecLines, lineNum)) {
-								existingExecLines[lineNum] = newExecLines[lineNum];
-							}
-						}
-					}
 				}
+				// Note: executableLines merging removed - coverage now contains all executable lines
 				fileMappings[src][fKey] = files[fKey].path;
 			}
 		}
@@ -556,22 +546,11 @@ component {
 				systemOutput("mergeCurrentResultByFile: Merging coverage for file [#fileIndex#]: " & filePath, true);
 			}
 
-			// Merge file metadata (executable lines, etc.)
+			// Merge file metadata
 			if (!structKeyExists(arguments.merged.files, filePath)) {
 				arguments.merged.files[filePath] = currentFiles[fileIndex];
-			} else {
-				// Merge executableLines from multiple runs of the same file
-				if (structKeyExists(currentFiles[fileIndex], "executableLines") &&
-					structKeyExists(arguments.merged.files[filePath], "executableLines")) {
-					var existingExecLines = arguments.merged.files[filePath].executableLines;
-					var newExecLines = currentFiles[fileIndex].executableLines;
-					for (var lineNum in newExecLines) {
-						if (!structKeyExists(existingExecLines, lineNum)) {
-							existingExecLines[lineNum] = newExecLines[lineNum];
-						}
-					}
-				}
 			}
+			// Note: executableLines merging removed - coverage now contains all executable lines
 
 			// Merge coverage data
 			if (!structKeyExists(arguments.merged.coverage, filePath)) {

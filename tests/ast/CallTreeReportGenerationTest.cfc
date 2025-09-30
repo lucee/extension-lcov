@@ -45,7 +45,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var result = parser.parseExlFile(
 					exlPath: exlPath,
 					allowList: [],
-					blocklist: []
+					blocklist: [],
+					includeCallTree: true
 				);
 
 				// Verify call tree data was generated
@@ -120,7 +121,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var result = parser.parseExlFile(
 					exlPath: exlPath,
 					allowList: [],
-					blocklist: []
+					blocklist: [],
+					includeCallTree: true
 				);
 
 				// Create output directory for separate HTML files
@@ -189,7 +191,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var result = parser.parseExlFile(
 					exlPath: exlPath,
 					allowList: [],
-					blocklist: []
+					blocklist: [],
+					includeCallTree: true
 				);
 
 				// Write result to JSON for inspection

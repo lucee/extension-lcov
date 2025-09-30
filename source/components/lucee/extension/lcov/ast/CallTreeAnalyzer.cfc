@@ -39,9 +39,13 @@ component {
 	 */
 	private struct function extractAllCalls(required struct files, required any astCallAnalyzer) {
 		var callsMap = {};
+		var fileCount = 0;
+		var totalFiles = structCount(arguments.files);
 
 		for (var fileIdx in arguments.files) {
 			var file = arguments.files[fileIdx];
+			fileCount++;
+			var fileStart = getTickCount();
 
 			// Skip if no AST available (this can happen for dynamic or generated files)
 			if (!structKeyExists(file, "ast") || !isStruct(file.ast)) {
@@ -53,6 +57,10 @@ component {
 
 			// Extract all functions to get their calls
 			var functions = arguments.astCallAnalyzer.extractFunctions(file.ast);
+			var fileTime = getTickCount() - fileStart;
+
+			systemOutput("CallTree: File " & fileCount & "/" & totalFiles
+				& " took " & numberFormat(fileTime) & "ms: " & file.path, true);
 
 			// Collect all calls from all functions (excluding built-in functions)
 			for (var func in functions) {
@@ -200,7 +208,6 @@ component {
 			// Check if this block matches a function call position
 			var isChildTime = false;
 			var isBuiltIn = false;
-			var callInfo = {};
 
 			// Look for calls that overlap with this block
 			for (var callKey in arguments.callsMap) {
@@ -210,21 +217,19 @@ component {
 				    call.position <= endPos) {
 					isChildTime = true;
 					isBuiltIn = call.isBuiltIn ?: false;
-					callInfo = call;
 					break;
 				}
 			}
 
 			// Store marked block
 			markedBlocks[blockKey] = {
-				fileIdx: fileIdx,
-				startPos: startPos,
-				endPos: endPos,
-				count: count,
-				executionTime: executionTime,
-				isChildTime: isChildTime,
-				isBuiltIn: isBuiltIn,
-				callInfo: callInfo
+				"fileIdx": fileIdx,
+				"startPos": startPos,
+				"endPos": endPos,
+				"count": count,
+				"executionTime": executionTime,
+				"isChildTime": isChildTime,
+				"isBuiltIn": isBuiltIn
 			};
 		}
 
@@ -236,9 +241,9 @@ component {
 	 */
 	private struct function calculateChildTimeMetrics(required struct markedBlocks) {
 		var metrics = {
-			totalBlocks: structCount(arguments.markedBlocks),
-			childTimeBlocks: 0,
-			builtInBlocks: 0
+			"totalBlocks": structCount(arguments.markedBlocks),
+			"childTimeBlocks": 0,
+			"builtInBlocks": 0
 		};
 
 		for (var blockKey in arguments.markedBlocks) {
@@ -263,9 +268,9 @@ component {
 		if (!structKeyExists(arguments.result, "blocks") ||
 		    !structKeyExists(arguments.result, "metrics")) {
 			return {
-				totalBlocks: 0,
-				childTimeBlocks: 0,
-				builtInBlocks: 0
+				"totalBlocks": 0,
+				"childTimeBlocks": 0,
+				"builtInBlocks": 0
 			};
 		}
 

@@ -1,5 +1,5 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
-	
+
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
 
@@ -7,7 +7,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testGenerator = new "../GenerateTestData"(testName="AstComparisonTest");
 		variables.testOutputDir = variables.testGenerator.getOutputDir();
 	}
-	
+
 	function run() {
 		describe("AST vs Simple Executable Line Counting Comparison", function() {
 
@@ -210,7 +210,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					filePath: filePath
 				};
 			});
-			
+
 			it("should analyze coverage accuracy", function() {
 				// Throw if no test results
 				if (!structKeyExists(variables, "comparisonResults")) {
@@ -257,7 +257,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(coveragePercent).toBeLTE(100, "Coverage should not exceed 100%");
 				expect(coveragePercent).toBeGTE(0, "Coverage should be positive");
 			});
-			
+
 			it("should handle edge cases correctly", function() {
 				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
 

@@ -16,34 +16,40 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			it("should get all file paths from files struct", function() {
 				var Result = new lucee.extension.lcov.model.result();
-				   Result.setFiles({0:{path:"foo.cfm"},1:{path:"bar.cfm"}});
-				   expect(Result.getAllFilePaths()).toBeArray();
-				   expect(Result.getAllFilePaths().len()).toBe(2);
+				Result.setFiles({0:{path:"foo.cfm"},1:{path:"bar.cfm"}});
+				expect(Result.getAllFilePaths()).toBeArray();
+				expect(Result.getAllFilePaths().len()).toBe(2);
 			});
 
 			it("should get file stats for a file", function() {
 				var Result = new lucee.extension.lcov.model.result();
-				   Result.setStats({totalLinesFound:1,totalLinesHit:1,totalLinesSource:1,totalExecutions:1,totalExecutionTime:1});
-				   Result.setCoverage({"0": {"1": [1, 1, 1]}});  // Match stats: 1 execution, 1ms
-				   Result.setFileItem(0, {hits:5});
-				   expect(Result.getFileItem(0)).toBeStruct();
-				   expect(function(){Result.getFileItem(1);}).toThrow();
+				Result.setStats({totalLinesFound:1,totalLinesHit:1,totalLinesSource:1,totalExecutions:1,totalExecutionTime:1});
+				Result.setCoverage({"0": {"1": [1, 1, 1]}});  // Match stats: 1 execution, 1ms
+				Result.setFileItem(0, {hits:5});
+				expect(Result.getFileItem(0)).toBeStruct();
+				expect(function(){Result.getFileItem(1);}).toThrow();
 			});
 
 			it("should get coverage for a file", function() {
 				var Result = new lucee.extension.lcov.model.result();
-				   Result.setCoverage({0:{cov:1}});
-				   expect(Result.getCoverageForFile(0)).toBeStruct();
-				   expect(function(){Result.getCoverageForFile(1);}).toThrow();
+				Result.setCoverage({0:{cov:1}});
+				expect(Result.getCoverageForFile(0)).toBeStruct();
+				expect(function(){Result.getCoverageForFile(1);}).toThrow();
 			});
 
 			it("should get file lines and executable lines", function() {
 				var Result = new lucee.extension.lcov.model.result();
-				   Result.setFiles({0:{lines:[1,2,3],executableLines:{1:true,2:true}}});
-				   expect(Result.getFileLines(0)).toBeArray();
-				   expect(Result.getExecutableLines(0)).toBeStruct();
-				   expect(function(){Result.getFileLines(1);}).toThrow();
-				   expect(function(){Result.getExecutableLines(1);}).toThrow();
+				// executableLines is now derived from coverage, not stored in files
+				// Set coverage for file 0 so getExecutableLines() can extract from it
+				Result.setFiles({0:{lines:[1,2,3]}});
+				Result.setCoverage({0:{1:[1,10,false],2:[1,10,false]}}); // Lines 1 and 2 are executable
+				expect(Result.getFileLines(0)).toBeArray();
+				expect(Result.getExecutableLines(0)).toBeStruct();
+				expect(structCount(Result.getExecutableLines(0))).toBe(2); // Should have 2 executable lines
+				expect(function(){Result.getFileLines(1);}).toThrow();
+				// getExecutableLines no longer throws, returns empty struct for missing files
+				expect(Result.getExecutableLines(1)).toBeStruct();
+				expect(structCount(Result.getExecutableLines(1))).toBe(0);
 			});
 
 			it("should calculate total coverage percent", function() {
@@ -76,11 +82,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			it("should set and get file item", function() {
 				var Result = new lucee.extension.lcov.model.result();
-				   Result.setFileItem(0,{lines:[1,2]});
-				   expect(Result.getFileItem(0)).toBeStruct();
-				   Result.setFileItem(1,{hits:1});
-				   expect(Result.getFileItem(1)).toBeStruct();
-				   expect(function(){Result.getFileItem(2);}).toThrow();
+				Result.setFileItem(0,{lines:[1,2]});
+				expect(Result.getFileItem(0)).toBeStruct();
+				Result.setFileItem(1,{hits:1});
+				expect(Result.getFileItem(1)).toBeStruct();
+				expect(function(){Result.getFileItem(2);}).toThrow();
 			});
 
 			it("should serialize to and from JSON", function() {

@@ -3,8 +3,8 @@
 */
 component {
 
-    variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
-    variables.outputDir = "";
+	variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
+	variables.outputDir = "";
 	
 	/**
 	* Constructor/init function
@@ -76,16 +76,16 @@ component {
 		// Sort by coverage, linesHit / linesFound (highest first, fail-fast)
 		if (arrayLen(indexData) > 0) {
 			arraySort(indexData, function(a, b) {
-				   if (!structKeyExists(a, "totalLinesHit") || !structKeyExists(a, "totalLinesFound") || !structKeyExists(b, "totalLinesHit") || !structKeyExists(b, "totalLinesFound")) {
-					   throw "Missing totalLinesHit/totalLinesFound in index entry during sort.";
-				   }
-				   var coverageA = (a.totalLinesFound > 0) ? (a.totalLinesHit / a.totalLinesFound) : -1;
-				   var coverageB = (b.totalLinesFound > 0) ? (b.totalLinesHit / b.totalLinesFound) : -1;
-				   // Sort entries with zero linesFound to the end
-				   if (coverageA != coverageB) {
-					   return coverageB - coverageA;
-				   }
-				   return 0;
+				if (!structKeyExists(a, "totalLinesHit") || !structKeyExists(a, "totalLinesFound") || !structKeyExists(b, "totalLinesHit") || !structKeyExists(b, "totalLinesFound")) {
+					throw "Missing totalLinesHit/totalLinesFound in index entry during sort.";
+				}
+				var coverageA = (a.totalLinesFound > 0) ? (a.totalLinesHit / a.totalLinesFound) : -1;
+				var coverageB = (b.totalLinesFound > 0) ? (b.totalLinesHit / b.totalLinesFound) : -1;
+				// Sort entries with zero linesFound to the end
+				if (coverageA != coverageB) {
+					return coverageB - coverageA;
+				}
+				return 0;
 			});
 		}
 

@@ -22,7 +22,6 @@ component {
 
 		var coverage = result.getCoverageForFile(arguments.fileIndex);
 		var fileLines = result.getFileLines(arguments.fileIndex);
-		var executableLines = result.getExecutableLines(arguments.fileIndex);
 
 		var tableClass = "file-table-" & left(hash(filePath, "md5"), 8);
 
@@ -31,7 +30,7 @@ component {
 		var heatmapData = generateHeatmaps(executionData.countValues, executionData.timeValues, tableClass, heatmapCalculator);
 
 		html &= generateTableHeader(tableClass, displayUnit, heatmapData.cssRules);
-		html &= generateTableRows(arguments.fileIndex, coverage, fileLines, executableLines,
+		html &= generateTableRows(arguments.fileIndex, coverage, fileLines,
 			heatmapData.countHeatmap, heatmapData.timeHeatmap,
 			htmlEncoder, timeFormatter, sourceUnit, displayUnit);
 
@@ -108,7 +107,7 @@ component {
 	 * @return String HTML for table rows
 	 */
 	private string function generateTableRows(required numeric fileIndex, required struct coverage, required array fileLines,
-			required struct executableLines, required struct countHeatmap, required struct timeHeatmap,
+			required struct countHeatmap, required struct timeHeatmap,
 			required any htmlEncoder, required any timeFormatter, required string sourceUnit, required string displayUnit) {
 		// Use array for StringBuilder pattern - much faster than string concatenation
 		var htmlParts = [];
@@ -124,7 +123,8 @@ component {
 		for (var i = 1; i <= fileLineCount; i++) {
 			var lineData = arguments.coverage[i] ?: [];
 			var hasData = arrayLen(lineData) > 0;
-			var rowClass = hasData ? "executed" : (structKeyExists(arguments.executableLines, i) ? "not-executed" : "non-executable");
+			// Coverage now contains all executable lines (including zero-counts), so check coverage keys
+			var rowClass = hasData ? "executed" : (structKeyExists(arguments.coverage, i) ? "not-executed" : "non-executable");
 
 			var execCount = "";
 			var execTime = "";

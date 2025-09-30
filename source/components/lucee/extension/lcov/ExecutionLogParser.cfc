@@ -15,6 +15,7 @@ component accessors="true" {
 		// Store options and extract verbose flag
 		variables.options = arguments.options;
 		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		variables.debug = false;
 
 		// Use factory for code coverage helpers, support useDevelop override
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
@@ -42,7 +43,7 @@ component accessors="true" {
 	* @return Result object containing sections and fileCoverage data
 	*/
 	public result function parseExlFile(string exlPath,
-		array allowList=[], array blocklist=[], boolean writeJsonCache = false) {
+		array allowList=[], array blocklist=[], boolean writeJsonCache = false, boolean includeCallTree = false) {
 
 		var startTime = getTickCount();
 
@@ -58,7 +59,7 @@ component accessors="true" {
 				var cachedChecksum = structKeyExists(cachedData, "exlChecksum") ? cachedData.exlChecksum : "";
 
 				// Create options hash for comparison
-				var currentOptionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist]), "MD5");
+				var currentOptionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.includeCallTree]), "MD5");
 				var cachedOptionsHash = structKeyExists(cachedData, "optionsHash") ? cachedData.optionsHash : "";
 
 				if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
@@ -167,7 +168,7 @@ component accessors="true" {
 		}
 
 		// OPTIMIZATION: Pre-aggregate coverage data before expensive processing
-		parseCoverage( coverage );
+		parseCoverage( coverageData=coverage, includeCallTree=arguments.includeCallTree );
 
 		var totalTime = getTickCount() - startTime;
 		logger("Files: " & structCount( coverage.getFiles() ) &
@@ -190,7 +191,7 @@ component accessors="true" {
 	/**
 	* Combine identical coverage entries before line processing
 	*/
-	private struct function parseCoverage( result coverageData) {
+	private struct function parseCoverage( result coverageData, boolean includeCallTree = false) {
 		var totalLines = arrayLen(arguments.coverageData.getFileCoverage());
 		var files = arguments.coverageData.getFiles();
 		var fileCoverage = arguments.coverageData.getFileCoverage();
@@ -273,6 +274,37 @@ component accessors="true" {
 		var coverage = processingResult.coverage;
 		var processingTime = processingResult.processingTime;
 
+		// STAGE 2.5: Populate coverage with zero-count entries for unexecuted executable lines
+		// This makes coverage the single source of truth (all executable lines present)
+		var zeroPopulateStart = getTickCount();
+		for (var fileIdx in files) {
+			var fileInfo = files[fileIdx];
+			if (!structKeyExists(fileInfo, "executableLines")) {
+				continue; // Skip files without executable line data
+			}
+
+			// Initialize coverage for this file if it doesn't exist
+			if (!structKeyExists(coverage, fileIdx)) {
+				coverage[fileIdx] = {};
+			}
+
+			// Add zero-count entries for all executable lines not already in coverage
+			for (var lineNum in fileInfo.executableLines) {
+				if (!structKeyExists(coverage[fileIdx], lineNum)) {
+					coverage[fileIdx][lineNum] = [0, 0, false]; // [hitCount, execTime, isChildTime]
+				}
+			}
+
+			// Remove temporary fields now that coverage has been populated and call tree analysis is complete
+			structDelete(fileInfo, "executableLines");
+			structDelete(fileInfo, "ast");  // AST only needed during parsing, not in JSON output
+			structDelete(fileInfo, "lineMapping");  // Line mapping only needed during parsing
+			structDelete(fileInfo, "mappingLen");  // Mapping length only needed during parsing
+		}
+		if (variables.verbose) {
+			logger("Zero-count population completed in " & numberFormat(getTickCount() - zeroPopulateStart) & "ms");
+		}
+
 		// Enrich coverage with call tree line data (own time and child time)
 		coverage = callTreeLineMapper.enrichCoverageWithCallTree(coverage, lineCallTree);
 
@@ -308,9 +340,11 @@ component accessors="true" {
 		});
 		coverageData.setCoverage(coverage);
 
-		// Add call tree data if available
+		// Add call tree data if available (only when explicitly requested or in debug mode to reduce JSON size)
 		if (!structIsEmpty(callTreeData)) {
-			coverageData.setCallTree(callTreeData.callTree);
+			if (variables.debug || arguments.includeCallTree) {
+				coverageData.setCallTree(callTreeData.callTree);
+			}
 			coverageData.setCallTreeMetrics(callTreeData.callTreeMetrics);
 		}
 		return coverageData;
@@ -412,8 +446,8 @@ component accessors="true" {
 					"linesSource": arrayLen( variables.lineMappingsCache[ path] ),
 					"linesFound": lineInfo.count,
 					"lines": sourceLines,
-					"executableLines": lineInfo.executableLines,
-					"ast": ast  // Store AST for call tree analysis
+					"ast": ast,  // Store AST for call tree analysis
+					"executableLines": lineInfo.executableLines  // Temporary - used for zero-count population then removed from struct
 				};
 			}
 		}

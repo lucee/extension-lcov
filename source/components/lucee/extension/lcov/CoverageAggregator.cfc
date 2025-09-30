@@ -1,6 +1,6 @@
 component {
 
-	variables.debug = false;
+	variables.debug = true;
 
 	/**
 	 * Optimized aggregation of coverage entries using performance techniques
@@ -100,6 +100,7 @@ component {
 		// Process chunks in parallel using arrayEach
 		var s = arguments.fileCoverage;  // local copy for closure access
 		ArrayEach(g, function(b) {
+			var chunkStart = getTickCount();
 			var f = s;   // local copy for closure
 			var c = structNew('regular');  // chunkAgg - hashmap
 
@@ -131,9 +132,9 @@ component {
 			// Store results back to chunk array
 			b[4] = c;  // aggregated
 			if (variables.debug) {
-				systemOutput("Chunk " & numberFormat(b[3], chunkMask) & " processed " 
+				systemOutput("Chunk " & numberFormat(b[3], chunkMask) & " of " & numberFormat(numChunks) & " processed " 
 					& numberFormat(b[2] - b[1] + 1) & " rows in " 
-					& numberFormat(getTickCount() - aggregationStart) & "ms", true);
+					& numberFormat(getTickCount() - chunkStart) & "ms", true);
 			}
 		}, true);  // parallel=true
 

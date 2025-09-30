@@ -302,8 +302,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			   expect(stableFile.linesFound).toBe(devFile.linesFound);
 			   expect(stableFile.linesSource).toBe(devFile.linesSource);
 
-			// Executable lines structure should be identical
-			expect(structCount(stableFile.executableLines)).toBe(structCount(devFile.executableLines));
+			// Note: executableLines field removed - coverage now contains all executable lines
 
 			// Source code line arrays should match
 			expect(stableFile.lines).toHaveLength(arrayLen(devFile.lines));

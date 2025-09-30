@@ -54,12 +54,26 @@ component accessors=true {
 
 	/**
 	 * Returns the struct of executable lines for a specific file index.
+	 * Extracts executable lines from coverage (which includes all executable lines with zero-counts).
+	 * Returns struct of {lineNum: true} for all lines in coverage.
 	 */
 	public struct function getExecutableLines(required numeric fileIndex) {
-		if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			throw(message="No files struct present or missing file index: " & arguments.fileIndex & " exeLog: " & variables.exeLog);
+		var executableLines = {};
+
+		// Check if coverage exists for this file
+		if (!isStruct(variables.coverage) || !structKeyExists(variables.coverage, arguments.fileIndex)) {
+			// No coverage means no executable lines found/tracked (empty file or parse error)
+			return executableLines;
 		}
-		return variables.files[arguments.fileIndex].executableLines;
+
+		var fileCoverage = variables.coverage[arguments.fileIndex];
+
+		// Extract line numbers from coverage (which now contains all executable lines including zero-counts)
+		for (var lineNum in fileCoverage) {
+			executableLines[lineNum] = true;
+		}
+
+		return executableLines;
 	}
 
 	/**

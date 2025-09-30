@@ -433,6 +433,8 @@ tbody tr:nth-child(even) {
 	font-family: 'Courier New', Courier, monospace;
 	white-space: pre-wrap;
 	line-height: 1.2;
+	word-break: break-all;
+	overflow-wrap: break-word;
 }
 
 .code-table .executed {
@@ -506,6 +508,9 @@ tbody tr:nth-child(even) {
 	font-size: 0.9em;
 	color: var(--non-executable-text);
 	margin-bottom: 15px;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	word-break: break-all;
 }
 
 .back-link {

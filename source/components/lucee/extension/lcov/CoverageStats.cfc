@@ -104,33 +104,35 @@ component accessors="true" {
 			fileInfo.totalChildTime = 0;
 
 			// linesHit, totalExecutions, totalExecutionTime remain 0 until coverage is processed
+			var originalLinesFound = fileInfo.linesFound;
 			totalStats.totalLinesFound += fileInfo.linesFound;
-
-			// Validate data integrity - fail fast on inconsistent state
-			if (fileInfo.linesHit > fileInfo.linesFound) {
-				var filePath = structKeyExists(fileInfo, "path") ? fileInfo.path : "fileIdx[" & fileIdx & "]";
-				throw(type="DataIntegrityError", message="Invalid coverage data: linesHit [" & fileInfo.linesHit
-					  & "] exceeds linesFound [" & fileInfo.linesFound & "] for file: [" & filePath & "]");
-			}
 
 			if (structKeyExists(coverageData, fileIdx)) {
 				var filecoverage = coverageData[fileIdx];
 				var lineNumbers = structKeyArray(filecoverage);
-				if (!structKeyExists(fileInfo, "executableLines")) {
-					throw(
-						type="CoverageStatsError",
-						message="Missing executableLines data for file: " & fileInfo.path & ". executableLines is required for accurate coverage calculation."
-					);
+
+				// Coverage now contains all executable lines (both executed and unexecuted as zero-counts)
+				// Update linesFound from coverage which is the single source of truth
+				var coverageLineCount = arrayLen(lineNumbers);
+				if (coverageLineCount >= fileInfo.linesFound) {
+					// Coverage has been populated with zero-counts, use it as source of truth
+					var delta = coverageLineCount - fileInfo.linesFound;
+					fileInfo.linesFound = coverageLineCount;
+					// Update totalStats to reflect the new linesFound
+					totalStats.totalLinesFound += delta;
 				}
-				var executableLines = fileInfo.executableLines;
+
 				for (var j = 1; j <= arrayLen(lineNumbers); j++) {
 					var lineNum = lineNumbers[j];
 					var lineData = filecoverage[lineNum];
+
 					// lineData[1] is hit count, lineData[2] is execution time, lineData[3] is isChildTime (optional)
-					if (isNumeric(lineData[1]) && lineData[1] > 0 && structKeyExists(executableLines, lineNum)) {
+					// Count lines with hitCount > 0 as executed
+					if (isNumeric(lineData[1]) && lineData[1] > 0) {
 						totalStats.totalLinesHit++;
 						fileInfo.linesHit++;
 					}
+
 					totalStats.totalExecutions += lineData[1];
 					totalStats.totalExecutionTime += lineData[2];
 					fileInfo.totalExecutions += lineData[1];
@@ -179,6 +181,8 @@ component accessors="true" {
 		var resultFactory = new lucee.extension.lcov.model.result();
 
 		// First pass: collect all executable lines for each file across all results
+		// Use coverage as source of truth (contains all executable lines with zero-counts)
+		// Fall back to executableLines field for backward compatibility with old cached JSON files
 		var allExecutableLines = {};
 		for (var jsonPath in arguments.jsonFilePaths) {
 			if (!fileExists(jsonPath)) {
@@ -187,19 +191,34 @@ component accessors="true" {
 
 			var result = resultFactory.fromJson(fileRead(jsonPath), false);
 			var filesData = result.getFiles();
+			var coverageData = result.getCoverage();
+
 			for (var filePath in filesData) {
 				var fileInfo = filesData[filePath];
-				if (!structKeyExists(fileInfo, "executableLines")) {
-					throw(
-						type="CoverageStatsError",
-						message="File info missing executableLines for: " & filePath
-					);
+
+				// Get executable lines from coverage first (preferred), fall back to executableLines field
+				var executableLinesForFile = {};
+				var fileIdx = structKeyExists(fileInfo, "fileIdx") ? fileInfo.fileIdx : "";
+
+				// Try to get from coverage (which should have all lines including zero-counts)
+				if (len(fileIdx) && structKeyExists(coverageData, fileIdx)) {
+					var fileCoverage = coverageData[fileIdx];
+					for (var lineNum in fileCoverage) {
+						executableLinesForFile[lineNum] = true;
+					}
 				}
+
+				// Fall back to executableLines field if coverage was empty or not found
+				if (structIsEmpty(executableLinesForFile) && structKeyExists(fileInfo, "executableLines")) {
+					executableLinesForFile = duplicate(fileInfo.executableLines);
+				}
+
+				// Merge with allExecutableLines
 				if (!structKeyExists(allExecutableLines, filePath)) {
-					allExecutableLines[filePath] = duplicate(fileInfo.executableLines);
+					allExecutableLines[filePath] = executableLinesForFile;
 				} else {
 					// Merge executable lines (union of all executable lines across runs)
-					for (var lineNum in fileInfo.executableLines) {
+					for (var lineNum in executableLinesForFile) {
 						allExecutableLines[filePath][lineNum] = true;
 					}
 				}
