@@ -18,7 +18,7 @@ CURRENTLY still in early BETA, WIP subject to changed, not yet published!
 - Generate LCOV format reports compatible with standard coverage tools
 - Create HTML reports with detailed line-by-line coverage visualization
 - Support for multiple time unit displays (seconds, milliseconds, microseconds, nanoseconds)
-- AST-based source code analysis for accurate line counting (TBD)
+- AST-based source code analysis for accurate line counting (matches what Lucee's execution logger tracks)
 - Coverage statistics and reporting utilities
 - Handles processing large logs from a single test suite execution run `option ={ separateFiles: true }`
 

@@ -112,6 +112,7 @@ component {
 
 		for (var fileIndex in fileIndexes) {
 			if (!isNumeric(fileIndex)) throw(type="InvalidFileIndex", message="Only numeric fileIndex keys are allowed [fileIndex=#fileIndex#]");
+
 			html &= variables.fileSection.generateFileSection(fileIndex, result, variables.htmlEncoder, variables.heatmapCalculator, variables.displayUnit);
 		}
 

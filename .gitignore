@@ -7,3 +7,4 @@
 /temp-full-workflow-test
 /source/components/lucee/extension/lcov/version.cfc
 *.ast.json
+test-output/

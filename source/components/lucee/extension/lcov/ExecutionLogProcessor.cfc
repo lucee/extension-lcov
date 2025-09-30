@@ -65,7 +65,6 @@ component {
 				exlPath,
 				arguments.options.allowList ?: [],
 				arguments.options.blocklist ?: [],
-				false, // useAstForLinesFound
 				false  // writeJsonCache - we handle JSON writing after stats
 			);
 			result = factory.getComponent(name="CoverageStats").calculateCoverageStats(result);

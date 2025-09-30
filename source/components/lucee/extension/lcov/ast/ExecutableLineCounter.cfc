@@ -29,58 +29,88 @@ component accessors="true" {
 	}
 
 	/**
-	* Improved AST executable line counter: only counts unique, valid executable statement lines.
-	* Never returns more executable lines than source lines.
+	* Recursively traverse AST nodes to find all lines that Lucee will track.
+	*
+	* IMPORTANT: We mark any line that has an AST node with a line number.
+	* This represents what Lucee's ResourceExecutionLog will track in .exl files.
+	* The AST naturally only contains nodes for executable code, not empty lines or pure comments.
+	*
+	* @nodes Array of AST nodes to traverse
+	* @executableLines Struct to populate with executable line numbers (passed by reference)
+	*/
+	private void function traverseNodes(required array nodes, required struct executableLines) {
+		for (var i = 1; i <= arrayLen(arguments.nodes); i++) {
+			var node = arguments.nodes[i];
+			if (!isStruct(node)) continue;
+
+			// If this AST node has a line number, Lucee will track it
+			// The AST only contains nodes for actual code, not empty lines or pure comments
+			if (structKeyExists(node, "start") && isStruct(node.start) && structKeyExists(node.start, "line")) {
+				var lineNum = node.start.line;
+				arguments.executableLines[lineNum] = true;
+			}
+
+			// Recursively traverse ALL properties in the node
+			// This ensures we find all executable lines regardless of AST structure
+			for (var key in node) {
+				// Skip metadata properties that don't contain executable code
+				if (key == "start" || key == "end" || key == "type" || key == "sourceLines") {
+					continue;
+				}
+
+				// Skip keys that don't exist or have null values
+				if (!structKeyExists(node, key)) {
+					continue;
+				}
+
+				var value = node[key];
+
+				// Skip null values
+				if (isNull(value)) {
+					continue;
+				}
+
+				// Recursively traverse arrays
+				if (isArray(value)) {
+					traverseNodes(value, arguments.executableLines);
+				}
+				// Recursively traverse nested structs
+				else if (isStruct(value)) {
+					traverseNodes([value], arguments.executableLines);
+				}
+			}
+		}
+	}
+
+	/**
+	* AST-based executable line counter: counts lines that Lucee's ResourceExecutionLog will track.
+	*
+	* IMPORTANT: "Executable line" means a line that Lucee's execution logger tracks in .exl files.
+	* This is determined by:
+	* 1. The line contains an AST node (statement/expression that executes)
+	* 2. The line is not empty and not a pure comment
+	*
+	* This method traverses the AST to find all nodes with line numbers, which represents
+	* what Lucee will actually track during execution. This ensures that coverage data
+	* from .exl files will match our executableLines, preventing linesHit=0 bugs.
+	*
 	* See: https://github.com/lucee/lucee-docs/blob/master/docs/technical-specs/ast.yaml
 	* @ast The AST struct as parsed from JSON.
 	* @throwOnError If true, throw on out-of-range or excess lines; if false, clamp.
 	* @return Struct with count and executableLines map
 	*/
 	public struct function countExecutableLinesFromAst(required struct ast, boolean throwOnError = true) {
-
-		throw "don't use ast for now, use simple line counting";
-
 		var executableLines = {};
 		var sourceLines = [];
 		if (structKeyExists(arguments.ast, "sourceLines")) {
 			sourceLines = arguments.ast.sourceLines;
 		}
 
-		// Only count top-level executable statements in the main script block
-		var mainBlock = [];
-		// Find the main cfscript block (body of the root node)
-		if (structKeyExists(arguments.ast, "body") && isArray(arguments.ast.body) && arrayLen(arguments.ast.body) > 0) {
-			for (var i = 1; i <= arrayLen(arguments.ast.body); i++) {
-				var node = arguments.ast.body[i];
-				if (isStruct(node) && structKeyExists(node, "type") && node.type == "CFMLTag" && structKeyExists(node, "name") && lcase(node.name) == "script" && structKeyExists(node, "body") && isStruct(node.body) && structKeyExists(node.body, "body") && isArray(node.body.body)) {
-					mainBlock = node.body.body;
-					break;
-				}
-			}
-		}
-		// Fallback: if not found, try ast.body directly (for non-cfscript files)
-		if (arrayLen(mainBlock) == 0 && structKeyExists(arguments.ast, "body") && isArray(arguments.ast.body)) {
-			mainBlock = arguments.ast.body;
-		}
-		// Build a set of non-empty, non-comment source lines
-		var validSourceLines = {};
-		for (var i = 1; i <= arrayLen(sourceLines); i++) {
-			var line = trim(sourceLines[i]);
-			if (line == "" || left(line,2) == "//") continue;
-			validSourceLines[i] = true;
-		}
-
-		// Only count top-level executable statements that map to valid source lines
-		for (var i = 1; i <= arrayLen(mainBlock); i++) {
-			var stmt = mainBlock[i];
-			if (isStruct(stmt) && structKeyExists(stmt, "type") && arrayFindNoCase(variables.executableTypes, stmt.type)) {
-				if (structKeyExists(stmt, "start") && isStruct(stmt.start) && structKeyExists(stmt.start, "line")) {
-					var lineNum = stmt.start.line;
-					if (structKeyExists(validSourceLines, lineNum)) {
-						executableLines[lineNum] = true;
-					}
-				}
-			}
+		// Traverse the entire AST recursively to find all lines that Lucee tracks
+		// Each AST node with a line number represents a line Lucee will track in .exl files
+		// The AST naturally excludes empty lines and pure comments
+		if (structKeyExists(arguments.ast, "body") && isArray(arguments.ast.body)) {
+			traverseNodes(arguments.ast.body, executableLines);
 		}
 
 		// Validate or clamp
@@ -117,7 +147,7 @@ component accessors="true" {
 
 	/**
 	* Count non-empty, non-comment lines directly from source lines array.
-	* This is more reliable for LCOV compliance than AST parsing.
+	* @deprecated Use countExecutableLinesFromAst() instead. This method over-counts non-executable lines.
 	* @sourceLines Array of source code lines
 	* @return Struct with count and executableLines map
 	*/

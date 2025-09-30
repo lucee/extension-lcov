@@ -38,12 +38,11 @@ component accessors="true" {
 	* @exlPath Path to the .exl file to parse
 	* @allowList Array of allowed file patterns/paths
 	* @blocklist Array of blocked file patterns/paths
-	* @useAstForLinesFound Whether to use AST for determining executable lines
 	* @writeJsonCache Whether to write a JSON cache file
 	* @return Result object containing sections and fileCoverage data
 	*/
 	public result function parseExlFile(string exlPath,
-		array allowList=[], array blocklist=[], boolean useAstForLinesFound = false, boolean writeJsonCache = false) {
+		array allowList=[], array blocklist=[], boolean writeJsonCache = false) {
 
 		var startTime = getTickCount();
 
@@ -59,7 +58,7 @@ component accessors="true" {
 				var cachedChecksum = structKeyExists(cachedData, "exlChecksum") ? cachedData.exlChecksum : "";
 
 				// Create options hash for comparison
-				var currentOptionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.useAstForLinesFound]), "MD5");
+				var currentOptionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist]), "MD5");
 				var cachedOptionsHash = structKeyExists(cachedData, "optionsHash") ? cachedData.optionsHash : "";
 
 				if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
@@ -139,7 +138,7 @@ component accessors="true" {
 
 		coverage.setMetadata(parseMetadata( metadata ));
 		// Parse files and assign to canonical files struct
-		var parsedFiles = parseFiles( files, exlPath, allowList, blocklist, arguments.useAstForLinesFound );
+		var parsedFiles = parseFiles( files, exlPath, allowList, blocklist );
 		coverage.setFiles(parsedFiles.files);
 		coverage.setFileCoverage(fileCoverage);
 		coverage.setExeLog(exlPath);
@@ -158,7 +157,7 @@ component accessors="true" {
 		}
 
 		// Store options hash for cache validation
-		var optionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.useAstForLinesFound]), "MD5");
+		var optionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist]), "MD5");
 		coverage.setOptionsHash(optionsHash);
 
 		if ( structCount( coverage.getFiles() ) == 0 && arrayLen( coverage.getFileCoverage() ) == 0 ) {
@@ -321,7 +320,7 @@ component accessors="true" {
 	* File parsing with early validation
 	*/
 	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blocklist, boolean useAstForLinesFound = false) {
+			array allowList, array blocklist) {
 
 		var files = {};
 		var skipped = {};
@@ -405,11 +404,8 @@ component accessors="true" {
 				fileWrite( astDebugPath, serializeJSON(var=ast, compact=false) );
 				*/
 
-				if (arguments.useAstForLinesFound) {
-					lineInfo = variables.ast.countExecutableLinesFromAst( ast );
-				} else {
-					lineInfo = variables.ast.countExecutableLinesSimple( sourceLines );
-				}
+				// Always use AST-based counting (matches what Lucee tracks)
+				lineInfo = variables.ast.countExecutableLinesFromAst( ast );
 
 				files[ num ] = {
 					"path": path,

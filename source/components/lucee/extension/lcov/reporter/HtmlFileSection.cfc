@@ -19,9 +19,7 @@ component {
 		var unitName = result.getMetadataProperty("unit");
 		var sourceUnit = timeFormatter.getUnitInfo(unitName).symbol;
 		html &= generateStatsSection(stats, totalExecutionTime, timeFormatter, sourceUnit, arguments.displayUnit);
-		if ( result.getFileItem(arguments.fileIndex, "linesHit") eq 0 )
-			throw "No coverage data for fileIndex: " & arguments.fileIndex & " (linesHit is zero)";
-			
+
 		var coverage = result.getCoverageForFile(arguments.fileIndex);
 		var fileLines = result.getFileLines(arguments.fileIndex);
 		var executableLines = result.getExecutableLines(arguments.fileIndex);

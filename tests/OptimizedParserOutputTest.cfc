@@ -49,7 +49,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var testFiles = directoryList(variables.stableTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
-							var parserResult = stableParser.parseExlFile(testExlFile, [], [], false, true); // writeJsonCache=true
+							var parserResult = stableParser.parseExlFile(exlPath=testExlFile, allowList=[], blocklist=[], writeJsonCache=true);
 
 							expect(isInstanceOf(parserResult, "lucee.extension.lcov.model.result")).toBeTrue();
 							expect(parserResult.getMetadata()).notToBeEmpty();
@@ -63,7 +63,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 						var testFiles = directoryList(variables.developTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
-							var parserResult = developParser.parseExlFile(testExlFile, [], [], false, true); // writeJsonCache=true
+							var parserResult = developParser.parseExlFile(exlPath=testExlFile, allowList=[], blocklist=[], writeJsonCache=true);
 
 							expect(isInstanceOf(parserResult, "lucee.extension.lcov.model.result")).toBeTrue();
 							expect(parserResult.getMetadata()).notToBeEmpty();

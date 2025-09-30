@@ -31,13 +31,13 @@ set testExcludeDefault=true
 set HTTPBIN_PORT=
 set HTTPBIN_SERVER=noexist
 SET LUCEE_CASCADING_WRITE_TO_VARIABLES_LOG=deloy
-SET LUCEE_JAR=
-REM D:\work\lucee7\loader\target\lucee-7.0.1.7-SNAPSHOT.jar
+SET LUCEE_JAR=D:\work\lucee7\loader\target\lucee-7.0.1.8-SNAPSHOT.jar
 
 if exist tests\generated-artifacts rmdir /s /q tests\generated-artifacts
+if exist d:\tmp\LDEV-5858 rmdir /s /q d:\tmp\LDEV-5858
 
 rem Run tests using script-runner (use proper ant syntax)
-ant -buildfile="d:\work\script-runner\build.xml" -Dwebroot="d:\work\lucee7\test" -Dexecute="bootstrap-tests.cfm" -DtestHideJavaStack="true" -DextensionDir="D:\work\lucee-extensions\extension-lcov\target" -DluceeVersionQuery="7/all/light" -DtestAdditional="d:\work\lucee-extensions\extension-lcov\tests" -DluceeJar="%LUCEE_JAR%"
+ant -buildfile="d:\work\script-runner\build.xml" -Dwebroot="d:\work\lucee7\test" -Dexecute="bootstrap-tests.cfm" -DtestHideJavaStack="false" -DextensionDir="D:\work\lucee-extensions\extension-lcov\target"  -DtestAdditional="d:\work\lucee-extensions\extension-lcov\tests" -DluceeJar="%LUCEE_JAR%" -DuniqueWorkingDir="d:\tmp\LDEV-5858" -DpostCleanup="false"
 
 echo.
 echo Test run complete!

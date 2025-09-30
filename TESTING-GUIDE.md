@@ -26,6 +26,13 @@ Leave artifacts in place for review. Use `GenerateTestData` component in `before
 - Only check for the existence of public methods (public API), not private methods
 - Admin password is stored in `request.SERVERADMINPASSWORD`, but only when using script-runner and the lucee bootstrap-tests.cfm runner
 
+### Logging
+
+Debug logging is great for figuring out problems, make sure the logging has enough context, but isn't verbose. prefix the log message with the method name, `"mergeFiles: file [/path/to/file] doesn't exist!`
+
+Always add a `variables.debug` = boolean flag to `beforeAll()`. Wrap all `systemOutput()` in a `if (variables.debug)` block, that way we can easily enable debugging when needed, but avoid verbose test output.
+
+
 ### Testing Tips
 
 - In `expect()` assertions, use the actual result value as the message instead of custom text. This provides actionable feedback showing exactly what the test received when it fails:

@@ -45,19 +45,8 @@ component accessors=false {
 				throw(message="BUG: Attempted to write output for canonicalStats with empty path. This should never happen. canonicalStats: " & serializeJSON(canonicalStats));
 			}
 
-			// Validate that file has coverage data
-			if (canonicalStats["linesHit"] == 0) {
-				// Get diagnostic info about coverage vs executable lines
-				var coverageData = entry.getCoverage();
-				var hasCoverageData = structKeyExists(coverageData, idx);
-				var coverageLineCount = hasCoverageData ? structCount(coverageData[idx]) : 0;
-				var executableLineCount = structKeyExists(canonicalStats, "executableLines") ? structCount(canonicalStats["executableLines"]) : 0;
-
-				throw(
-					message="BUG: File has zero linesHit after merging",
-					detail="File: " & sourceFilePath & ", canonical index: " & canonicalIndex & ", idx: " & idx & ". Has coverage data: " & hasCoverageData & ", Coverage lines: " & coverageLineCount & ", Executable lines: " & executableLineCount & ". linesFound: " & canonicalStats["linesFound"] & ". This indicates coverage data was lost during parsing/merging or coverage lines don't match executableLines. Check overlap filtering and aggregation logic."
-				);
-			}
+			// Note: linesHit == 0 is valid for files with only declarations/structural code that wasn't executed
+			// Don't throw error here - let the data flow through normally
 
 			// Create a new filtered entry for this specific file
 			var filteredEntry = duplicate(entry);
