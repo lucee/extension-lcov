@@ -21,6 +21,10 @@ component accessors="true" {
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor");
 		variables.ast = new ast.ExecutableLineCounter(arguments.options);
+		variables.callTreeAnalyzer = new ast.CallTreeAnalyzer();
+
+		// Cache for file analysis (AST + executable lines) to avoid regenerating across .exl files
+		variables.fileAnalysisCache = {};
 		return this;
 	}
 
@@ -79,61 +83,62 @@ component accessors="true" {
 			}
 		}
 
-		var lines = [];
+		// OPTIMIZATION: Use BufferedReader to parse metadata/files sections without loading entire file
+		var section = 0; // 0=metadata, 1=files, 2=coverage
+		var emptyLineCount = 0;
+		var metadata = [];
+		var files = [];
+		var coverageStartByte = 0;
+		var start = getTickCount();
+
 		try {
-			lines = listToArray(fileRead(arguments.exlPath), chr(10), true, false);
+			var reader = createObject("java", "java.io.BufferedReader").init(
+				createObject("java", "java.io.FileReader").init(arguments.exlPath)
+			);
+
+			try {
+				var bytesRead = 0;
+				var line = "";
+
+				while (true) {
+					line = reader.readLine();
+					if (isNull(line)) break;
+
+					var lineLength = len(line) + 1; // +1 for newline character
+
+					if (len(line) == 0) {
+						emptyLineCount++;
+						if (emptyLineCount == 1) {
+							section = 1; // Start files section
+						} else if (emptyLineCount == 2) {
+							// Found start of coverage section
+							coverageStartByte = bytesRead + lineLength;
+							break; // Stop reading - we have metadata and files
+						}
+					} else {
+						if (section == 0) {
+							arrayAppend(metadata, line);
+						} else if (section == 1) {
+							arrayAppend(files, line);
+						}
+					}
+
+					bytesRead += lineLength;
+				}
+			} finally {
+				reader.close();
+			}
+
+			logger("Parsed metadata and files sections in " & numberFormat(getTickCount() - start) & "ms. Coverage starts at byte " & numberFormat(coverageStartByte));
 		} catch (any e) {
 			logger("Error reading file [" & arguments.exlPath & "]: " & e.message);
 			// Return empty result object instead of plain struct
 			var emptyResult = new lucee.extension.lcov.model.result();
 			emptyResult.setMetadata({});
 			emptyResult.setFiles({});
-			emptyResult.setFileCoverage([]);
 			emptyResult.setExeLog(arguments.exlPath);
 			return emptyResult;
 		}
-
-		// cleanup, the last row is often empty
-		if (arrayLen(lines) > 0 && len(trim(lines[arrayLen(lines)])) == 0) {
-			arrayDeleteAt(lines, arrayLen(lines));
-		}
-
-		var section = 0; // 0=metadata, 1=files, 2=coverage
-		var emptyLineCount = 0;
-		var metadata = [];
-		var files = [];
-		var fileCoverage = [];
-		var totalLines = arrayLen( lines );
-		var start = getTickCount();
-		logger("Starting to process " & totalLines & " lines from [" & arguments.exlPath & "]...");
-
-		for ( var i = 1; i <= totalLines; i++ ) {
-			var line = lines[i];
-			if ( len( line ) === 0 ) {
-				emptyLineCount++;
-				if ( emptyLineCount === 1 ) {
-					section = 1; // Start files section
-				} else if ( emptyLineCount === 2 ) {
-					section = 2; // Start coverage section - use arraySlice for performance
-					// Fix: Check if there are lines remaining before slicing
-					if (i < totalLines) {
-						fileCoverage = arraySlice(lines, i + 1, totalLines - i);
-					} else {
-						fileCoverage = []; // No coverage data
-						logger("WARNING: No coverage data found in execution log file [#arguments.exlPath#]. This typically occurs when the request failed or threw an error.");
-					}
-					break; // Bail out - we have everything we need
-				}
-			} else {
-				if ( section === 0 ) {
-					arrayAppend( metadata, line );
-				} else if ( section === 1 ) {
-					arrayAppend( files, line );
-				}
-			}
-		}
-		logger("Processed " & totalLines & " lines in " & numberFormat(getTickCount() - start, "0.0") & "ms");
-		lines = ""; // free memory
 3
 		var coverage = new lucee.extension.lcov.model.result();
 
@@ -141,8 +146,8 @@ component accessors="true" {
 		// Parse files and assign to canonical files struct
 		var parsedFiles = parseFiles( files, exlPath, allowList, blocklist );
 		coverage.setFiles(parsedFiles.files);
-		coverage.setFileCoverage(fileCoverage);
 		coverage.setExeLog(exlPath);
+		coverage.setCoverageStartByte(coverageStartByte); // Store byte offset for streaming aggregation
 
 		// Calculate and store checksum of the .exl file to detect reprocessing
 		if (fileExists(exlPath)) {
@@ -161,19 +166,18 @@ component accessors="true" {
 		var optionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist]), "MD5");
 		coverage.setOptionsHash(optionsHash);
 
-		if ( structCount( coverage.getFiles() ) == 0 && arrayLen( coverage.getFileCoverage() ) == 0 ) {
-			logger("Skipping file with empty files and fileCoverage: [" & exlPath & "]");
+		if ( structCount( coverage.getFiles() ) == 0 || coverageStartByte == 0 ) {
+			logger("Skipping file with empty files or no coverage data: [" & exlPath & "]");
 			// Return the empty coverage result object instead of plain struct
 			return coverage;
 		}
 
 		// OPTIMIZATION: Pre-aggregate coverage data before expensive processing
-		parseCoverage( coverageData=coverage, includeCallTree=arguments.includeCallTree );
+		parseCoverage( coverageData=coverage, callTreeAnalyzer=variables.callTreeAnalyzer, includeCallTree=arguments.includeCallTree );
 
 		var totalTime = getTickCount() - startTime;
 		logger("Files: " & structCount( coverage.getFiles() ) &
-			//", skipped files: " & len( coverage.source.skipped ) & "] skipped" &
-			", raw rows: " & numberFormat(arrayLen( coverage.getFileCoverage() )) &
+			", coverage parsed from byte offset: " & numberFormat(coverageStartByte) &
 			", in " & numberFormat(totalTime ) & "ms");
 
 		// Write JSON cache if requested
@@ -191,10 +195,8 @@ component accessors="true" {
 	/**
 	* Combine identical coverage entries before line processing
 	*/
-	private struct function parseCoverage( result coverageData, boolean includeCallTree = false) {
-		var totalLines = arrayLen(arguments.coverageData.getFileCoverage());
+	private struct function parseCoverage( result coverageData, required any callTreeAnalyzer, boolean includeCallTree = false) {
 		var files = arguments.coverageData.getFiles();
-		var fileCoverage = arguments.coverageData.getFileCoverage();
 		var exlPath = arguments.coverageData.getExeLog();
 		var start = getTickCount();
 
@@ -207,16 +209,18 @@ component accessors="true" {
 			validFileIds[fileIdx] = true; // Pre-compute valid fileIdx lookup
 		}
 
-		// STAGE 1: Pre-aggregate identical coverage entries using optimized chunked parallel approach
+		// STAGE 1: Pre-aggregate identical coverage entries using optimized streaming parallel approach
 		var aggregator = new lucee.extension.lcov.CoverageAggregator();
-		var aggregationResult = aggregator.aggregateChunked(fileCoverage, validFileIds, totalLines);
+		var aggregationResult = aggregator.aggregateStreaming(exlPath, validFileIds);
+
+		if (variables.verbose) {
+			logger("Aggregation result type: " & getMetadata(aggregationResult).name);
+			logger("Aggregation result keys: " & structKeyList(aggregationResult));
+		}
 
 		var exclusionStart = getTickCount();
 		if (variables.verbose) {
-			var beforeEntities = 0;
-			for (var key in aggregationResult.aggregated) {
-				beforeEntities += structCount(aggregationResult.aggregated[key]);
-			}
+			var beforeEntities = structCount(aggregationResult.aggregated);
 			logger("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
 		}
 
@@ -224,10 +228,7 @@ component accessors="true" {
 		var overlapFilter = variables.factory.getComponent(name="OverlapFilterPosition");
 		aggregationResult.aggregated = overlapFilter.filter(aggregationResult.aggregated, files, lineMappingsCache);
 		if (variables.verbose) {
-			var remaining = 0;
-			for (var key in aggregationResult.aggregated) {
-				remaining += structCount(aggregationResult.aggregated[key]);
-			}
+			var remaining = structCount(aggregationResult.aggregated);
 			logger("After excluding overlapping blocks, remaining aggregated entries: "
 				& numberFormat(remaining) & " (took "
 				& numberFormat(getTickCount() - exclusionStart) & "ms)");
@@ -236,9 +237,8 @@ component accessors="true" {
 		// STAGE 1.6: Call tree analysis using AST
 		var callTreeStart = getTickCount();
 		var callTreeData = {};
-		var callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer();
-		var callTreeResult = callTreeAnalyzer.analyzeCallTree(aggregationResult.aggregated, files);
-		var callTreeMetrics = callTreeAnalyzer.getCallTreeMetrics(callTreeResult);
+		var callTreeResult = arguments.callTreeAnalyzer.analyzeCallTree(aggregationResult.aggregated, files);
+		var callTreeMetrics = arguments.callTreeAnalyzer.getCallTreeMetrics(callTreeResult);
 
 		callTreeData = {
 			"callTree": callTreeResult.blocks,
@@ -309,28 +309,16 @@ component accessors="true" {
 		coverage = callTreeLineMapper.enrichCoverageWithCallTree(coverage, lineCallTree);
 
 		var totalTime = getTickCount() - start;
-		var timePerOriginalLine = totalLines > 0 ? numberFormat((totalTime / totalLines), "0.00") : "0";
 		var timePerAggregatedEntry = aggregationResult.aggregatedEntries > 0 ? numberFormat((processingTime / aggregationResult.aggregatedEntries), "0.00") : "0";
-
-		/*
-		logger("Processing " & numberFormat(aggregatedEntries)
-			& " aggregated entries completed in " & numberFormat(processingTime)
-			& "ms (" & timePerAggregatedEntry & "ms per entry), "
-			& "Total time:" & numberFormat(totalTime) & "ms, (" & timePerOriginalLine
-			& "ms per original line)");
-		*/
 
 		// Store performance data to be added at main level
 		coverageData.setParserPerformance({
 			"processingTime": totalTime,
-			"timePerLine": timePerOriginalLine,
-			"totalLines": totalLines,
-			"optimizationsApplied": ["pre-aggregation", "array-storage", "reference-variables", "direct-chr9", "ast-call-tree"],
+			"timePerEntry": timePerAggregatedEntry,
+			"optimizationsApplied": ["pre-aggregation", "array-storage", "reference-variables", "direct-chr9", "ast-call-tree", "streaming-aggregation"],
 			"preAggregation": {
-				"originalEntries": totalLines,
 				"aggregatedEntries": aggregationResult.aggregatedEntries,
 				"duplicatesFound": aggregationResult.duplicateCount,
-				"reductionPercent": aggregationResult.reductionPercent,
 				"aggregationTime": aggregationResult.aggregationTime,
 				"processingTime": processingTime,
 				"timePerAggregatedEntry": timePerAggregatedEntry

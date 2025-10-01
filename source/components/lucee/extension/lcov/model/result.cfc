@@ -9,9 +9,9 @@ component accessors=true {
 	property name="exeLog" type="string" default=""; // file path of the .exl used to generate this result
 	property name="exlChecksum" type="string" default=""; // checksum of the .exl file to detect reprocessing
 	property name="optionsHash" type="string" default=""; // hash of parsing options to detect option changes
+	property name="coverageStartByte" type="numeric" default="0"; // byte offset where coverage section starts in .exl file
 	property name="outputFilename" type="string" default=""; // name of the output, without an file extension
 	property name="parserPerformance" type="struct" default="#{}#";
-	property name="fileCoverage" type="array" default="#[]#";
 	property name="callTree" type="struct" default="#{}#"; // call tree analysis data
 	property name="callTreeMetrics" type="struct" default="#{}#"; // call tree summary metrics
 	property name="isFile" type="boolean" default="false"; // true if this is a file-level result (merged), false if request-level
@@ -236,15 +236,8 @@ component accessors=true {
 	/**
 	 * Serializes the result model to JSON.
 	 * @pretty Whether to format the JSON with indentation
-	 * @excludeFileCoverage Whether to exclude the raw fileCoverage array from serialization (default false for backward compatibility)
 	 */
-	public string function toJson(boolean pretty=true, boolean excludeFileCoverage=false) {
-		if (arguments.excludeFileCoverage) {
-			// Create a copy without fileCoverage
-			var data = this.getData();
-			structDelete(data, "fileCoverage");
-			return serializeJSON(var=data, compact=!arguments.pretty);
-		}
+	public string function toJson(boolean pretty=true) {
 		return serializeJSON(var=this, compact=!arguments.pretty);
 	}
 

@@ -155,7 +155,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 
-			it("remaps fileCoverage lines to canonical index (mergeFileCoverageArray, synthetic)", function() {
+			xit("remaps fileCoverage lines to canonical index (mergeFileCoverageArray, synthetic) - SKIPPED: fileCoverage removed", function() {
 				var merger = variables.factory.getComponent(name="CoverageMerger");
 				// Create synthetic source and target result objects
 				var targetResult = new lucee.extension.lcov.model.result();

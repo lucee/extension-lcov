@@ -63,18 +63,6 @@ component accessors=false {
 			}
 			filteredEntry.setCoverage(filteredCoverage);
 
-			// Filter fileCoverage array to only include entries for this file
-			var originalFileCoverage = entry.getFileCoverage();
-			var filteredFileCoverage = [];
-			for (var fcEntry in originalFileCoverage) {
-				if (structKeyExists(fcEntry, "fileIndex") && fcEntry.fileIndex == idx) {
-					var newFcEntry = duplicate(fcEntry);
-					newFcEntry.fileIndex = 0; // Remap to 0 since this is now the only file
-					arrayAppend(filteredFileCoverage, newFcEntry);
-				}
-			}
-			filteredEntry.setFileCoverage(filteredFileCoverage);
-
 			// Set stats to this file's specific stats
 			filteredEntry.stats = duplicate(canonicalStats);
 

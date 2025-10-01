@@ -9,6 +9,9 @@
  */
 component {
 
+	// Cache for per-file call extraction to avoid repeated AST analysis across .exl files
+	variables.fileCallCache = {};
+
 	/**
 	 * Analyzes execution blocks to identify which represent child time
 	 * @aggregated The aggregated execution blocks (position-based format)
@@ -41,11 +44,12 @@ component {
 		var callsMap = {};
 		var fileCount = 0;
 		var totalFiles = structCount(arguments.files);
+		var cacheHits = 0;
+		var cacheMisses = 0;
 
 		for (var fileIdx in arguments.files) {
 			var file = arguments.files[fileIdx];
 			fileCount++;
-			var fileStart = getTickCount();
 
 			// Skip if no AST available (this can happen for dynamic or generated files)
 			if (!structKeyExists(file, "ast") || !isStruct(file.ast)) {
@@ -55,30 +59,59 @@ component {
 				continue;
 			}
 
-			// Extract all functions to get their calls
-			var functions = arguments.astCallAnalyzer.extractFunctions(file.ast);
-			var fileTime = getTickCount() - fileStart;
+			var filePath = structKeyExists(file, "path") ? file.path : fileIdx;
+			var fileStart = getTickCount();
+			var fileCalls = [];
 
-			systemOutput("CallTree: File " & fileCount & "/" & totalFiles
-				& " took " & numberFormat(fileTime) & "ms: " & file.path, true);
+			// Check cache first (only use cache if we have a real file path)
+			if (structKeyExists(file, "path") && structKeyExists(variables.fileCallCache, filePath)) {
+				fileCalls = variables.fileCallCache[filePath];
+				cacheHits++;
+			} else {
+				// Cache miss - extract calls from AST
+				cacheMisses++;
 
-			// Collect all calls from all functions (excluding built-in functions)
-			for (var func in functions) {
-				if (structKeyExists(func, "calls") && isArray(func.calls)) {
-					for (var call in func.calls) {
-						// Skip built-in functions - they're part of normal execution, not child time
-						var isBuiltIn = structKeyExists(call, "isBuiltIn") ? call.isBuiltIn : false;
-						if (!isBuiltIn && structKeyExists(call, "position") && call.position > 0) {
-							var key = arrayToList([fileIdx, call.position], chr(9));
-							call.fileIdx = fileIdx;
-							callsMap[key] = call;
+				// Extract all functions to get their calls
+				var functions = arguments.astCallAnalyzer.extractFunctions(file.ast);
+
+				// Collect all calls from all functions (excluding built-in functions)
+				for (var func in functions) {
+					if (structKeyExists(func, "calls") && isArray(func.calls)) {
+						for (var call in func.calls) {
+							// Skip built-in functions - they're part of normal execution, not child time
+							var isBuiltIn = structKeyExists(call, "isBuiltIn") ? call.isBuiltIn : false;
+							if (!isBuiltIn && structKeyExists(call, "position") && call.position > 0) {
+								arrayAppend(fileCalls, {
+									position: call.position,
+									type: call.type,
+									name: call.name,
+									isBuiltIn: false
+								});
+							}
 						}
 					}
 				}
+
+				// Also extract CFML tags and top-level function calls directly from the AST body
+				extractCFMLTagsAndCalls(file.ast, fileCalls);
+
+				// Store in cache (only if we have a real file path)
+				if (structKeyExists(file, "path")) {
+					variables.fileCallCache[filePath] = fileCalls;
+				}
 			}
 
-			// Also extract CFML tags and top-level function calls directly from the AST body
-			extractCFMLTagsAndCalls(file.ast, fileIdx, callsMap);
+			// Add file calls to callsMap with current fileIdx
+			for (var call in fileCalls) {
+				var key = arrayToList([fileIdx, call.position], chr(9));
+				callsMap[key] = {
+					fileIdx: fileIdx,
+					position: call.position,
+					type: call.type,
+					name: call.name,
+					isBuiltIn: call.isBuiltIn
+				};
+			}
 		}
 
 		return callsMap;
@@ -88,7 +121,7 @@ component {
 	/**
 	 * Extract CFML tags and function calls from AST nodes
 	 */
-	private void function extractCFMLTagsAndCalls(required any node, required string fileIdx, required struct callsMap) {
+	private void function extractCFMLTagsAndCalls(required any node, required array fileCalls) {
 		if (isStruct(arguments.node)) {
 			// Check if this is a CFML tag
 			if (structKeyExists(arguments.node, "type")) {
@@ -120,17 +153,13 @@ component {
 						}
 					}
 
-					if (!isBuiltIn) {
-						if (position > 0) {
-							var key = arrayToList([arguments.fileIdx, position], chr(9));
-							arguments.callsMap[key] = {
-								fileIdx: arguments.fileIdx,
-								position: position,
-								type: "CallExpression",
-								name: callName,
-								isBuiltIn: false
-							};
-						}
+					if (!isBuiltIn && position > 0) {
+						arrayAppend(arguments.fileCalls, {
+							position: position,
+							type: "CallExpression",
+							name: callName,
+							isBuiltIn: false
+						});
 					}
 				}
 				// Check for CFML tags
@@ -156,15 +185,13 @@ component {
 						}
 
 						if (position > 0) {
-							var key = arrayToList([arguments.fileIdx, position], chr(9));
-							arguments.callsMap[key] = {
-								fileIdx: arguments.fileIdx,
+							arrayAppend(arguments.fileCalls, {
 								position: position,
 								type: "CFMLTag",
 								name: fullName,
 								tagName: tagName,
 								isBuiltIn: arguments.node.isBuiltIn ?: false
-							};
+							});
 						}
 					}
 				}
@@ -173,13 +200,13 @@ component {
 			// Recursively search children
 			for (var key in arguments.node) {
 				if (!listFindNoCase("type,name,fullname,start,end", key) && !isNull(arguments.node[key])) {
-					extractCFMLTagsAndCalls(arguments.node[key], arguments.fileIdx, arguments.callsMap);
+					extractCFMLTagsAndCalls(arguments.node[key], arguments.fileCalls);
 				}
 			}
 		}
 		else if (isArray(arguments.node)) {
 			for (var item in arguments.node) {
-				extractCFMLTagsAndCalls(item, arguments.fileIdx, arguments.callsMap);
+				extractCFMLTagsAndCalls(item, arguments.fileCalls);
 			}
 		}
 	}

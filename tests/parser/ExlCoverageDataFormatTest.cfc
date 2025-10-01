@@ -25,7 +25,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			systemOutput("Analyzing file: " & listLast(file, "\/"), true);
 			
 			var result = variables.parser.parseExlFile(file);
-			
+
 			// Skip files with no coverage data
 			var fileCoverage = result.getFileCoverage();
 			if (arrayLen(fileCoverage) == 0) {
@@ -121,34 +121,4 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		systemOutput("========================================", true);
 	}
 	
-	function testCoverageLineStructure() {
-		// Testing coverage line structure and data types
-		
-		var files = directoryList(variables.testData.coverageDir, false, "path", "*.exl");
-		expect(arrayLen(files)).toBeGT(0, "Should find some .exl files");
-		
-		var sampleFile = files[1];
-		var result = variables.parser.parseExlFile(sampleFile);
-		
-		var fileCoverage = result.getFileCoverage();
-		if (arrayLen(fileCoverage) > 0) {
-			var firstLine = fileCoverage[1];
-			var parts = listToArray(firstLine, chr(9), false, false);
-			
-			expect(parts).toHaveLength(4, "Coverage line should have exactly 4 tab-separated parts");
-			
-			// Test that parts are in expected format
-			expect(parts[1]).toBeNumeric("File index should be numeric");
-			expect(parts[2]).toBeNumeric("Start position should be numeric");
-			expect(parts[3]).toBeNumeric("End position should be numeric");
-			expect(parts[4]).toBeNumeric("Execution time should be numeric");
-			
-			// Test position ordering
-			expect(parts[3]).toBeNumeric("End position should be numeric");
-			expect(parts[2]).toBeNumeric("Start position should be numeric");
-			expect(parts[3]).toBeGTE(parts[2], "End position should be >= start position");
-			
-			// Sample coverage line structure verified
-		}
-	}
 }

@@ -164,7 +164,6 @@ component {
 					var mergedLines = mergeCoverageData(arguments.mergedResults[canonicalIndex], sourceFileCoverage, sourceFilePath, 0);
 					arguments.totalMergeOperations += mergedLines;
 				}
-				// NOTE: Eliminated mergeFileCoverageArray call - no longer needed since we use processed coverage data
 				arrayAppend(arguments.sourceFileStats[canonicalIndex].exlFiles, exlFileName);
 			}
 		}
@@ -384,44 +383,6 @@ component {
 		return linesMerged;
 	}
 
-	/**
-	 * DEPRECATED: No longer used - replaced by processing structured coverage data directly.
-	 * This function was causing performance bottlenecks due to arrayAppend() operations on large datasets.
-	 *
-	 * Remap fileCoverage array lines to canonical file path for downstream consumers.
-	 * Only lines matching the canonical fileIndex (always 0 internally) are allowed.
-	 * Fails fast if any line has an unexpected fileIndex value.
-	 */
-	public void function mergeFileCoverageArray(required result targetResult, required result sourceResult,
-			required string fileIndex, numeric mergedFileIndex = 0, string sourceFilePath = "") {
-		if (!isArray(sourceResult.getFileCoverage())) {
-			return;
-		}
-
-		var sourceArray = sourceResult.getFileCoverage();
-		var tempArray = [];
-
-		// Build temporary array with optimized string replacement (much faster than listToArray/arrayToList)
-		for (var i = 1; i <= arrayLen(sourceArray); i++) {
-			var coverageLine = sourceArray[i];
-			var tabPos = find(chr(9), coverageLine);
-			if (tabPos == 0) {
-				throw(
-					"mergeFileCoverageArray: Malformed fileCoverage line: [" & coverageLine & "]. " &
-					"Expected format: <fileIndex>\\t<startLine>\\t<endLine>\\t<hitCount> (4 tab-separated columns). " &
-					"No tab separator found.",
-					"CoverageDataError"
-				);
-			}
-			// Replace first column (fileIndex) with "0" using fast string operations
-			arrayAppend(tempArray, "0" & mid(coverageLine, tabPos, len(coverageLine)));
-		}
-
-		// Single bulk append operation - much faster than individual appends
-		var targetArray = targetResult.getFileCoverage();
-		arrayAppend(targetArray, tempArray, true);
-		targetResult.setFileCoverage(targetArray);
-	}
 
 	private struct function initializeMergedStructure(required any firstResult) {
 		var merged = {};
@@ -432,7 +393,6 @@ component {
 			if (!structKeyExists(merged, fileIndex)) {
 				var resultCopy = duplicate(arguments.firstResult);
 				resultCopy.setCoverage({});
-				resultCopy.setFileCoverage([]);
 				merged[fileIndex] = resultCopy;
 			}
 		}
@@ -479,15 +439,10 @@ component {
 					var sourceCoverage = currentCoverage[fileIndex];
 					mergeCoverageData(targetResult, sourceCoverage, filePath, targetIndex);
 				}
-
-				// Merge fileCoverage array
-				var targetResult = arguments.mergedResults[targetIndex];
-				mergeFileCoverageArray(targetResult, arguments.currentResult, fileIndex, targetIndex, filePath);
 			} else {
 				// First time seeing this file, create entry in merged results
 				var resultCopy = duplicate(arguments.currentResult);
 				resultCopy.setCoverage({});
-				resultCopy.setFileCoverage([]);
 				resultCopy.setIsFile(true); // Mark this as a file-level merged result
 				arguments.mergedResults[targetIndex] = resultCopy;
 
@@ -496,7 +451,6 @@ component {
 					var sourceCoverage = currentCoverage[fileIndex];
 					mergeCoverageData(arguments.mergedResults[targetIndex], sourceCoverage, filePath, targetIndex);
 				}
-				mergeFileCoverageArray(arguments.mergedResults[targetIndex], arguments.currentResult, fileIndex, targetIndex, filePath);
 			}
 		}
 	}

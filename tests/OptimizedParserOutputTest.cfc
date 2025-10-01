@@ -184,14 +184,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 							if (structKeyExists(stableData, "stats")) stableModel.setStats(stableData.stats);
 							if (structKeyExists(stableData, "coverage")) stableModel.setCoverage(stableData.coverage);
 							if (structKeyExists(stableData, "files")) stableModel.setFiles(stableData.files);
-							if (structKeyExists(stableData, "fileCoverage")) stableModel.setFileCoverage(stableData.fileCoverage);
 							if (structKeyExists(stableData, "exeLog")) stableModel.setExeLog(stableData.exeLog);
 							var developModel = new lucee.extension.lcov.model.result();
 							if (structKeyExists(developData, "metadata")) developModel.setMetadata(developData.metadata);
 							if (structKeyExists(developData, "stats")) developModel.setStats(developData.stats);
 							if (structKeyExists(developData, "coverage")) developModel.setCoverage(developData.coverage);
 							if (structKeyExists(developData, "files")) developModel.setFiles(developData.files);
-							if (structKeyExists(developData, "fileCoverage")) developModel.setFileCoverage(developData.fileCoverage);
 							if (structKeyExists(developData, "exeLog")) developModel.setExeLog(developData.exeLog);
 							compareHighLevelStructure(stableModel, developModel);
 						} catch (any e) {
@@ -264,8 +262,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(structCount(stableFiles)).toBe(structCount(developFiles));
 		// Coverage structures should have same number of file entries
 		expect(structCount(stableData.getCoverage())).toBe(structCount(developData.getCoverage()));
-		// FileCoverage arrays should have same length
-		expect(arrayLen(stableData.getFileCoverage())).toBe(arrayLen(developData.getFileCoverage()));
 	}
 
 	private function compareMetadata(required struct stableMeta, required struct developMeta) {

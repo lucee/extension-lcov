@@ -26,14 +26,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			//expect(result.validate(throw=false)).toBeEmpty();
 			expect(result.getFiles()).notToBeEmpty("Files should not be empty for " & file);
 			expect(result.getCoverage()).notToBeEmpty("Coverage should not be empty for " & file);
-			expect(result.getFileCoverage()).notToBeEmpty("File coverage should not be empty for " & file);
 			expect(result.getExeLog()).notToBeEmpty("ExeLog should not be empty for " & file);
 			expect(result.getMetadata()).notToBeEmpty("Metadata	 should not be empty for " & file);
 
 			var keys = {
 				"metadata": "struct",
-				"coverage": "struct", 
-				"fileCoverage": "array",
+				"coverage": "struct",
 				"exelog": "string",
 				"stats": "struct",
 				"files": "struct"
