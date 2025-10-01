@@ -2,17 +2,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
-		
+		variables.logLevel = "info";
+
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovGenerateAllReportsTest");
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword=variables.adminPassword
 		);
 		variables.testLogDir = variables.testData.coverageDir;
-		variables.tempDir = variables.testDataGenerator.getOutputDir();
-		
-		variables.outputDir = variables.tempDir & "/output";
-		directoryCreate(variables.outputDir);
+		variables.outputDir = variables.testDataGenerator.getOutputDir( "output" );
 	}
 
 	
@@ -24,8 +22,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testGenerateAllReportsMinimal() {
 		// Given
 		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.outputDir & "/minimal";
-		directoryCreate(outputDir);
+		var outputDir = variables.testDataGenerator.getOutputDir( "minimal" );
 		
 		// When
 		var result = lcovGenerateAllReports(
@@ -51,8 +48,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testGenerateAllReportsWithOptions() {
 		// Given
 		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.outputDir & "/with-options";
-		directoryCreate(outputDir);
+		var outputDir = variables.testDataGenerator.getOutputDir( "with-options" );
 		var options = {
 			displayUnit: "milli",
 			chunkSize: 25000
@@ -78,8 +74,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testGenerateAllReportsWithFiltering() {
 		// Given
 		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.outputDir & "/filtered";
-		directoryCreate(outputDir);
+		var outputDir = variables.testDataGenerator.getOutputDir( "filtered" );
 		var options = {
 			allowList: ["/test"],
 			blocklist: ["/vendor", "/testbox"]
@@ -121,10 +116,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 */
 	function testGenerateAllReportsWithEmptyLogDir() {
 		// Given
-		var emptyLogDir = variables.tempDir & "/empty-logs";
-		directoryCreate(emptyLogDir);
-		var outputDir = variables.outputDir & "/empty";
-		directoryCreate(outputDir);
+		var emptyLogDir = variables.testDataGenerator.getOutputDir( "empty-logs" );
+		var outputDir = variables.testDataGenerator.getOutputDir( "empty" );
 		
 		// When
 		var result = lcovGenerateAllReports(
@@ -143,8 +136,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testGenerateAllReportsReturnStructure() {
 		// Given
 		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.outputDir & "/structure-test";
-		directoryCreate(outputDir);
+		var outputDir = variables.testDataGenerator.getOutputDir( "structure-test" );
 		
 		// When
 		var result = lcovGenerateAllReports(

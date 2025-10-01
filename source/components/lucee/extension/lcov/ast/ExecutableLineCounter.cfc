@@ -5,9 +5,10 @@ component accessors="true" {
 	* @options Configuration options struct (optional)
 	*/
 	public function init(struct options = {}) {
-		// Store options and extract verbose flag
+		// Store options and initialize logger
 		variables.options = arguments.options;
-		variables.verbose = arguments.options.verbose ?: false;
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 				// List of node types that represent executable statements (expand as needed)
 		variables.executableTypes = [
 			"ExpressionStatement", "IfStatement", "SwitchCase", "WhileStatement", "ForStatement",
@@ -16,16 +17,6 @@ component accessors="true" {
 			"FunctionDeclaration", "CallExpression", "EchoStatement", "IncludeStatement", "SwitchStatement"
 		];
 		return this;
-	}
-
-	/**
-	* Private logging function that respects verbose setting
-	* @message The message to log
-	*/
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -100,6 +91,8 @@ component accessors="true" {
 	* @return Struct with count and executableLines map
 	*/
 	public struct function countExecutableLinesFromAst(required struct ast, boolean throwOnError = true) {
+		var event = variables.logger.beginEvent("ExecutableLineCounter");
+
 		var executableLines = {};
 		var sourceLines = [];
 		if (structKeyExists(arguments.ast, "sourceLines")) {
@@ -125,19 +118,29 @@ component accessors="true" {
 			}
 		}
 		var foundCount = structCount(executableLines);
+
+		event["sourceLines"] = maxLine;
+		event["executableLines"] = foundCount;
+
 		if (arguments.throwOnError) {
 			if (arrayLen(invalidLines) > 0) {
+				event["invalidLines"] = arrayLen(invalidLines);
+				variables.logger.commitEvent(event);
 				throw(message="Executable lines out of range: " & serializeJSON(invalidLines) & " (maxLine=" & maxLine & ")", type="ExecutableLineCounter.OutOfRange");
 			}
 			if (maxLine > 0 && foundCount > maxLine) {
+				variables.logger.commitEvent(event);
 				throw(message="linesFound (" & foundCount & ") exceeds linesSource (" & maxLine & ")", type="ExecutableLineCounter.TooMany");
 			}
+			variables.logger.commitEvent(event);
 			return {
 				"count": foundCount,
 				"executableLines": executableLines
 			};
 		} else {
 			// Clamp: only return valid lines
+			event["filteredLines"] = structCount(filteredLines);
+			variables.logger.commitEvent(event);
 			return {
 				"count": structCount(filteredLines),
 				"executableLines": filteredLines

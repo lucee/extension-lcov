@@ -1,7 +1,8 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
-		variables.debug = false;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		variables.testDataHelper = new "../GenerateTestData"("lcov-writer-synthetic");
 	}
 
@@ -66,17 +67,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter({});
 		var lcovContent = lcovWriter.buildLCOV(mergedCoverage, false);
 
-		if (variables.debug) {
-			systemOutput("Generated LCOV content:", true);
-			systemOutput(lcovContent, true);
-		}
+		variables.logger.debug("Generated LCOV content:");
+		variables.logger.debug(lcovContent);
 
 		// Write LCOV content for inspection
 		var lcovFile = testDir & "/synthetic-merged.lcov";
 		fileWrite(lcovFile, lcovContent);
-		if (variables.debug) {
-			systemOutput("Wrote LCOV to: " & lcovFile, true);
-		}
+		variables.logger.debug("Wrote LCOV to: " & lcovFile);
 
 		// Parse and validate LCOV format
 		var lines = listToArray(lcovContent, chr(10));
@@ -144,10 +141,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Test relative path conversion
 		var lcovContentRelative = lcovWriter.buildLCOV(mergedCoverage, true);
-		if (variables.debug) {
-			systemOutput("Generated LCOV content with relative paths:", true);
-			systemOutput(lcovContentRelative, true);
-		}
+		variables.logger.debug("Generated LCOV content with relative paths:");
+		variables.logger.debug(lcovContentRelative);
 
 		// With relative paths, SF records should not contain full paths
 		var relativeSfLines = [];
@@ -163,11 +158,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(arrayLen(relativeSfLines)).toBe(3, "Should still have 3 SF records with relative path option");
 
 		// Log the actual relative paths for inspection
-		if (variables.debug) {
-			systemOutput("Relative SF paths:", true);
-			for (var sfPath in relativeSfLines) {
-				systemOutput("  " & sfPath, true);
-			}
+		variables.logger.debug("Relative SF paths:");
+		for (var sfPath in relativeSfLines) {
+			variables.logger.debug("  " & sfPath);
 		}
 	}
 

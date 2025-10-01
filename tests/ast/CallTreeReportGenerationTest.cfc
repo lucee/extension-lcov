@@ -1,7 +1,8 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="CallTreeReportGenerationTest" {
 
 	function beforeAll() {
-		variables.debug = false;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		// Use GenerateTestData with test name and ast subfolder
 		variables.testDataGenerator = new "../GenerateTestData"(
 			testName="CallTreeReportGenerationTest",
@@ -15,11 +16,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 		);
 
 		variables.testDir = variables.testData.coverageDir;
-		variables.outputDir = variables.testDir;
-
-		if (!directoryExists(variables.outputDir)) {
-			directoryCreate(variables.outputDir);
-		}
+		variables.outputDir = variables.testDataGenerator.getOutputDir();
 	}
 
 	function afterAll() {
@@ -41,7 +38,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var exlPath = exlFiles[1];
 
 				// Parse the execution log
-				var parser = new lucee.extension.lcov.ExecutionLogParser(verbose: false);
+				var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
 				var result = parser.parseExlFile(
 					exlPath: exlPath,
 					allowList: [],
@@ -55,8 +52,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				// Debug: Write the full result to see what we got
 				var debugPath = variables.outputDir & "/debug-result.json";
 				fileWrite(debugPath, serializeJSON(result));
-				if (variables.debug) systemOutput("Debug result written to: " & debugPath, true);
-				if (variables.debug) systemOutput("CallTree has " & structCount(callTree) & " entries", true);
+				variables.logger.debug("Debug result written to: " & debugPath);
+				variables.logger.debug("CallTree has " & structCount(callTree) & " entries");
 
 				expect(structCount(callTree)).toBeGT(0, "Result should have call tree data");
 
@@ -69,11 +66,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				expect(structKeyExists(metrics, "builtInBlocks")).toBeTrue("Should have builtInBlocks");
 
 				// Create output directory for HTML
-				var htmlOutputDir = variables.outputDir & "/html";
-				if (variables.debug) systemOutput("Creating HTML output directory: " & htmlOutputDir, true);	
-				if (!directoryExists(htmlOutputDir)) {
-					directoryCreate(htmlOutputDir, true);
-				}
+				var htmlOutputDir = variables.testDataGenerator.getOutputDir( "html" );
+				variables.logger.debug( "Creating HTML output directory: " & htmlOutputDir );
 
 				// Generate HTML report using lcovGenerateHtml function
 				var htmlResult = lcovGenerateHtml(
@@ -117,7 +111,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var exlPath = exlFiles[1];
 
 				// Parse the execution log
-				var parser = new lucee.extension.lcov.ExecutionLogParser(verbose: false);
+				var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
 				var result = parser.parseExlFile(
 					exlPath: exlPath,
 					allowList: [],
@@ -126,22 +120,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				);
 
 				// Create output directory for separate HTML files
-				var htmlOutputDir = variables.outputDir & "/html-separate";
-				if (variables.debug) systemOutput("Creating HTML output directory for separate files: " & htmlOutputDir, true);
-				if (!directoryExists(htmlOutputDir)) {
-					directoryCreate(htmlOutputDir, true);
-				}
+				var htmlOutputDir = variables.testDataGenerator.getOutputDir( "html-separate" );
+				variables.logger.debug( "Creating HTML output directory for separate files: " & htmlOutputDir );
 
 				// Generate HTML report with separateFiles: true
-				if (variables.debug) systemOutput("Generating HTML with separateFiles: true", true);
-				if (variables.debug) systemOutput("  executionLogDir: " & variables.testDir, true);
-				if (variables.debug) systemOutput("  outputDir: " & htmlOutputDir, true);
+				variables.logger.debug("Generating HTML with separateFiles: true");
+				variables.logger.debug("  executionLogDir: " & variables.testDir);
+				variables.logger.debug("  outputDir: " & htmlOutputDir);
 				var htmlResult = lcovGenerateHtml(
 					executionLogDir: variables.testDir,
 					outputDir: htmlOutputDir,
 					options: {
 						separateFiles: true,  // This should create a separate HTML file for each source file
-						verbose: false  // Enable verbose output to see what's happening
+						logLevel: "info"  // Enable verbose output to see what's happening
 					}
 				);
 
@@ -187,7 +178,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 				var exlPath = exlFiles[1];
 
-				var parser = new lucee.extension.lcov.ExecutionLogParser(verbose: false);
+				var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
 				var result = parser.parseExlFile(
 					exlPath: exlPath,
 					allowList: [],

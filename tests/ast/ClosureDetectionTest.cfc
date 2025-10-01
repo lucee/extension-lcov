@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="ClosureDetectionTest" {
 
 	function beforeAll() {
+		variables.logLevel = "info";
 		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
 	}
 

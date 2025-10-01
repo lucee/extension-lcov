@@ -12,10 +12,10 @@ component accessors="true" {
 	* @options Configuration options struct (optional)
 	*/
 	public function init(struct options = {}) {
-		// Store options and extract verbose flag
+		// Store options and extract logLevel
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
-		variables.debug = false;
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 
 		// Use factory for code coverage helpers, support useDevelop override
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
@@ -26,16 +26,6 @@ component accessors="true" {
 		// Cache for file analysis (AST + executable lines) to avoid regenerating across .exl files
 		variables.fileAnalysisCache = {};
 		return this;
-	}
-
-	/**
-	* Private logging function that respects verbose setting
-	* @message The message to log
-	*/
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -67,17 +57,17 @@ component accessors="true" {
 				var cachedOptionsHash = structKeyExists(cachedData, "optionsHash") ? cachedData.optionsHash : "";
 
 				if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
-					logger("Using cached result for [" & getFileFromPath(arguments.exlPath) & "]");
+					variables.logger.debug("Using cached result for [" & getFileFromPath(arguments.exlPath) & "]");
 					// Use the static fromJson method but disable validation to avoid schema issues
 					var cachedResult = new lucee.extension.lcov.model.result().fromJson(fileRead(jsonPath), false);
 					return cachedResult;
 				} else {
-					logger("Checksum mismatch for [" & arguments.exlPath & "] - re-parsing (cached: " & cachedChecksum & ", current: " & currentChecksum & ")");
+					variables.logger.debug("Checksum mismatch for [" & arguments.exlPath & "] - re-parsing (cached: " & cachedChecksum & ", current: " & currentChecksum & ")");
 					// Delete outdated cached file
 					fileDelete(jsonPath);
 				}
 			} catch (any e) {
-				logger("Failed to load cached result for [" & arguments.exlPath & "]: " & e.message & " - re-parsing");
+				variables.logger.debug("Failed to load cached result for [" & arguments.exlPath & "]: " & e.message & " - re-parsing");
 				// Delete invalid cached file
 				fileDelete(jsonPath);
 			}
@@ -129,9 +119,9 @@ component accessors="true" {
 				reader.close();
 			}
 
-			logger("Parsed metadata and files sections in " & numberFormat(getTickCount() - start) & "ms. Coverage starts at byte " & numberFormat(coverageStartByte));
+			variables.logger.trace("Parsed metadata and files sections in " & numberFormat(getTickCount() - start) & "ms. Coverage starts at byte " & numberFormat(coverageStartByte));
 		} catch (any e) {
-			logger("Error reading file [" & arguments.exlPath & "]: " & e.message);
+			variables.logger.debug("Error reading file [" & arguments.exlPath & "]: " & e.message);
 			// Return empty result object instead of plain struct
 			var emptyResult = new lucee.extension.lcov.model.result();
 			emptyResult.setMetadata({});
@@ -157,7 +147,7 @@ component accessors="true" {
 			} catch (any e) {
 				// If checksum calculation fails, leave it empty
 				// log a warning
-				logger("Warning: Failed to calculate checksum for [" & exlPath & "]: " & e.message);
+				variables.logger.debug("Warning: Failed to calculate checksum for [" & exlPath & "]: " & e.message);
 				coverage.setExlChecksum("");
 			}
 		}
@@ -167,7 +157,7 @@ component accessors="true" {
 		coverage.setOptionsHash(optionsHash);
 
 		if ( structCount( coverage.getFiles() ) == 0 || coverageStartByte == 0 ) {
-			logger("Skipping file with empty files or no coverage data: [" & exlPath & "]");
+			variables.logger.debug("Skipping file with empty files or no coverage data: [" & exlPath & "]");
 			// Return the empty coverage result object instead of plain struct
 			return coverage;
 		}
@@ -176,17 +166,15 @@ component accessors="true" {
 		parseCoverage( coverageData=coverage, callTreeAnalyzer=variables.callTreeAnalyzer, includeCallTree=arguments.includeCallTree );
 
 		var totalTime = getTickCount() - startTime;
-		logger("Files: " & structCount( coverage.getFiles() ) &
-			", coverage parsed from byte offset: " & numberFormat(coverageStartByte) &
-			", in " & numberFormat(totalTime ) & "ms");
+		variables.logger.debug("Parsed coverage from: " & structCount( coverage.getFiles() ) & " files,  in " & numberFormat(totalTime ) & "ms");
 
 		// Write JSON cache if requested
 		if (arguments.writeJsonCache) {
-			logger("parseExlFile: Writing JSON cache to " & jsonPath);
+			variables.logger.debug("parseExlFile: Writing JSON cache to " & jsonPath);
 			fileWrite(jsonPath, coverage.toJson(pretty=false, excludeFileCoverage=true));
 		}
 
-		logger( "" );
+		variables.logger.debug( "" );
 
 
 		return coverage;
@@ -210,47 +198,36 @@ component accessors="true" {
 		}
 
 		// STAGE 1: Pre-aggregate identical coverage entries using optimized streaming parallel approach
-		var aggregator = new lucee.extension.lcov.CoverageAggregator();
-		var aggregationResult = aggregator.aggregateStreaming(exlPath, validFileIds);
-
-		if (variables.verbose) {
-			logger("Aggregation result type: " & getMetadata(aggregationResult).name);
-			logger("Aggregation result keys: " & structKeyList(aggregationResult));
-		}
+		var aggregator = new lucee.extension.lcov.CoverageAggregator(logLevel=variables.options.logLevel ?: "none");
+		var aggregationResult = aggregator.aggregate(exlPath, validFileIds);
 
 		var exclusionStart = getTickCount();
-		if (variables.verbose) {
-			var beforeEntities = structCount(aggregationResult.aggregated);
-			logger("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
-		}
+		var beforeEntities = structCount(aggregationResult.aggregated);
+		variables.logger.debug("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
 
 		// STAGE 1.5: Exclude overlapping blocks using position-based filtering
 		var overlapFilter = variables.factory.getComponent(name="OverlapFilterPosition");
 		aggregationResult.aggregated = overlapFilter.filter(aggregationResult.aggregated, files, lineMappingsCache);
-		if (variables.verbose) {
-			var remaining = structCount(aggregationResult.aggregated);
-			logger("After excluding overlapping blocks, remaining aggregated entries: "
-				& numberFormat(remaining) & " (took "
-				& numberFormat(getTickCount() - exclusionStart) & "ms)");
-		}
+		var remaining = structCount(aggregationResult.aggregated);
+		variables.logger.debug("After excluding overlapping blocks, remaining aggregated entries: "
+			& numberFormat(remaining) & " (took "
+			& numberFormat(getTickCount() - exclusionStart) & "ms)");
 
 		// STAGE 1.6: Call tree analysis using AST
 		var callTreeStart = getTickCount();
 		var callTreeData = {};
-		var callTreeResult = arguments.callTreeAnalyzer.analyzeCallTree(aggregationResult.aggregated, files);
-		var callTreeMetrics = arguments.callTreeAnalyzer.getCallTreeMetrics(callTreeResult);
+		var callTreeResult = arguments.callTreeAnalyzer.analyzeCallTree( aggregationResult.aggregated, files, variables.logger );
+		var callTreeMetrics = arguments.callTreeAnalyzer.getCallTreeMetrics( callTreeResult );
 
 		callTreeData = {
 			"callTree": callTreeResult.blocks,
 			"callTreeMetrics": callTreeMetrics
 		};
 
-		if (variables.verbose) {
-			logger("Call tree analysis completed in " & numberFormat(getTickCount() - callTreeStart)
-				& "ms. Blocks: " & callTreeMetrics.totalBlocks
-				& ", Child time blocks: " & callTreeMetrics.childTimeBlocks
-				& ", Built-in blocks: " & callTreeMetrics.builtInBlocks);
-		}
+		variables.logger.debug("Call tree analysis completed in " & numberFormat(getTickCount() - callTreeStart)
+			& "ms. Blocks: " & callTreeMetrics.totalBlocks
+			& ", Child time blocks: " & callTreeMetrics.childTimeBlocks
+			& ", Built-in blocks: " & callTreeMetrics.builtInBlocks);
 
 		// STAGE 1.7: Map call tree data to lines for display
 		var lineMapperStart = getTickCount();
@@ -258,13 +235,11 @@ component accessors="true" {
 		var blockProcessor = factory.getComponent(name="CoverageBlockProcessor");
 		var lineCallTree = callTreeLineMapper.mapCallTreeToLines(callTreeResult, files, blockProcessor);
 
-		if (variables.verbose) {
-			logger("Call tree line mapping completed in " & numberFormat(getTickCount() - lineMapperStart)
-				& "ms. Lines with call tree data: " & structCount(lineCallTree));
-		}
+		variables.logger.debug("Call tree line mapping completed in " & numberFormat(getTickCount() - lineMapperStart)
+			& "ms. Lines with call tree data: " & structCount(lineCallTree));
 
 		// STAGE 2: Process aggregated entries to line coverage
-		var processor = new lucee.extension.lcov.CoverageProcessor();
+		var processor = new lucee.extension.lcov.CoverageProcessor(logLevel=variables.options.logLevel ?: "none");
 		var processingResult = processor.processAggregatedToLineCoverage(
 			aggregationResult.aggregated,
 			files,
@@ -301,9 +276,7 @@ component accessors="true" {
 			structDelete(fileInfo, "lineMapping");  // Line mapping only needed during parsing
 			structDelete(fileInfo, "mappingLen");  // Mapping length only needed during parsing
 		}
-		if (variables.verbose) {
-			logger("Zero-count population completed in " & numberFormat(getTickCount() - zeroPopulateStart) & "ms");
-		}
+		//variables.logger.trace("Zero-count population completed in " & numberFormat(getTickCount() - zeroPopulateStart) & "ms");
 
 		// Enrich coverage with call tree line data (own time and child time)
 		coverage = callTreeLineMapper.enrichCoverageWithCallTree(coverage, lineCallTree);
@@ -328,9 +301,9 @@ component accessors="true" {
 		});
 		coverageData.setCoverage(coverage);
 
-		// Add call tree data if available (only when explicitly requested or in debug mode to reduce JSON size)
+		// Add call tree data if available (only when explicitly requested to reduce JSON size)
 		if (!structIsEmpty(callTreeData)) {
-			if (variables.debug || arguments.includeCallTree) {
+			if (arguments.includeCallTree) {
 				coverageData.setCallTree(callTreeData.callTree);
 			}
 			coverageData.setCallTreeMetrics(callTreeData.callTreeMetrics);
@@ -371,7 +344,7 @@ component accessors="true" {
 					}
 				}
 				if (skip) {
-					logger("Skipping file [" & path & "] - not in allowList");
+					variables.logger.debug("Skipping file [" & path & "] - not in allowList");
 				}
 			}
 
@@ -385,7 +358,7 @@ component accessors="true" {
 						variables.fileIgnoreCache[ path ] = "found in blocklist [" & num & "]";
 						skip = true;
 						skipped[ path ] = path & " found in blocklist";
-						logger("Skipping file [" & path & "] - found in blocklist pattern [" & pattern & "]");
+						variables.logger.debug("Skipping file [" & path & "] - found in blocklist pattern [" & pattern & "]");
 						break;
 					}
 				}
@@ -442,7 +415,7 @@ component accessors="true" {
 
 		var validFiles = structCount(files);
 		var skippedFiles = structCount(skipped);
-		logger("Post Filter: " & validFiles & " valid files, "
+		variables.logger.debug("Post Filter: " & validFiles & " valid files, "
 			& skippedFiles & " skipped, in "
 			& numberFormat(getTickCount() - startFiles) & "ms");
 			

@@ -1,6 +1,13 @@
 component accessors="true" {
 
-	variables.debug = false;
+	/**
+	 * Initialize CoverageStats
+	 * @logLevel Log level for debugging stats calculations
+	 */
+	public function init(string logLevel="none") {
+		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+		return this;
+	}
 
 	/**
 	* Calculate LCOV-style statistics from merged coverage data
@@ -65,6 +72,7 @@ component accessors="true" {
 	* Calculate overall coverage stats from a result struct
 	*/
 	public any function calculateCoverageStats(result result) {
+		var event = variables.logger.beginEvent("CoverageStats");
 		var totalStats = {
 			"totalLinesFound": 0,  // total executable lines
 			"totalLinesHit": 0, // total lines executed
@@ -155,15 +163,19 @@ component accessors="true" {
 
 		var validationError = arguments.result.validate(throw=false);
 		if (len(validationError)) {
-			if (variables.debug) {
-				systemOutput("Result before validation: " & serializeJSON(var=arguments.result, compact=false), true);
-				systemOutput("Validation errors: " & serializeJSON(var=validationError, compact=false), true);
-			}
+			variables.logger.debug("Result before validation: " & serializeJSON(var=arguments.result, compact=false));
+			variables.logger.debug("Validation errors: " & serializeJSON(var=validationError, compact=false));
 			// Extract actual file paths for concise error message
 			var filePaths = arguments.result.getAllFilePaths();
 			var filePathList = arrayLen(filePaths) ? arrayToList(filePaths, ", ") : "unknown";
 			throw "Result validation failed for file(s): [" & filePathList & "], validation errors: " & serializeJSON(var=validationError, compact=false);
 		}
+
+		event["filesProcessed"] = structCount(filesData);
+		event["totalLinesFound"] = totalStats.totalLinesFound;
+		event["totalLinesHit"] = totalStats.totalLinesHit;
+		variables.logger.commitEvent(event);
+
 		return arguments.result;
 	}
 

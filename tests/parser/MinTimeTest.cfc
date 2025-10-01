@@ -2,14 +2,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.parser = variables.factory.getComponent(name="ExecutionLogParser");
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="MinTimeTest");
 		variables.tempDir = variables.testDataGenerator.getOutputDir();
-
-		variables.debug = false;
 
 		// Clean up any logging that might be enabled from previous runs
 		try {
@@ -107,9 +106,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var artifactDir = expandPath(getDirectoryFromPath(getCurrentTemplatePath()) & "../artifacts/misParse/" & arguments.exampleNumber & "/");
 		var exlFiles = directoryList(path=artifactDir, filter="*.exl");
 		expect(arrayLen(exlFiles)).toBeGT(0, "Should have .exl file in misParse/" & arguments.exampleNumber);
-		if (variables.debug) {
-			systemOutput("Parsing static .exl file: " & exlFiles[1], true);
-		}
+		variables.logger.debug("Parsing static .exl file: " & exlFiles[1]);
 		var result = variables.parser.parseExlFile(exlFiles[1]);
 
 		expect(result).notToBeNull("Parser should return a result object");
@@ -123,10 +120,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Validate the unit is one of the supported values
 		var supportedUnits = ["ns", "μs", "ms"];
 		expect(arrayContains(supportedUnits, metadata.unit)).toBeTrue("Unit should be one of: " & arrayToList(supportedUnits) & " but got: " & metadata.unit);
-		if (variables.debug) {
-			systemOutput("Parsed unit: " & metadata.unit, true);
-			systemOutput("Parsed metadata: " & serializeJSON(metadata), true);
-		}
-		
+		variables.logger.debug("Parsed unit: " & metadata.unit);
+		variables.logger.debug("Parsed metadata: " & serializeJSON(metadata));
+
 	}
 }

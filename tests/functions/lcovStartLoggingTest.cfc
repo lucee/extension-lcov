@@ -2,11 +2,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
-		
+		variables.logLevel = "info";
+
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovStartLoggingTest");
 		variables.tempDir = variables.testDataGenerator.getOutputDir();
-		
+
 		// Clean up any logging that might be enabled from previous runs
 		try {
 			lcovStopLogging(adminPassword=variables.adminPassword);

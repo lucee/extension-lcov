@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll(){
+		variables.logLevel = "info";
 		variables.ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
 	}
 	

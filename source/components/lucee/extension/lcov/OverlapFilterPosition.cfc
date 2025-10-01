@@ -6,16 +6,19 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 */
 	public function init(struct options = {}) {
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
 	}
 
-	
+
 	/**
 	 * Filter overlapping position-based blocks
 	 * Returns filtered blocks still in character position format
 	 */
 	public struct function filter(aggregatedOrBlocksByFile, files, lineMappingsCache) {
+		var event = variables.logger.beginEvent("OverlapFilterPosition");
+		event["inputEntries"] = structCount(arguments.aggregatedOrBlocksByFile);
 		var startTime = getTickCount();
 		var result = {};
 		var blocksByFile = {};
@@ -55,13 +58,31 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		}
 
 		// Process each file's blocks
-		for (var fileIdx in blocksByFile) {
-			var blocks = blocksByFile[fileIdx];
-			var blockCountBefore = arrayLen(blocks);
+		var fileProcessingStart = getTickCount();
+		var filesProcessed = 0;
+		var filesWithChanges = 0;
+
+		for ( var fileIdx in blocksByFile ) {
+			var fileStart = getTickCount();
+			var blocks = blocksByFile[ fileIdx ];
+			var blockCountBefore = arrayLen( blocks );
 
 			// Filter overlapping blocks based on character positions
-			var filteredBlocks = filterOverlappingBlocks(blocks);
-			var blockCountAfter = arrayLen(filteredBlocks);
+			var filteredBlocks = filterOverlappingBlocks( blocks );
+			var blockCountAfter = arrayLen( filteredBlocks );
+			filesProcessed++;
+
+			if ( blockCountBefore != blockCountAfter ) {
+				filesWithChanges++;
+			}
+
+			var fileTime = getTickCount() - fileStart;
+			if ( fileTime > 100 ) {
+				var filePath = structKeyExists( arguments.files, fileIdx ) && structKeyExists( arguments.files[ fileIdx ], "path" )
+					? arguments.files[ fileIdx ].path
+					: "file index " & fileIdx;
+				variables.logger.trace( "  OverlapFilter: File [" & filePath & "] took " & fileTime & "ms (" & blockCountBefore & " -> " & blockCountAfter & " blocks)" );
+			}
 
 			// VALIDATION: Overlap filtering must not result in zero coverage for a file
 			if (blockCountBefore > 0 && blockCountAfter == 0) {
@@ -80,7 +101,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 			if (isAggregatedFormat) {
 				// Convert back to aggregated format for each filtered block
 				for (var fBlock in filteredBlocks) {
-					// Create key in same format as aggregator
+					// Create key in same format as aggregator (fileIdx\tstartPos\tendPos)
 					var key = fileIdx & chr(9) & fBlock[2] & chr(9) & fBlock[3];
 					// Find original aggregated entry to preserve count information
 					if (structKeyExists(arguments.aggregatedOrBlocksByFile, key)) {
@@ -95,22 +116,30 @@ component displayname="OverlapFilterPosition" accessors="true" {
 				result[fileIdx] = filteredBlocks;
 			}
 
-			// Log per-file filtering if verbose
-			if (variables.verbose && blockCountBefore != blockCountAfter) {
+			// Log per-file filtering details
+			if (blockCountBefore != blockCountAfter) {
 				var filePath = structKeyExists(arguments.files, fileIdx) && structKeyExists(arguments.files[fileIdx], "path")
 					? arguments.files[fileIdx].path
 					: "file index " & fileIdx;
-				logger("  Filtered file [" & filePath & "]: " & blockCountBefore & " blocks -> " & blockCountAfter & " blocks (removed " & (blockCountBefore - blockCountAfter) & ")");
+				variables.logger.debug("  Filtered file [" & filePath & "]: " & blockCountBefore & " blocks -> " & blockCountAfter & " blocks (removed " & (blockCountBefore - blockCountAfter) & ")");
 			}
 		}
 
 		var totalTime = getTickCount() - startTime;
-		if (isAggregatedFormat) {
-			logger("OverlapFilterPosition: Filtered " & structCount(arguments.aggregatedOrBlocksByFile)
-				& " entries to " & structCount(result) & " entries in " & totalTime & "ms");
+		event["outputEntries"] = structCount( result );
+		event["removedEntries"] = event["inputEntries"] - event["outputEntries"];
+		event["filesProcessed"] = filesProcessed;
+		event["filesWithChanges"] = filesWithChanges;
+		variables.logger.commitEvent( event );
+
+		variables.logger.trace( "OverlapFilterPosition: Processed " & filesProcessed & " files (" & filesWithChanges & " with changes) in " & totalTime & "ms" );
+
+		if ( isAggregatedFormat ) {
+			variables.logger.debug( "OverlapFilterPosition: Filtered " & structCount( arguments.aggregatedOrBlocksByFile )
+				& " entries to " & structCount( result ) & " entries in " & totalTime & "ms" );
 		} else {
-			logger("OverlapFilterPosition: Filtered " & structCount(result)
-				& " files in " & totalTime & "ms");
+			variables.logger.debug( "OverlapFilterPosition: Filtered " & structCount( result )
+				& " files in " & totalTime & "ms" );
 		}
 		return result;
 	}
@@ -180,16 +209,6 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		}
 
 		return filteredBlocks;
-	}
-
-	/**
-	 * Private logging function that respects verbose setting
-	 * @message The message to log
-	 */
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 }

@@ -1,7 +1,8 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="CoverageStatsSyntheticTest" {
 
 	function beforeAll(){
-		variables.debug = false;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 	}
 
 	function run() {
@@ -76,10 +77,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				arrayAppend(jsonFilePaths, jsonPathA);
 				arrayAppend(jsonFilePaths, jsonPathB);
 				var stats = statsComponent.aggregateCoverageStats(jsonFilePaths);
-				if (variables.debug) {
-					systemOutput("[DEBUG] fileStats keys: " & structKeyList(stats.fileStats), true);
-					systemOutput("[DEBUG] fileStats struct: " & serializeJSON(var=stats.fileStats, compact=false), true);
-				}
+				variables.logger.debug("[DEBUG] fileStats keys: " & structKeyList(stats.fileStats));
+				variables.logger.debug("[DEBUG] fileStats struct: " & serializeJSON(var=stats.fileStats, compact=false));
 				expect(stats.totalLinesFound).toBe(5);
 				expect(stats.totalLinesHit).toBe(3);
 				expect(stats.totalLinesSource).toBe(9);

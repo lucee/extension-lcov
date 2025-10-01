@@ -2,7 +2,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
-		
+		variables.logLevel = "info";
+
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovGenerateJsonTest");
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
@@ -10,7 +11,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 		variables.testLogDir = variables.testData.coverageDir;
 		variables.tempDir = variables.testDataGenerator.getOutputDir();
-		
+
 		variables.outputDir = variables.tempDir & "/output";
 		directoryCreate(variables.outputDir);
 	}

@@ -2,8 +2,9 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		variables.testDataHelper = new "../GenerateTestData"("synthetic-html");
-		variables.debug = false;
 	}
 
 	/**
@@ -75,9 +76,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Generate HTML report and get the file path
 		// HtmlReporter uses its instance displayUnit now
 		var htmlPath = HtmlReporter.generateHtmlReport(syntheticResult);
-		if (variables.debug) {
-			systemOutput("Generated HTML path: " & htmlPath, true);
-		}
+		variables.logger.debug("Generated HTML path: " & htmlPath);
 
 		// Read the generated HTML file
 		var html = fileRead(htmlPath);
@@ -86,9 +85,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Write the HTML content to a file for inspection
 		var htmlOutPath = outDir & "/synthetic-html-content.html";
 		fileWrite(htmlOutPath, html);
-		if (variables.debug) {
-			systemOutput("Wrote HTML content to: " & htmlOutPath, true);
-		}
+		variables.logger.debug("Wrote HTML content to: " & htmlOutPath);
 
 		// Assert: file sections exist for all files using JSoup selectors
 		var files = syntheticResult.getFiles();
@@ -232,9 +229,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Write HTML content for inspection
 		var htmlOutPath = outDir & "/index-content.html";
 		fileWrite(htmlOutPath, html);
-		if (variables.debug) {
-			systemOutput("Wrote index HTML content to: " & htmlOutPath, true);
-		}
+		variables.logger.debug("Wrote index HTML content to: " & htmlOutPath);
 
 		// Check for duplicate rows in the reports table
 		var reportRows = htmlParser.select(doc, "table.reports-table tbody tr[data-file-row]");
@@ -269,9 +264,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 
 		// Log all row signatures for debugging
-		if (variables.debug) {
-			systemOutput("Row signatures found: " & serializeJSON(rowSignatures), true);
-		}
+		variables.logger.debug("Row signatures found: " & serializeJSON(rowSignatures));
 
 		expect(duplicateFound).toBeFalse("Found duplicate table rows in index page: " & arrayToList(duplicateDetails, "; "));
 

@@ -10,10 +10,11 @@ component accessors=false {
 	 * Write merged results to per-file JSON files (and HTML if needed)
 	 * @mergedResults Struct of merged result objects keyed by canonical index
 	 * @outputDir Directory to write the file-*.json files to
-	 * @verbose Boolean flag for verbose logging
+	 * @logLevel Log level for verbose logging
 	 * @return Array of written file paths
 	 */
-	public array function writeMergedResultsToFiles(required struct mergedResults, required string outputDir, boolean verbose = false) {
+	public array function writeMergedResultsToFiles(required struct mergedResults, required string outputDir, string logLevel = "none") {
+		var logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
 		var writtenFiles = [];
 		for (var canonicalIndex in arguments.mergedResults) {
 			var entry = arguments.mergedResults[canonicalIndex];
@@ -88,9 +89,7 @@ component accessors=false {
 			}
 			fileWrite(jsonFilePath, serializeJSON(var=filteredEntry, compact=false));
 			arrayAppend(writtenFiles, jsonFilePath);
-			if (arguments.verbose) {
-				systemOutput("writeMergedResultsToFiles: Wrote source file JSON: " & jsonFileName & " for source file: " & sourceFilePath, true);
-			}
+			logger.trace("writeMergedResultsToFiles: Wrote source file JSON: " & jsonFileName & " for source file: " & sourceFilePath);
 		}
 		return writtenFiles;
 	}

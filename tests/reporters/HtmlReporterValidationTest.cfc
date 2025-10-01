@@ -2,13 +2,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest");
 		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
-		variables.debug = false;
 		variables.validator = new ValidateHtmlReports();
 		// add validator methods as mixins
 		var validatorMeta = getMetaData(variables.validator);
@@ -17,7 +17,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		}
 
 		// Clean up any logging that might be enabled from previous runs
-		try {
+		try{
 			lcovStopLogging(adminPassword=variables.adminPassword);
 		} catch (any e) {
 			// Ignore cleanup errors
@@ -101,7 +101,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		lcovGenerateHtml(
 			executionLogDir = testDataGenerator.getExecutionLogDir(),
 			outputDir = outputDir,
-			options = { displayUnit = arguments.displayUnit, verbose=false }
+			options = { displayUnit = arguments.displayUnit, logLevel="info" }
 		);
 
 		// For auto unit selection, determine expected display unit based on typical execution times
@@ -125,9 +125,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			}
 		}
 		var srcExlFiles = directoryList(path=overrideLogDir, filter="*.exl");
-		if (variables.debug) {
-			systemOutput("testMisParse: testing " & srcExlFiles.toJson(), true);
-		}
+		variables.logger.debug("testMisParse: testing " & srcExlFiles.toJson());
 		var testName="misParse-#exampleNumber#";
 		var testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest-" & testName );
 		var outputDir = testDataGenerator.getOutputDir("reports");
@@ -144,7 +142,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		lcovGenerateHtml(
 			executionLogDir = overrideLogDir,
 			outputDir = outputDir,
-			options = { displayUnit = displayUnit, verbose=false }
+			options = { displayUnit = displayUnit, logLevel="info" }
 		);
 		// mixin from ValidateHtmlReports() - single entry point
 		validateHtmlReports(outputDir, arguments.unit, displayUnit);

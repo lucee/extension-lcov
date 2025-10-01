@@ -1,7 +1,8 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="SimpleCallTreeTest" {
 
 	function beforeAll() {
-		variables.debug = false;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		// Use GenerateTestData with test name and ast subfolder
 		variables.testDataGenerator = new "../GenerateTestData"(
 			testName="SimpleCallTreeTest",
@@ -15,7 +16,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 		);
 
 		variables.testDir = variables.testData.coverageDir;
-		variables.debug = false;
 	}
 
 
@@ -29,10 +29,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 				if (arrayLen(exlFiles) > 0) {
 					var exlPath = exlFiles[1];
-					if (variables.debug) systemOutput("Parsing: " & exlPath, true);
+					variables.logger.debug("Parsing: " & exlPath);
 
 					// Parse it
-					var parser = new lucee.extension.lcov.ExecutionLogParser(verbose: false);
+					var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
 					var result = parser.parseExlFile(
 						exlPath: exlPath,
 						allowList: [],
@@ -48,18 +48,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 							var fileName = listLast(replace(sourcePath, "\", "/", "all"), "/");
 							var astPath = variables.testDir & "/ast-" & fileName & "-id" & fileId & ".json";
 							fileWrite(astPath, serializeJSON(files[fileId].ast));
-							if (variables.debug) {
-								if (variables.debug) systemOutput("Saved AST for " & sourcePath & " to: " & astPath, true);
-							}
+							variables.logger.debug("Saved AST for " & sourcePath & " to: " & astPath);
 
 							// Debug: Try extracting functions directly
 							var astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
 							var testFunctions = astCallAnalyzer.extractFunctions(files[fileId].ast);
-							if (variables.debug) {
-								if (variables.debug) systemOutput("Direct extraction found " & arrayLen(testFunctions) & " functions", true);
-								for (var func in testFunctions) {
-									if (variables.debug) systemOutput("  - Function: " & func.name & " at pos " & func.startPos & "-" & func.endPos, true);
-								}
+							variables.logger.debug("Direct extraction found " & arrayLen(testFunctions) & " functions");
+							for (var func in testFunctions) {
+								variables.logger.debug("  - Function: " & func.name & " at pos " & func.startPos & "-" & func.endPos);
 							}
 						}
 					}
@@ -67,12 +63,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					// Check results - this triggers the call tree analysis
 					var callTree = result.getCallTree();
 					var metrics = result.getCallTreeMetrics();
-					if (variables.debug) {
-						if (variables.debug) systemOutput("Call tree entries: " & structCount(callTree), true);
-						if (variables.debug) systemOutput("Total blocks: " & metrics.totalBlocks, true);
-						if (variables.debug) systemOutput("Child time blocks: " & metrics.childTimeBlocks, true);
-						if (variables.debug) systemOutput("Built-in blocks: " & metrics.builtInBlocks, true);
-					}
+					variables.logger.debug("Call tree entries: " & structCount(callTree));
+					variables.logger.debug("Total blocks: " & metrics.totalBlocks);
+					variables.logger.debug("Child time blocks: " & metrics.childTimeBlocks);
+					variables.logger.debug("Built-in blocks: " & metrics.builtInBlocks);
 
 					// Save for inspection
 					fileWrite(variables.testDir & "/result.json", serializeJSON(result));

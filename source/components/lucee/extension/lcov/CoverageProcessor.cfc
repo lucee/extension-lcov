@@ -1,6 +1,15 @@
 component {
 
 	/**
+	 * Initialize CoverageProcessor
+	 * @logLevel Log level for debugging
+	 */
+	public function init(string logLevel="none") {
+		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+		return this;
+	}
+
+	/**
 	 * Process aggregated coverage entries to line coverage
 	 */
 	public struct function processAggregatedToLineCoverage(
@@ -9,6 +18,8 @@ component {
 		struct lineMappingsCache,
 		any executionLogParser
 	) {
+		var event = variables.logger.beginEvent("CoverageProcessing");
+		event["inputEntries"] = structCount(arguments.aggregatedData);
 		var processingStart = getTickCount();
 		var coverage = {};
 
@@ -45,6 +56,8 @@ component {
 		}
 
 		var processingTime = getTickCount() - processingStart;
+		event["outputFiles"] = structCount(coverage);
+		variables.logger.commitEvent(event);
 
 		return {
 			"coverage": coverage,

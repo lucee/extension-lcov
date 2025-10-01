@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	public void function beforeAll(){
+		variables.logLevel = "info";
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="ExecutionLogProcessorTest");
 

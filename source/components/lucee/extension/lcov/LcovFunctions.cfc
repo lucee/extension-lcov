@@ -101,7 +101,7 @@ component {
 
 		// Set default options
 		var defaultOptions = {
-			verbose: false,
+			logLevel: "none",
 			chunkSize: 50000,
 			allowList: [],
 			blocklist: [],
@@ -167,16 +167,12 @@ component {
 
 		// Set default options
 		var defaultOptions = {
-			verbose: false,
+			logLevel: "none",
 			allowList: [],
 			blocklist: [],
 			useRelativePath: false
 		};
 		var _options = mergeDefaultOptions(defaultOptions, arguments.options);
-
-		if (_options.verbose) {
-			systemOutput("Generating LCOV report from: " & arguments.executionLogDir, true);
-		}
 
 		// Parse .exl files using ExecutionLogProcessor
 		var logProcessor = new ExecutionLogProcessor(_options);
@@ -192,9 +188,6 @@ component {
 			var factory = new lucee.extension.lcov.CoverageComponentFactory();
 			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(getDirectoryFromPath(arguments.outputFile));
 			fileWrite(arguments.outputFile, lcovContent);
-			if (_options.verbose) {
-				systemOutput("LCOV file written to: " & arguments.outputFile, true);
-			}
 		}
 
 		return lcovContent;
@@ -220,7 +213,7 @@ component {
 
 		// Set default options
 		var defaultOptions = {
-			verbose: false,
+			logLevel: "none",
 			displayUnit: "milli",
 			allowList: [],
 			blocklist: [],
@@ -229,11 +222,7 @@ component {
 		var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 		var startTime = getTickCount();
-
-		if (_options.verbose) {
-			systemOutput("Generating HTML reports from: " & arguments.executionLogDir, true);
-		}
-
+		var logger = new lucee.extension.lcov.Logger(level=_options.logLevel);
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
 		factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
 
@@ -242,12 +231,13 @@ component {
 		var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, _options);
 
 		// Generate HTML reports using focused HTML reporter
-		var htmlReporter = new reporter.HtmlReporter(_options.displayUnit, _options.verbose);
+		var htmlReporter = new reporter.HtmlReporter(_options.displayUnit, _options.logLevel);
 		htmlReporter.setOutputDir(arguments.outputDir); // Set output directory for individual HTML files
 		var htmlIndex = "";
 
 		// Process results based on separateFiles option
 		if (_options.separateFiles) {
+			var mergeFileEvent = logger.beginEvent("Merge File Reports");
 			// Load results from JSON files for per-file processing
 			var results = {};
 			var resultFactory = new lucee.extension.lcov.model.result();
@@ -257,26 +247,22 @@ component {
 				result = nullValue(); // Clear reference immediately
 			}
 
-			// Process JSON files progressively without loading all into memory
-			if (_options.verbose) {
-				systemOutput("Merging " & arrayLen(jsonFilePaths) & " execution logs by source file", true);
-			}
 			// Create per-file merged results following the same pattern as CoverageMergerTest
-			var merger = new lucee.extension.lcov.CoverageMerger();
+			var merger = new lucee.extension.lcov.CoverageMerger(logLevel=_options.logLevel);
 			var utils = new lucee.extension.lcov.CoverageMergerUtils();
 			var validResults = utils.filterValidResults(results);
 			var mappings = utils.buildFileIndexMappings(validResults);
 			var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+			logger.commitEvent(mergeFileEvent);
+			var mergeStatsEvent = logger.beginEvent("Merge File Stats");
+			// Merge results into per-file mergedResults struct
 			// Aggregate call tree metrics before calculating stats
 			merger.aggregateCallTreeMetricsForMergedResults(mergedResults, results);
 			new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
-			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.verbose);
-
+			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.logLevel);
+			logger.commitEvent(mergeStatsEvent);
+			var fileEvent = logger.beginEvent("Render Per-File HTML Reports");
 			// Generate HTML reports for each source file JSON
-			if (_options.verbose) {
-				systemOutput("Processing " & arrayLen(sourceFileJsons) & " source file JSONs for HTML generation", true);
-			}
-			
 			var resultFactory = new lucee.extension.lcov.model.result();
 			for (var jsonFile in sourceFileJsons) {
 				var start 	= getTickCount();
@@ -291,18 +277,14 @@ component {
 				sourceFilePath = reReplace(sourceFilePath, "\.json$", ""); // Remove .json extension
 				sourceResult.setExeLog(sourceFilePath);
 
-				if (_options.verbose) {
-					systemOutput("Processing JSON file: " & jsonFile, true);
-				}
 				var htmlPath = htmlReporter.generateHtmlReport(sourceResult);
-				if (_options.verbose) {
-					systemOutput("  - HTML report generated in " & numberFormat(getTickCount() - start) & " ms, for " & htmlPath, true);
-				}
 			}
+			logger.commitEvent(fileEvent);
 		}
 
 		// For regular mode, generate HTML reports for each request-based result
 		if (!_options.separateFiles) {
+			var reqEvent = logger.beginEvent("Render Per-Request HTML Reports");
 			// Load results from JSON paths and generate HTML reports
 			var resultFactory = new lucee.extension.lcov.model.result();
 			for (var jsonPath in jsonFilePaths) {
@@ -318,15 +300,19 @@ component {
 					htmlReporter.generateHtmlReport(result);
 				}
 			}
+			logger.commitEvent(reqEvent);
 		}
 
 		// Generate index HTML
 		htmlIndex = htmlReporter.generateIndexHtml(arguments.outputDir);
 
+		var statsEvent = logger.beginEvent("aggregateCoverageStats");
 
 		// Calculate aggregated stats progressively
 		var statsComponent = variables.factory.getComponent(name="CoverageStats");
 		var totalStats = statsComponent.aggregateCoverageStats(jsonFilePaths, getTickCount() - startTime);
+
+		logger.commitEvent(statsEvent);
 
 		// Get list of generated HTML files (excluding index.html)
 		var generatedHtmlFiles = [];
@@ -337,7 +323,7 @@ component {
 			}
 		}
 
-		// JSON files are now permanent cache files next to .exl files - no cleanup needed
+		logger.debug("Generated HTML reports for " & totalStats.totalFiles & " files, in " & (getTickCount() - startTime) & "ms");
 
 		return {
 			"htmlIndex": htmlIndex,
@@ -369,7 +355,7 @@ component {
 
 			// Set default options
 			var defaultOptions = {
-				verbose: false,
+				logLevel: "none",
 				compact: false,
 				includeStats: true,
 				separateFiles: false,
@@ -379,10 +365,6 @@ component {
 			var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 			var startTime = getTickCount();
-
-			if (_options.verbose) {
-				systemOutput("Generating JSON reports from: " & arguments.executionLogDir, true);
-			}
 
 			var factory = new lucee.extension.lcov.CoverageComponentFactory();
 			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
@@ -415,7 +397,7 @@ component {
 			jsonFiles.results = resultsFile;
 
 			// Create merged coverage data progressively from JSON files
-			var merged = new lucee.extension.lcov.CoverageMerger().mergeResultsByFile(jsonFilePaths);
+			var merged = new lucee.extension.lcov.CoverageMerger(logLevel=_options.logLevel).mergeResultsByFile(jsonFilePaths);
 			var mergedFile = arguments.outputDir & "/merged.json";
 			fileWrite(mergedFile, serializeJSON(var=merged, compact=_options.compact));
 			jsonFiles.merged = mergedFile;
@@ -431,13 +413,15 @@ component {
 			// Generate separate files if requested
 			if (_options.separateFiles) {
 				// Create per-file merged results following the same pattern as CoverageMergerTest
-				var merger = new lucee.extension.lcov.CoverageMerger();
+				var merger = new lucee.extension.lcov.CoverageMerger(logLevel=_options.logLevel);
 				var utils = new lucee.extension.lcov.CoverageMergerUtils();
 				var validResults = utils.filterValidResults(results);
 				var mappings = utils.buildFileIndexMappings(validResults);
 				var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
+				var sourceFileStats = merger.createSourceFileStats(mappings.indexToFilePath);
+				merger.mergeAllCoverageDataFromResults(validResults, mergedResults, mappings, sourceFileStats);
 				new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
-				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.verbose);
+				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.logLevel);
 				for (var jsonFile in sourceFileJsons) {
 					jsonFiles[getFileFromPath(jsonFile)] = jsonFile;
 				}
@@ -484,16 +468,12 @@ component {
 
 			// Set default options
 			var defaultOptions = {
-				verbose: false,
+				logLevel: "none",
 				chunkSize: 50000,
 				allowList: [],
 				blocklist: []
 			};
 			var _options = mergeDefaultOptions(defaultOptions, arguments.options);
-
-			if (_options.verbose) {
-				systemOutput("Calculating coverage summary from: " & arguments.executionLogDir, true);
-			}
 
 			var startTime = getTickCount();
 
@@ -504,10 +484,6 @@ component {
 			// Calculate stats progressively without loading all results into memory
 			var statsComponent = variables.factory.getComponent(name="CoverageStats");
 			var stats = statsComponent.aggregateCoverageStats(jsonFilePaths, getTickCount() - startTime);
-
-			if (_options.verbose) {
-				systemOutput("Summary complete: " & stats.coveragePercentage & "% coverage", true);
-			}
 
 			// Clean up temp JSON files after consumption
 			// JSON files are now permanent cache files next to .exl files - no cleanup needed
@@ -535,8 +511,8 @@ component {
 
 	private string function buildLcovContent(required array jsonFilePaths, required struct options) {
 		// Process JSON files progressively without loading all into memory
-		var merger = new lucee.extension.lcov.CoverageMerger();
-		var merged = merger.mergeResultsByFile(arguments.jsonFilePaths, arguments.options.verbose ?: false);
+		var merger = new lucee.extension.lcov.CoverageMerger(logLevel=arguments.options.logLevel ?: "none");
+		var merged = merger.mergeResultsByFile(arguments.jsonFilePaths);
 
 		// write out merged to a json file a log it
 		var tempMerged = getTempFile("", "lcov-merged-", ".json");

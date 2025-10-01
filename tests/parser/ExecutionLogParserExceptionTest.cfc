@@ -3,6 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
 
 		// Use the standard test data generator for consistent paths
 		variables.testDataGenerator = new "../GenerateTestData"(testName="ExecutionLogParserExceptionTest");
@@ -11,7 +12,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Use existing error test files
 		variables.errorFilesDir = expandPath("/testAdditional/artifacts/error");
 
-		
+
 	}
 
 	function run() {

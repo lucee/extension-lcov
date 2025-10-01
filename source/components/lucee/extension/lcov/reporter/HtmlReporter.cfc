@@ -9,20 +9,10 @@ component {
 	/**
 	* Constructor/init function
 	*/
-	public function init(string displayUnit = "μs", boolean verbose = false) {
+	public function init(string displayUnit = "μs", string logLevel = "none") {
 		variables.displayUnit = arguments.displayUnit;
-		variables.verbose = arguments.verbose;
+		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
 		return this;
-	}
-	
-	/**
-	* Private logging function that respects verbose setting
-	* @message The message to log
-	*/
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -41,12 +31,12 @@ component {
 			throw(message="generateHtmlReport requires a lucee.extension.lcov.model.result instance, got: " & getMetaData(arguments.result).name);
 		}
 		if (!isStruct(arguments.result.getCoverage()) || structIsEmpty(arguments.result.getCoverage())) {
-			logger("No coverage data found in " & arguments.result.getExeLog() & ", skipping HTML report generation");
+			variables.logger.debug("No coverage data found in " & arguments.result.getExeLog() & ", skipping HTML report generation");
 			return; // Skip empty files
 		}
 
-		var htmlWriter = new HtmlWriter(variables.displayUnit);
-		var html = htmlWriter.generateHtmlContent(result, variables.displayUnit);
+		var htmlWriter = new HtmlWriter( variables.displayUnit, variables.logger.getLevel() );
+		var html = htmlWriter.generateHtmlContent( result, variables.displayUnit );
 		var htmlPath = createHtmlPath(result);
 		fileWrite(htmlPath, html);
 
@@ -60,7 +50,7 @@ component {
 	*/
 	public string function generateIndexHtml(string outputDirectory) {
 
-		var htmlWriter = new HtmlWriter(variables.displayUnit);
+		var htmlWriter = new HtmlWriter( variables.displayUnit, variables.logger.getLevel() );
 
 		var indexJsonPath = outputDirectory & "/index.json";
 
@@ -96,7 +86,7 @@ component {
 		var indexHtmlPath = arguments.outputDirectory & "/index.html";
 		fileWrite(indexHtmlPath, html);
 
-		logger("Generated index.html with " & arrayLen( indexData ) & " reports");
+		variables.logger.debug("Generated index.html with " & arrayLen( indexData ) & " reports");
 		return indexHtmlPath;
 	}
 

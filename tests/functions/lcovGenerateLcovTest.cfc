@@ -1,8 +1,9 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
-		variables.debug = false;
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovGenerateLcovTest");
@@ -285,9 +286,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 * create it's own directory /data set for output
 	 */
 	function testGenerateLcovWithVerbose() {
-		if (variables.debug) systemOutput("", true);
-		if (variables.debug) systemOutput("Testing LCOV generation with verbose logging", true);
-		
+		variables.logger.debug("");
+		variables.logger.debug("Testing LCOV generation with verbose logging");
+
 		// Given - Create isolated test data for verbose test
 		// Use separate GenerateTestData instance for isolated verbose test
 		var verboseTestDataGenerator = new "../GenerateTestData"(testName="lcovGenerateLcovTest-verbose");
@@ -299,7 +300,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var executionLogDir = verboseTestData.coverageDir;
 		var outputFile = verboseTestDataGenerator.getOutputDir() & "/test-verbose.lcov";
 		var options = {
-			verbose: false
+			logLevel: "info"
 		};
 		
 		// When

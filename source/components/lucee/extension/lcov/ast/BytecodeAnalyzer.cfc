@@ -4,7 +4,14 @@
  */
 component {
 
-	variables.debug = false;
+	/**
+	 * Initialize BytecodeAnalyzer
+	 * @logLevel Log level for debugging bytecode extraction
+	 */
+	public function init(string logLevel="none") {
+		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+		return this;
+	}
 
 	/**
 	 * Extract line numbers from compiled bytecode's LineNumberTable.
@@ -16,45 +23,18 @@ component {
 	public struct function extractLineNumberTable(required string sourceFilePath) {
 		var lineNumbers = {};
 
-		// Debug: List all .class files in cfclasses
-		var cfclassesPath = expandPath("{lucee-server}/cfclasses");
-		if (variables.debug) {
-			systemOutput("Looking for bytecode in: " & cfclassesPath, true);
-		}
-		if (directoryExists(cfclassesPath)) {
-			var allClassFiles = directoryList(cfclassesPath, true, "path", "*.class");
-			if (variables.debug) {
-				systemOutput("Found #arrayLen(allClassFiles)# total .class files", true);
-				if (arrayLen(allClassFiles) > 0 && arrayLen(allClassFiles) <= 10) {
-					for (var f in allClassFiles) {
-						systemOutput("  - " & f, true);
-					}
-				}
-			}
-		} else {
-			if (variables.debug) {
-				systemOutput("cfclasses directory does not exist!", true);
-			}
-		}
-
 		// Find the compiled .class file in cfclasses directory
 		var classFilePath = findCompiledClassFile(arguments.sourceFilePath);
-		if (variables.debug) {
-			systemOutput("Found class file: " & classFilePath, true);
-		}
+		variables.logger.debug("Found class file: " & classFilePath);
 
 		if (len(classFilePath) == 0) {
-			if (variables.debug) {
-				systemOutput("No compiled .class file found for: " & arguments.sourceFilePath, true);
-			}
+			variables.logger.debug("No compiled .class file found for: " & arguments.sourceFilePath);
 			return lineNumbers;
 		}
 
 		// Read bytecode using javap
 		lineNumbers = readLineNumberTableFromBytecode(classFilePath);
-		if (variables.debug) {
-			systemOutput("Extracted #structCount(lineNumbers)# line numbers from bytecode", true);
-		}
+		variables.logger.debug("Extracted " & structCount(lineNumbers) & " line numbers from bytecode");
 
 		return lineNumbers;
 	}
@@ -114,9 +94,7 @@ component {
 		var result = "";
 		execute name="javap" arguments="-v ""#arguments.classFilePath#""" variable="result" timeout="10";
 
-		if (variables.debug) {
-			systemOutput("Javap output length: " & len(result), true);
-		}
+		variables.logger.debug("Javap output length: " & len(result));
 
 		// Parse the LineNumberTable from javap output
 		// Look for lines like: "line 5: 0" or "line 10: 23"

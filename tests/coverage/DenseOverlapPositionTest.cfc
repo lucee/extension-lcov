@@ -3,6 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="DenseOverlapPositionTest");
@@ -16,7 +17,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Get the generated artifacts directory for output
 		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
-		
+
 	}
 
 	function run() {

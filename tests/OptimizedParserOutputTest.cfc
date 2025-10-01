@@ -3,6 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	// BDD-style parser comparison tests
 
 	function beforeAll() {
+		variables.logLevel = "info";
 		// Process all artifacts - no file filter
 		variables.fileFilter = "";
 	}
@@ -45,7 +46,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			describe("Parser Execution", function() {
 
 					it("should execute stable parser on all files successfully", function() {
-						var stableParser = new lucee.extension.lcov.ExecutionLogParser({"verbose": false});
+						var stableParser = new lucee.extension.lcov.ExecutionLogParser({"logLevel": "info"});
 						var testFiles = directoryList(variables.stableTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {
@@ -59,7 +60,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					});
 
 					it("should execute develop parser on all files successfully", function() {
-						var developParser = new lucee.extension.lcov.develop.ExecutionLogParser({"verbose": false});
+						var developParser = new lucee.extension.lcov.develop.ExecutionLogParser({"logLevel": "info"});
 						var testFiles = directoryList(variables.developTestData.coverageDir, false, "path", "*.exl");
 
 						for (var testExlFile in testFiles) {

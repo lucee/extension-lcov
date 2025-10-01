@@ -8,23 +8,14 @@ component {
 	 * @options Configuration options struct (optional)
 	 */
 	public function init(struct options = {}) {
-		// Store options and extract verbose flag
+		// Store options and extract logLevel
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		variables.componentFactory = new lucee.extension.lcov.CoverageComponentFactory();
 		// Optionally allow per-instance override
 		variables.useDevelop = structKeyExists(arguments.options, "useDevelop") ? arguments.options.useDevelop : variables.componentFactory.getUseDevelop();
 		return this;
-	}
-
-	/**
-	 * Private logging function that respects verbose setting
-	 * @message The message to log
-	 */
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -46,21 +37,21 @@ component {
 			throw(message="Execution log directory does not exist: " & arguments.executionLogDir);
 		}
 
-		logger("Processing execution logs from: " & arguments.executionLogDir);
+		variables.logger.debug("Processing execution logs from: " & arguments.executionLogDir);
 
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
-		var exlParser = factory.getComponent(name="ExecutionLogParser", initArgs=arguments.options);
+		var exlParser = factory.getComponent(name="ExecutionLogParser", initArgs={options: arguments.options});
 
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
 		var jsonFilePaths = [];
 
-		logger("Found " & files.recordCount & " .exl files to process");
+		variables.logger.debug("Found " & files.recordCount & " .exl files to process");
 
 		for (var file in files) {
 			var exlPath = file.directory & "/" & file.name;
 			var info = getFileInfo( exlPath );
-			logger("Processing .exl file: " & exlPath
-				& " (" & decimalFormat( info.size/1024 ) & " Kb)");
+			variables.logger.debug("Processing " & file.name
+				& " (" & decimalFormat( info.size/1024/1024 ) & " Mb)");
 			var result = exlParser.parseExlFile(
 				exlPath,
 				arguments.options.allowList ?: [],
@@ -82,11 +73,10 @@ component {
 			var jsonPath = reReplace(exlPath, "\.exl$", ".json");
 			fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
 			arrayAppend(jsonFilePaths, jsonPath);
-			///logger("Successfully processed: " & exlPath);
 
 		}
 
-		logger("Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files");
+		variables.logger.debug("Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files");
 		return jsonFilePaths;
 	}
 

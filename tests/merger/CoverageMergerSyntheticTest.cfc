@@ -2,8 +2,9 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
+		variables.logLevel = "info";
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
-		variables.utils = new lucee.extension.lcov.CoverageMergerUtils();		
+		variables.utils = new lucee.extension.lcov.CoverageMergerUtils();
 	}
 
 	// BDD: Given/When/Then for each step in mergeResults

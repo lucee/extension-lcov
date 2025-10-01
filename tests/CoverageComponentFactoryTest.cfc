@@ -9,9 +9,9 @@ component labels="lcov" extends="org.lucee.cfml.test.LuceeTestCase" {
 
 				var testData = [];
 				for (var name in variables.developComponentNames) {
-					arrayAppend(testData, {name=name, useDevelop=false, options={verbose=false}, expectedUseDevelop=false});
-					arrayAppend(testData, {name=name, useDevelop=true, options={verbose=false}, expectedUseDevelop=true});
-					//arrayAppend(testData, {name=name, useDevelop="", options={verbose=false}, expectedUseDevelop=""});
+					arrayAppend(testData, {name=name, useDevelop=false, options={logLevel="info"}, expectedUseDevelop=false});
+					arrayAppend(testData, {name=name, useDevelop=true, options={logLevel="info"}, expectedUseDevelop=true});
+					//arrayAppend(testData, {name=name, useDevelop="", options={logLevel="info"}, expectedUseDevelop=""});
 				}
 				for (var _test in testData) {
 					it(title="checking #_comp#, useDevelop=#_test.useDevelop#",

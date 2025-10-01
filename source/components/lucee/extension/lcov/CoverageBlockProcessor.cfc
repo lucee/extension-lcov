@@ -5,20 +5,11 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	* @options Configuration options struct (optional)
 	*/
 	public function init(struct options = {}) {
-		// Store options and extract verbose flag
+		// Store options and initialize logger
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;		
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
-	}
-
-	/**
-	* Private logging function that respects verbose setting
-	* @message The message to log
-	*/
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -72,7 +63,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("overlapFilterLineBased: Completed " & structCount(coverage)
+		variables.logger.debug("overlapFilterLineBased: Completed " & structCount(coverage)
 			& " files in " & totalTime & "ms");
 		return coverage;
 	}
@@ -142,7 +133,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("overlapFilterPositionBased: Completed " & structCount(coverage)
+		variables.logger.debug("overlapFilterPositionBased: Completed " & structCount(coverage)
 			& " files in " & totalTime & "ms");
 		return coverage;
 	}

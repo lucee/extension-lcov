@@ -18,8 +18,9 @@ component {
 	* Accepts either a displayUnit struct or a string ("micro", "ms", "s").
 	* Always stores a struct with name, symbol, and factor.
 	*/
-	public HtmlWriter function init(string displayUnit = "μs") {
+	public HtmlWriter function init(string displayUnit = "μs", string logLevel = "none") {
 		variables.displayUnit = arguments.displayUnit;
+		variables.logger = new lucee.extension.lcov.Logger( level=arguments.logLevel );
 		return this;
 	}
 
@@ -112,11 +113,15 @@ component {
 		var fileIndexes = structKeyArray(filesStruct);
 		arraySort(fileIndexes, "numeric", "asc");
 
+		// add logger event
+		//var event =variables.logger.beginEvent("HTMLReportGeneration");
 		for (var fileIndex in fileIndexes) {
 			if (!isNumeric(fileIndex)) throw(type="InvalidFileIndex", message="Only numeric fileIndex keys are allowed [fileIndex=#fileIndex#]");
 
 			html &= variables.fileSection.generateFileSection(fileIndex, result, variables.htmlEncoder, variables.heatmapCalculator, variables.displayUnit);
+
 		}
+		//variables.logger.commitEvent(event);
 
 		html &= '</div>';
 

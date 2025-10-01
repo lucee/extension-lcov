@@ -6,18 +6,9 @@ component displayname="OverlapFilterLine" accessors="true" {
 	 */
 	public function init(struct options = {}) {
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
-	}
-
-	/**
-	 * Private logging function that respects verbose setting
-	 * @message The message to log
-	 */
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -68,7 +59,7 @@ component displayname="OverlapFilterLine" accessors="true" {
 		}
 
 		var totalTime = getTickCount() - startTime;
-		logger("OverlapFilterLine: Completed " & structCount(coverage)
+		variables.logger.debug("OverlapFilterLine: Completed " & structCount(coverage)
 			& " files in " & totalTime & "ms");
 		return coverage;
 	}

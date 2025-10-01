@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname="AstCallAnalyzerTest" {
 
 	function beforeAll() {
+		variables.logLevel = "info";
 		variables.testDataGenerator = new "../GenerateTestData"(testName="AstCallAnalyzerTest");
 		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
 	}

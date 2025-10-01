@@ -1,11 +1,12 @@
 
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
-		variables.debug = false;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new GenerateTestData(testName="SeparateFilesTest");
-		
+
 		// Generate test data using kitchen-sink-example.cfm to get multiple source files
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
@@ -37,13 +38,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	public function testSeparateFilesFalse() {
 		// Given
-		var outputDir = variables.testData.coverageDir & "/false/";
-		if (!directoryExists(outputDir)) {
-			directoryCreate(outputDir, true);
-		}
+		var outputDir = variables.testDataGenerator.getOutputDir( "false" );
 		var options = {
 			separateFiles: false,
-			verbose: false
+			logLevel: "info"
 		};
 
 		// When
@@ -70,13 +68,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	private function testSeparateFilesTrue() {
 		// Given
-		var outputDir = variables.testData.coverageDir & "/true/";
-		if (!directoryExists(outputDir)) {
-			directoryCreate(outputDir, true);
-		}
+		var outputDir = variables.testDataGenerator.getOutputDir( "true" );
 		var options = {
 			separateFiles: true,
-			verbose: false
+			logLevel: "info"
 		};
 
 		// When
@@ -126,15 +121,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	private function testSeparateFilesBehaviorComparison() {
 		// Given
-		var combinedDir = variables.testData.coverageDir & "/by-request-comparison/";
-		var separateDir = variables.testData.coverageDir & "/by-source-file-comparison/";
-
-		if (!directoryExists(combinedDir)) {
-			directoryCreate(combinedDir, true);
-		}
-		if (!directoryExists(separateDir)) {
-			directoryCreate(separateDir, true);
-		}
+		var combinedDir = variables.testDataGenerator.getOutputDir( "by-request-comparison" );
+		var separateDir = variables.testDataGenerator.getOutputDir( "by-source-file-comparison" );
 
 		// When - Generate with separateFiles: false
 		lcovGenerateHtml(
@@ -164,13 +152,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	private function testIndexJsonContent() {
 		// Given
-		var outputDir = variables.testData.coverageDir & "/json-validation/";
-		if (!directoryExists(outputDir)) {
-			directoryCreate(outputDir, true);
-		}
+		var outputDir = variables.testDataGenerator.getOutputDir( "json-validation" );
 		var options = {
 			separateFiles: true,
-			verbose: false
+			logLevel: "info"
 		};
 
 		// When
@@ -216,11 +201,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			if (report.totalLinesFound > 0 && report.totalLinesHit > 0) {
 				hasNonZeroCoverage = true;
 				var coveragePercent = report.totalLinesFound > 0 ? (report.totalLinesHit / report.totalLinesFound) * 100 : 0;
-				if (variables.debug) {
-					systemOutput("Found report with coverage: " & report.scriptName & " - " &
-						report.totalLinesHit & "/" & report.totalLinesFound &
-						" (" & numberFormat(coveragePercent, "0.0") & "%)", true);
-				}
+				variables.logger.debug("Found report with coverage: " & report.scriptName & " - " &
+					report.totalLinesHit & "/" & report.totalLinesFound &
+					" (" & numberFormat(coveragePercent, "0.0") & "%)");
 				break;
 			}
 		}

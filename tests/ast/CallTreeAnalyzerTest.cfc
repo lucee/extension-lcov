@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
+		variables.logLevel = "info";
 		variables.testDataGenerator = new "../GenerateTestData"(testName="CallTreeAnalyzerTest");
 		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer();
 		variables.adminPassword = request.SERVERADMINPASSWORD ?: "admin";
@@ -239,7 +240,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				if (arrayLen(exlFiles) > 0) {
 					// Parse the execution logs to get coverage data
-					var parser = new lucee.extension.lcov.ExecutionLogParser({verbose: false});
+					var parser = new lucee.extension.lcov.ExecutionLogParser({logLevel: "info"});
 					var coverage = parser.parseExecutionLogs(exlDir);
 
 					// Extract aggregated data and files from coverage

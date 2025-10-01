@@ -11,8 +11,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testLogDir = variables.testData.coverageDir;
 		variables.tempDir = variables.testDataGenerator.getOutputDir();
 
-		variables.verbose=false;
-		variables.debug = false;
+		variables.logLevel="info";
 	}
 
 	
@@ -28,7 +27,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// When
 		var result = lcovGenerateSummary(
 			executionLogDir=executionLogDir,
-			options:{verbose: variables.verbose}
+			options:{logLevel: variables.logLevel}
 		);
 		
 		// Then
@@ -209,13 +208,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// When
 		var result = lcovGenerateSummary(
 			executionLogDir=executionLogDir,
-			options:{verbose: variables.verbose}
+			options:{logLevel: variables.logLevel}
 		);
-
-		if (variables.debug) {
-			if (variables.debug) systemOutput("source: " & executionLogDir, true);
-			if (variables.debug) systemOutput("result: " & serializeJSON(result), true);
-		}
 
 		// Then
 		expect(result.fileStats).toBeStruct();
@@ -232,16 +226,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			// Verify data relationships and reasonable coverage percentage
 			if (fileData.linesFound > 0) {
 				var expectedPercentage = (fileData.linesHit / fileData.linesFound) * 100;
-				if (variables.debug) systemOutput(fileData, true);
-
-				// Debug the relationship between linesHit and linesFound
-				if (fileData.linesHit > fileData.linesFound) {
-					if (variables.debug) systemOutput("DEBUG: linesHit > linesFound for file " & filePath, true);
-					if (variables.debug) systemOutput("  linesHit: " & fileData.linesHit, true);
-					if (variables.debug) systemOutput("  linesFound: " & fileData.linesFound, true);
-					if (variables.debug) systemOutput("  linesSource: " & fileData.linesSource, true);
-					if (variables.debug) systemOutput("  This violates the basic coverage rule that linesHit <= linesFound", true);
-				}
 
 				expect(fileData.coveragePercentage).toBeCloseTo(expectedPercentage, 3,
 					"Coverage percentage should match calculation for file " & filePath & ". Expected: " & expectedPercentage & ", got: " & fileData.coveragePercentage & ".");
@@ -262,12 +246,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// When - Test with different chunk sizes
 		var result1 = lcovGenerateSummary(
 			executionLogDir=executionLogDir,
-			options={chunkSize: 10000, verbose: variables.verbose}
+			options={chunkSize: 10000, logLevel: variables.logLevel}
 		);
 		
 		var result2 = lcovGenerateSummary(
 			executionLogDir=executionLogDir,
-			options={chunkSize: 50000, verbose: variables.verbose}
+			options={chunkSize: 50000, logLevel: variables.logLevel}
 		);
 		
 		// Then - Results should be the same regardless of chunk size

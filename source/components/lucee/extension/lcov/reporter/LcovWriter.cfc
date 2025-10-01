@@ -8,20 +8,11 @@ component {
 	 * @options Configuration options struct (optional)
 	 */
 	public function init(struct options = {}) {
-		// Store options and extract verbose flag
+		// Store options and initialize logger
 		variables.options = arguments.options;
-		variables.verbose = structKeyExists(variables.options, "verbose") ? variables.options.verbose : false;
+		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
-	}
-
-	/**
-	 * Private logging function that respects verbose setting
-	 * @message The message to log
-	 */
-	private void function logger(required string message) {
-		if (variables.verbose) {
-			systemOutput(arguments.message, true);
-		}
 	}
 
 	/**
@@ -46,7 +37,7 @@ component {
 	 * @return String containing LCOV format content
 	 */
 	public string function buildLCOV(required struct fileCoverage, boolean useRelativePath = false) {
-		logger("Building LCOV format with " & structCount(arguments.fileCoverage.files) & " files");
+		variables.logger.debug("Building LCOV format with " & structCount(arguments.fileCoverage.files) & " files");
 		
 		var lcovLines = [];
 		var files = arguments.fileCoverage.files;
@@ -61,11 +52,11 @@ component {
 				try {
 					var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
 					filePath = htmlUtils.safeContractPath(filePath);
-					logger("Converted path to relative: " & filePath);
+					variables.logger.debug("Converted path to relative: " & filePath);
 				} catch (any e) {
 					// If contractPath fails, use original path
 					filePath = originalFilePath;
-					logger("Failed to convert path, using original: " & filePath);
+					variables.logger.debug("Failed to convert path, using original: " & filePath);
 				}
 			}
 
@@ -90,12 +81,12 @@ component {
 			arrayAppend(lcovLines, "LF:" & linesFoundValue);
 			arrayAppend(lcovLines, "LH:" & linesHit);
 			arrayAppend(lcovLines, "end_of_record");
-			
-			logger("Processed file: " & filePath & " (LF:" & linesFoundValue & ", LH:" & linesHit & ")");
+
+			variables.logger.debug("Processed file: " & filePath & " (LF:" & linesFoundValue & ", LH:" & linesHit & ")");
 		}
 
 		var lcovContent = arrayToList(lcovLines, chr(10));
-		logger("Generated LCOV content: " & len(lcovContent) & " characters");
+		variables.logger.debug("Generated LCOV content: " & len(lcovContent) & " characters");
 		
 		return lcovContent;
 	}

@@ -1,6 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	public void function beforeAll(){
+		variables.logLevel = "info";
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="DuplicateIndexJsonTest");
 
@@ -8,23 +9,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 		variables.testExlDir = variables.testData.coverageDir;
 
-		variables.htmlOutputDir = "#variables.testData.coverageDir#\html-output";
-		variables.jsonOutputDir = "#variables.testData.coverageDir#\json-output";
-		variables.jsonOnlyOutputDir = "#variables.testData.coverageDir#\json-only-output";
+		variables.htmlOutputDir = variables.testDataGenerator.getOutputDir( "html-output" );
+		variables.jsonOutputDir = variables.testDataGenerator.getOutputDir( "json-output" );
+		variables.jsonOnlyOutputDir = variables.testDataGenerator.getOutputDir( "json-only-output" );
 
 	}
 
 	public void function testHtmlGenerationWithRealExlFilesDoesNotProduceDuplicateIndexEntries() {
-		
-		// Clean and create output directories
-		if (directoryExists(variables.htmlOutputDir)) {
-			directoryDelete(variables.htmlOutputDir, true);
-		}
-		if (directoryExists(variables.jsonOutputDir)) {
-			directoryDelete(variables.jsonOutputDir, true);
-		}
-		directoryCreate(variables.htmlOutputDir, true);
-		directoryCreate(variables.jsonOutputDir, true);
+		// Output directories are already created by beforeAll()
 
 		// Use the test execution logs directory
 		var results = lcovGenerateHtml(
@@ -94,11 +86,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	public void function testJsonGenerationWithRealExlFilesDoesNotProduceDuplicateIndexEntries() {
-		// Clean and create output directory
-		if (directoryExists(variables.jsonOnlyOutputDir)) {
-			directoryDelete(variables.jsonOnlyOutputDir, true);
-		}
-		directoryCreate(variables.jsonOnlyOutputDir, true);
+		// Output directory already created by beforeAll()
 
 		// Use JSON-only generation
 		var results = lcovGenerateJson(

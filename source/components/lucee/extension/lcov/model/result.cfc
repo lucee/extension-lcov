@@ -154,6 +154,14 @@ component accessors=true {
 		if (!structKeyExists(variables.stats, "totalLinesSource")) variables.stats.totalLinesSource = 0;
 		if (!structKeyExists(variables.stats, "totalExecutions")) variables.stats.totalExecutions = 0;
 		if (!structKeyExists(variables.stats, "totalExecutionTime")) variables.stats.totalExecutionTime = 0;
+		if (!structKeyExists(variables.stats, "totalChildTime")) variables.stats.totalChildTime = 0;
+	}
+
+	/**
+	 * Returns array of allowed stats keys
+	 */
+	public array function getAllowedStatsKeys() {
+		return [ "totalLinesFound", "totalLinesHit", "totalLinesSource", "totalExecutions", "totalExecutionTime", "totalChildTime" ];
 	}
 
 	/**

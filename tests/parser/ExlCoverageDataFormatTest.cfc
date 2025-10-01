@@ -1,9 +1,10 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
+		variables.logLevel = "info";
 		variables.parser = new lucee.extension.lcov.ExecutionLogParser();
 	variables.testDataGenerator = new "../GenerateTestData"(testName="ExlCoverageDataFormatTest");
-		
+
 		// Generate test data if needed
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
 	}

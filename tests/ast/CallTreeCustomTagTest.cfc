@@ -1,7 +1,8 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
-		variables.debug = false;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		variables.testDataGenerator = new "../GenerateTestData"(testName="CallTreeCustomTagTest");
 		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer();
 		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
@@ -18,7 +19,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var ast = astFromPath(testFile);
 				// TEMP write the ast to a debug file
 				var astDebugPath = testFile & ".ast.json";
-				if (variables.debug) systemOutput("Generated AST for " & testFile & " saved as " & astDebugPath, true);
+				variables.logger.debug("Generated AST for " & testFile & " saved as " & astDebugPath);
 				fileWrite( astDebugPath, serializeJSON(var=ast, compact=false) );
 
 				// Extract tags directly from the AST to verify our extraction works
@@ -75,7 +76,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var ast = astFromPath(testFile);
 				// TEMP write the ast to a debug file
 				var astDebugPath = testFile & ".ast.json";
-				if (variables.debug) systemOutput("Generated AST for " & testFile & " saved as " & astDebugPath, true);
+				variables.logger.debug("Generated AST for " & testFile & " saved as " & astDebugPath);
 				fileWrite( astDebugPath, serializeJSON(var=ast, compact=false) );
 
 				// Extract function calls from the AST

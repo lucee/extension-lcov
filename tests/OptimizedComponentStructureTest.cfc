@@ -9,7 +9,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 
 		// Test instantiation
-		var options = {"verbose": true};
+		var options = {"logLevel": "info"};
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
 		var developParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true, initArgs=options);
 
@@ -33,7 +33,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testCoverageBlockProcessorDevelopExists() {
 
 		// Test instantiation
-		var options = {"verbose": true};
+		var options = {"logLevel": "info"};
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
 		var developUtils = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true, initArgs=options);
 
@@ -55,7 +55,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 */
 	function testdevelopLoggingExists() {
 
-		var options = {"verbose": true};
+		var options = {"logLevel": "info"};
 
 		// Test develop parser has optimization logging
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
@@ -76,8 +76,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Compare ExecutionLogParser methods
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
-		var stablelParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false, initArgs={"verbose": false});
-		var developParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true, initArgs={"verbose": false});
+		var stablelParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false, initArgs={"logLevel": "info"});
+		var developParser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true, initArgs={"logLevel": "info"});
 
 		var stableFunctions = getMetaData(stablelParser).functions;
 		var stableMethods = [];

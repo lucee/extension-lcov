@@ -2,6 +2,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
+		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 
 		// Create test generator instance with test name - handles directory creation and cleanup
 		variables.testGenerator = new "../GenerateTestData"(testName="AstComparisonTest");
@@ -32,7 +34,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var exlPath = exlFiles[1];
 
 				// Create parser and ExecutableLineCounter instances
-				var parser = new lucee.extension.lcov.ExecutionLogParser();
+				var parser = new lucee.extension.lcov.ExecutionLogParser(options={logLevel: variables.logLevel});
 				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
 
 				// Parse to get file path and source
@@ -66,7 +68,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// TEMP write the ast to a debug file
 				var astDebugPath = filePath & ".ast.json";
-				systemOutput("Generated AST for " & filePath & " saved as " & astDebugPath, true);
+				variables.logger.debug("Generated AST for " & filePath & " saved as " & astDebugPath);
 				fileWrite( astDebugPath, serializeJSON(var=parsedAst, compact=false) );
 
 				// Count executable lines using both methods
@@ -74,13 +76,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var astResult = ast.countExecutableLinesFromAst(parsedAst);
 
 				// Output comparison
-				systemOutput("", true);
-				systemOutput("=== Executable Line Counting Comparison ===", true);
-				systemOutput("File: kitchen-sink-example.cfm", true);
-				systemOutput("  - Simple method: #simpleResult.count# lines", true);
-				systemOutput("  - AST method:    #astResult.count# lines", true);
-				systemOutput("  - Difference:    #(simpleResult.count - astResult.count)# lines", true);
-				systemOutput("", true);
+				variables.logger.debug("");
+				variables.logger.debug("=== Executable Line Counting Comparison ===");
+				variables.logger.debug("File: kitchen-sink-example.cfm");
+				variables.logger.debug("  - Simple method: #simpleResult.count# lines");
+				variables.logger.debug("  - AST method:    #astResult.count# lines");
+				variables.logger.debug("  - Difference:    #(simpleResult.count - astResult.count)# lines");
+				variables.logger.debug("");
 
 				// Show which lines differ
 				var simpleLines = simpleResult.executableLines;
@@ -103,22 +105,22 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Show all lines found by each method
 				var simpleLinesList = structKeyArray(simpleLines);
 				arraySort(simpleLinesList, "numeric");
-				systemOutput("Simple method lines: #arrayToList(simpleLinesList)#", true);
+				variables.logger.trace("Simple method lines: #arrayToList(simpleLinesList)#");
 
 				var astLinesList = structKeyArray(astLines);
 				arraySort(astLinesList, "numeric");
-				systemOutput("AST method lines: #arrayToList(astLinesList)#", true);
+				variables.logger.trace("AST method lines: #arrayToList(astLinesList)#");
 
 				if (arrayLen(onlyInSimple) > 0) {
 					arraySort(onlyInSimple, "numeric");
-					systemOutput("Lines only in SIMPLE method: #arrayToList(onlyInSimple)#", true);
+					variables.logger.trace("Lines only in SIMPLE method: #arrayToList(onlyInSimple)#");
 				}
 
 				if (arrayLen(onlyInAst) > 0) {
 					arraySort(onlyInAst, "numeric");
-					systemOutput("Lines only in AST method: #arrayToList(onlyInAst)#", true);
+					variables.logger.trace("Lines only in AST method: #arrayToList(onlyInAst)#");
 				}
-				systemOutput("", true);
+				variables.logger.trace("");
 
 				// Get actual coverage data from the parsed result for THIS file only
 				var coverage = result.getCoverage();
@@ -146,8 +148,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				arraySort(astLinesWithCoverage, "numeric");
 				arraySort(astLinesWithoutCoverage, "numeric");
 
-				systemOutput("AST lines WITH coverage: #arrayToList(astLinesWithCoverage)#", true);
-				systemOutput("AST lines WITHOUT coverage (over-counted): #arrayToList(astLinesWithoutCoverage)#", true);
+				variables.logger.trace("AST lines WITH coverage: #arrayToList(astLinesWithCoverage)#");
+				variables.logger.trace("AST lines WITHOUT coverage (over-counted): #arrayToList(astLinesWithoutCoverage)#");
 
 				// Show which covered lines AST missed
 				var coveredLinesMissedByAst = [];
@@ -158,19 +160,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				}
 				arraySort(coveredLinesMissedByAst, "numeric");
 				if (arrayLen(coveredLinesMissedByAst) > 0) {
-					systemOutput("Covered lines MISSED by AST (under-counted): #arrayToList(coveredLinesMissedByAst)#", true);
+					variables.logger.trace("Covered lines MISSED by AST (under-counted): #arrayToList(coveredLinesMissedByAst)#");
 				}
-				systemOutput("", true);
+				variables.logger.trace("");
 
 				// Extract bytecode LineNumberTable (ground truth)
 				var bytecodeAnalyzer = new lucee.extension.lcov.ast.BytecodeAnalyzer();
 				var bytecodeLines = bytecodeAnalyzer.extractLineNumberTable(filePath);
-				systemOutput("Bytecode extraction returned #structCount(bytecodeLines)# lines", true);
+				variables.logger.debug("Bytecode extraction returned #structCount(bytecodeLines)# lines");
 				if (structCount(bytecodeLines) > 0) {
 					var bytecodeLinesList = structKeyArray(bytecodeLines);
 					arraySort(bytecodeLinesList, "numeric");
-					systemOutput("=== Bytecode LineNumberTable (Ground Truth) ===", true);
-					systemOutput("Bytecode tracks #arrayLen(bytecodeLinesList)# lines: #arrayToList(bytecodeLinesList)#", true);
+					variables.logger.debug("=== Bytecode LineNumberTable (Ground Truth) ===");
+					variables.logger.trace("Bytecode tracks #arrayLen(bytecodeLinesList)# lines: #arrayToList(bytecodeLinesList)#");
 
 					// Compare AST vs Bytecode
 					var astOnlyLines = [];
@@ -190,17 +192,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					arraySort(bytecodeOnlyLines, "numeric");
 
 					if (arrayLen(astOnlyLines) > 0) {
-						systemOutput("AST over-counted (not in bytecode): #arrayToList(astOnlyLines)#", true);
+						variables.logger.trace("AST over-counted (not in bytecode): #arrayToList(astOnlyLines)#");
 					}
 					if (arrayLen(bytecodeOnlyLines) > 0) {
-						systemOutput("AST under-counted (in bytecode, not in AST): #arrayToList(bytecodeOnlyLines)#", true);
+						variables.logger.trace("AST under-counted (in bytecode, not in AST): #arrayToList(bytecodeOnlyLines)#");
 					}
 
 					var accuracy = (astResult.count - arrayLen(astOnlyLines) - arrayLen(bytecodeOnlyLines)) / arrayLen(bytecodeLinesList) * 100;
-					systemOutput("AST accuracy: #numberFormat(accuracy, '99.9')#% (perfect = 100%)", true);
-					systemOutput("", true);
+					variables.logger.debug("AST accuracy: #numberFormat(accuracy, '99.9')#% (perfect = 100%)");
+					variables.logger.trace("");
 				}
-				systemOutput("", true);
+				variables.logger.trace("");
 
 				// Store results for next test
 				variables.comparisonResults = {
@@ -222,7 +224,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var exlPath = exlFiles[1];
 
 				// Parse to get coverage data
-				var parser = new lucee.extension.lcov.ExecutionLogParser();
+				var parser = new lucee.extension.lcov.ExecutionLogParser(options={logLevel: variables.logLevel});
 				var coverageData = parser.parseExlFile(exlPath = exlPath);
 
 				// Count actual covered lines
@@ -240,18 +242,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				var actualCoveredCount = structCount(coveredLines);
 
-				systemOutput("", true);
-				systemOutput("=== Coverage Accuracy Analysis ===", true);
-				systemOutput("Actual lines covered: #actualCoveredCount#", true);
-				systemOutput("Executable lines found (simple): #variables.comparisonResults.simpleCount#", true);
-				systemOutput("Executable lines found (AST): #variables.comparisonResults.astCount#", true);
-				systemOutput("", true);
+				variables.logger.trace("");
+				variables.logger.debug("=== Coverage Accuracy Analysis ===");
+				variables.logger.debug("Actual lines covered: #actualCoveredCount#");
+				variables.logger.debug("Executable lines found (simple): #variables.comparisonResults.simpleCount#");
+				variables.logger.debug("Executable lines found (AST): #variables.comparisonResults.astCount#");
+				variables.logger.trace("");
 
 				// Calculate coverage percentage using AST count
 				var coveragePercent = (actualCoveredCount / variables.comparisonResults.astCount) * 100;
 
-				systemOutput("Coverage percentage: #numberFormat(coveragePercent, '99.9')#%", true);
-				systemOutput("", true);
+				variables.logger.debug("Coverage percentage: #numberFormat(coveragePercent, '99.9')#%");
+				variables.logger.trace("");
 
 				// The coverage percentage should be reasonable (not over 100%)
 				expect(coveragePercent).toBeLTE(100, "Coverage should not exceed 100%");
@@ -278,10 +280,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var simpleResult = ast.countExecutableLinesSimple(testSourceLines);
 				var simpleCount = simpleResult.count;
 
-				systemOutput("", true);
-				systemOutput("=== Edge Case Testing ===", true);
-				systemOutput("Test source has #arrayLen(testSourceLines)# total lines", true);
-				systemOutput("Line counting found #simpleCount# executable lines", true);
+				variables.logger.trace("");
+				variables.logger.debug("=== Edge Case Testing ===");
+				variables.logger.debug("Test source has #arrayLen(testSourceLines)# total lines");
+				variables.logger.debug("Line counting found #simpleCount# executable lines");
 
 				// Should count non-empty, non-comment lines as executable
 				expect(simpleCount).toBeGTE(2);  // At minimum some executable lines
@@ -297,9 +299,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					filter = "*.cfm"
 				);
 
-				systemOutput("", true);
-				systemOutput("=== Testing All Artifact Files ===", true);
-				systemOutput("Found #arrayLen(artifactFiles)# artifact files to test", true);
+				variables.logger.trace("");
+				variables.logger.debug("=== Testing All Artifact Files ===");
+				variables.logger.debug("Found #arrayLen(artifactFiles)# artifact files to test");
 
 				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
 				var bytecodeAnalyzer = new lucee.extension.lcov.ast.BytecodeAnalyzer();
@@ -348,23 +350,23 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				}
 
 				// Output summary
-				systemOutput("", true);
-				systemOutput("=== Summary Across All Files ===", true);
-				systemOutput("Total files tested: #totalFiles#", true);
+				variables.logger.trace("");
+				variables.logger.debug("=== Summary Across All Files ===");
+				variables.logger.debug("Total files tested: #totalFiles#");
 
 				if (arrayLen(results) > 0) {
-					systemOutput("Files with bytecode: #arrayLen(results)#", true);
-					systemOutput("Perfect matches: #perfectMatches# (#numberFormat((perfectMatches/arrayLen(results))*100, '99.9')#%)", true);
-					systemOutput("Average accuracy: #numberFormat(totalAccuracy/arrayLen(results), '99.9')#%", true);
-					systemOutput("", true);
+					variables.logger.debug("Files with bytecode: #arrayLen(results)#");
+					variables.logger.debug("Perfect matches: #perfectMatches# (#numberFormat((perfectMatches/arrayLen(results))*100, '99.9')#%)");
+					variables.logger.debug("Average accuracy: #numberFormat(totalAccuracy/arrayLen(results), '99.9')#%");
+					variables.logger.trace("");
 
 					// Show individual results
 					for (var result in results) {
 						var status = result.simple == result.bytecode ? "✓" : "✗";
-						systemOutput("#status# #result.file#: Simple=#result.simple#, Bytecode=#result.bytecode#, Accuracy=#numberFormat(result.accuracy, '99.9')#%", true);
+						variables.logger.trace("#status# #result.file#: Simple=#result.simple#, Bytecode=#result.bytecode#, Accuracy=#numberFormat(result.accuracy, '99.9')#%");
 					}
 				} else {
-					systemOutput("No bytecode found for any files (files may not have been executed yet)", true);
+					variables.logger.debug("No bytecode found for any files (files may not have been executed yet)");
 				}
 
 				// Test should pass as long as we ran some comparisons

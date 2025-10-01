@@ -2,6 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
+		variables.logLevel = "info";
 	}
 
 	/**

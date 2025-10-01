@@ -67,9 +67,10 @@ component {
 	 * @return Struct with coverageDir, fileCount, and coverageFiles (array of .exl files)
 	 */
 	
-	function generateExlFilesForArtifacts(required string adminPassword, 
-		string fileFilter = "", 
-		struct executionLogOptions = {}) {
+	function generateExlFilesForArtifacts(required string adminPassword,
+		string fileFilter = "",
+		struct executionLogOptions = {},
+		numeric iterations = 1) {
 		// Generate .exl files using ResourceExecutionLog
 
 		// Validate artifacts directory exists
@@ -103,7 +104,7 @@ component {
 		// Ensure directory is always set to our temp coverage dir
 		logOptions.directory = variables.tempCoverageDir;
 
-		
+
 		// Execute test artifacts to generate coverage
 		var templatePath = contractPath(variables.testArtifactsPath);
 
@@ -119,8 +120,11 @@ component {
 			maxlogs = 0
 		);
 
-		for (var _file in files) {
-			fileCount += executeArtifactFile(_file, templatePath);
+		// Execute each file the specified number of iterations
+		for ( var iteration = 1; iteration <= arguments.iterations; iteration++ ) {
+			for ( var _file in files ) {
+				fileCount += executeArtifactFile( _file, templatePath );
+			}
 		}
 		
 		// Disable ResourceExecutionLog
@@ -135,6 +139,19 @@ component {
 	}
 
 	private array function getArtifactFiles(required string filePattern) {
+		// Check if pattern contains a path (e.g., "multiple/kitchen-sink-5x.cfm")
+		if (find("/", arguments.filePattern) || find("\", arguments.filePattern)) {
+			var fullPath = variables.testArtifactsPath & "/" & arguments.filePattern;
+			if (fileExists(fullPath)) {
+				return [arguments.filePattern];
+			}
+			throw(
+				type = "GenerateTestData.NoMatchingFiles",
+				message = "File not found: [#arguments.filePattern#] (full path: #fullPath#)"
+			);
+		}
+
+		// Use directoryList for simple pattern matching
 		var files = directoryList(variables.testArtifactsPath, false, "name", arguments.filePattern);
 
 		if (arrayLen(files) == 0) {

@@ -8,3 +8,4 @@
 /source/components/lucee/extension/lcov/version.cfc
 *.ast.json
 test-output/
+test-output/

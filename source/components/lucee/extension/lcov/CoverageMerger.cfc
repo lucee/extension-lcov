@@ -23,9 +23,10 @@
  */
 component {
 
-	// CoverageMergerUtils functions now called as static methods for better performance
-	variables.debug = false;
-
+	public function init(string logLevel="none") {
+		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+		return this;
+	}
 
 	/**
 	 * Merge execution results by source file and write them directly to JSON files
@@ -33,10 +34,10 @@ component {
 	 * that executed the same source files, creating one JSON file per source file
 	 * @results Struct of results keyed by .exl file path
 	 * @outputDir Directory to write the file-*.json files to
-	 * @verbose Boolean flag for verbose logging
+	 * @logLevel Log level for verbose logging
 	 * @return Array of written file paths
 	 */
-	public struct function mergeResults(required array jsonFilePaths, required string outputDir, boolean verbose=false) {
+	public struct function mergeResults(required array jsonFilePaths, required string outputDir, string logLevel="none") {
 		// Progressive loading - process one file at a time to minimize memory usage
 		var resultFactory = new lucee.extension.lcov.model.result();
 		var mergedResults = {};
@@ -45,9 +46,7 @@ component {
 
 		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
 			var filePath = arguments.jsonFilePaths[i];
-			if (arguments.verbose) {
-				systemOutput("Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath, true);
-			}
+			variables.logger.debug( "Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath );
 
 			if (!fileExists(filePath)) {
 				throw(type="FileNotFound", message="JSON file not found: " & filePath);
@@ -73,9 +72,7 @@ component {
 				jsonContent = nullValue();
 
 			} catch (any e) {
-				if (arguments.verbose) {
-					systemOutput("Error processing " & filePath & ": " & e.message, true);
-				}
+				variables.logger.info( "Error processing " & filePath & ": " & e.message );
 				rethrow;
 			}
 		}
@@ -83,34 +80,28 @@ component {
 
 		// Recalculate and synchronize all per-file stats
 		new CoverageStats().calculateStatsForMergedResults(mergedResults);
-		if (variables.debug) {
-			systemOutput("Merged Results: " & serializeJSON(var=mergedResults, compact=false), true);
-		}
+		//variables.logger.trace( "Merged Results: " & serializeJSON(var=mergedResults, compact=false) );
 		return mergedResults;
 	}
 
 	/**
 	 * Private: Merges all result structs into a single mergedResults struct
 	 * @results Struct of results keyed by .exl file path
-	 * @verbose Boolean flag for verbose logging
+	 * @logLevel Log level for verbose logging
 	 * @return mergedResults struct
 	 */
-	public struct function mergeResultStructs(required struct results, required boolean verbose) {
+	public struct function mergeResultStructs(required struct results, required string logLevel) {
 		var validResults = lucee.extension.lcov.CoverageMergerUtils::filterValidResults(arguments.results);
 		var mappings = lucee.extension.lcov.CoverageMergerUtils::buildFileIndexMappings(validResults);
-		if (variables.debug) {
-			systemOutput("File Mappings: " & serializeJSON(var=mappings, compact=false), true);
-			systemOutput("Source Results: " & serializeJSON(var=validResults, compact=false), true);
-		}
+		variables.logger.debug( "File Mappings: " & serializeJSON(var=mappings, compact=false) );
+		variables.logger.debug( "Source Results: " & serializeJSON(var=validResults, compact=false) );
 		var mergedResults = lucee.extension.lcov.CoverageMergerUtils::initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
 		var sourceFileStats = createSourceFileStats(mappings.indexToFilePath);
 		var totalMergeOperations = 0;
 		mergedResults = mergeAllCoverageDataFromResults(validResults, mergedResults, mappings, sourceFileStats, totalMergeOperations);
 
-		if (variables.debug) {
-			systemOutput("Total merge operations: " & totalMergeOperations, true);
-			systemOutput("Merged Results before calc Stats: " & serializeJSON(var=mergedResults, compact=false), true);
-		}
+		variables.logger.debug( "Total merge operations: " & totalMergeOperations );
+		variables.logger.debug( "Merged Results before calc Stats: " & serializeJSON(var=mergedResults, compact=false) );
 		return mergedResults;
 	}
 
@@ -131,19 +122,25 @@ component {
 		required struct sourceFileStats,
 		numeric totalMergeOperations = 0
 	) {
-		// Track which exlPath/fileIndex was used to initialize each merged entry
+		// Track which exlPath was used to initialize each merged entry (by filePath, not fileIndex)
 		var initializedBy = {};
 		for (var canonicalIndex in arguments.mergedResults) {
 			var mergedEntry = arguments.mergedResults[canonicalIndex];
 			var files = mergedEntry.getFiles();
 			for (var fileIndex in files) {
 				var filePath = files[fileIndex].path;
-				// Find the result and fileIndex that was used to initialize this merged entry
+				// Find the result that was used to initialize this merged entry
+				// Match by filePath since fileIndex can differ between .exl files
 				for (var exlPath in arguments.validResults) {
 					var result = arguments.validResults[exlPath];
 					var resultFiles = result.getFiles();
-					if (structKeyExists(resultFiles, fileIndex) && resultFiles[fileIndex].path == filePath) {
-						initializedBy[canonicalIndex] = { exlPath: exlPath, fileIndex: fileIndex };
+					for (var resultFileIndex in resultFiles) {
+						if (resultFiles[resultFileIndex].path == filePath) {
+							initializedBy[canonicalIndex] = { exlPath: exlPath, filePath: filePath };
+							break;
+						}
+					}
+					if (structKeyExists(initializedBy, canonicalIndex)) {
 						break;
 					}
 				}
@@ -158,9 +155,9 @@ component {
 				var sourceFilePath = result.getFileItem(fileIndex).path;
 				var canonicalIndex = arguments.mappings.filePathToIndex[sourceFilePath];
 				var sourceFileCoverage = coverageData[fileIndex];
-				// Only merge if this exlPath/fileIndex was NOT used to initialize the merged entry
-				if (!(structKeyExists(initializedBy, canonicalIndex) && initializedBy[canonicalIndex].exlPath == exlPath
-						&& initializedBy[canonicalIndex].fileIndex == fileIndex)) {
+				// Only merge if this exlPath was NOT used to initialize the merged entry
+				// Compare by exlPath only since the same file can have different fileIndex values
+				if (!(structKeyExists(initializedBy, canonicalIndex) && initializedBy[canonicalIndex].exlPath == exlPath)) {
 					var mergedLines = mergeCoverageData(arguments.mergedResults[canonicalIndex], sourceFileCoverage, sourceFilePath, 0);
 					arguments.totalMergeOperations += mergedLines;
 				}
@@ -174,10 +171,10 @@ component {
 	 *  Merge coverage results by file path from multiple .exl parsing results
 	 * Uses pre-computed file mappings to avoid redundant lookups
 	 * @jsonFilePaths Array of JSON file paths to load and merge
-	 * @verbose Whether to output verbose logging (default false)
+	 * @logLevel Log level for verbose logging
 	 * @return Struct with mergedCoverage and sorted files array
 	 */
-	public struct function mergeResultsByFile(required array jsonFilePaths, boolean verbose=false) {
+	public struct function mergeResultsByFile(required array jsonFilePaths, string logLevel="none") {
 		// Progressive loading - process one file at a time to minimize memory usage
 		var resultFactory = new lucee.extension.lcov.model.result();
 		var merged = { "files": {}, "coverage": {} };
@@ -186,9 +183,7 @@ component {
 
 		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
 			var filePath = arguments.jsonFilePaths[i];
-			if (arguments.verbose) {
-				systemOutput("mergeResultsByFile: Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath, true);
-			}
+			variables.logger.trace( "mergeResultsByFile: Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath );
 
 			if (!fileExists(filePath)) {
 				throw(type="FileNotFound", message="mergeResultsByFile: JSON file not found: " & filePath);
@@ -271,9 +266,7 @@ component {
 				}
 			}
 		}
-		if(variables.debug) {
-			systemOutput("Merged " & totalCoverageLines & " coverage lines. merged: " & serializeJSON(arguments.merged), true);
-		}
+		variables.logger.trace( "Merged " & totalCoverageLines & " coverage lines. merged: " & serializeJSON(arguments.merged) );
 	}
 
 
@@ -469,9 +462,7 @@ component {
 				}
 			} else {
 				// Skip files without coverage data (e.g., files that were tracked but never executed)
-				if (variables.debug) {
-					systemOutput("initializeMergedByFileStructure: Skipping file index " & fileIndex & " (path: " & filePath & ") - no coverage data in first result", true);
-				}
+				variables.logger.debug( "initializeMergedByFileStructure: Skipping file index " & fileIndex & " (path: " & filePath & ") - no coverage data in first result" );
 			}
 		}
 	}
@@ -490,15 +481,11 @@ component {
 
 			if (!hasCoverage) {
 				// Skip files without coverage data (e.g., files that were tracked but never executed)
-				if (variables.debug) {
-					systemOutput("mergeCurrentResultByFile: Skipping file index " & fileIndex & " (path: " & filePath & ") - no coverage data", true);
-				}
+				variables.logger.debug( "mergeCurrentResultByFile: Skipping file index " & fileIndex & " (path: " & filePath & ") - no coverage data" );
 				continue;
 			}
 
-			if (variables.debug) {
-				systemOutput("mergeCurrentResultByFile: Merging coverage for file [#fileIndex#]: " & filePath, true);
-			}
+			variables.logger.trace( "mergeCurrentResultByFile: Merging coverage for file [#fileIndex#]: " & filePath );
 
 			// Merge file metadata
 			if (!structKeyExists(arguments.merged.files, filePath)) {
@@ -519,7 +506,8 @@ component {
 				if (!structKeyExists(targetCoverage, lineNum)) {
 					targetCoverage[lineNum] = sourceCoverage[lineNum];
 				} else {
-					// Add hit counts together
+					// Add hit counts and execution times together
+					targetCoverage[lineNum][1] += sourceCoverage[lineNum][1];
 					targetCoverage[lineNum][2] += sourceCoverage[lineNum][2];
 				}
 			}
