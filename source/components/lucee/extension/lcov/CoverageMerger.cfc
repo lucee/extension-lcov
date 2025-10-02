@@ -77,7 +77,6 @@ component {
 			}
 		}
 
-
 		// Recalculate and synchronize all per-file stats
 		new CoverageStats().calculateStatsForMergedResults(mergedResults);
 		//variables.logger.trace( "Merged Results: " & serializeJSON(var=mergedResults, compact=false) );
@@ -256,7 +255,7 @@ component {
 						);
 					}
 					if (!structKeyExists(arguments.merged.coverage[realFile], l)) {
-						arguments.merged.coverage[realFile][l] = [0, 0];
+						arguments.merged.coverage[realFile][l] = [0, 0, false]; // [hitCount, execTime, isChildTime]
 					}
 					var lineData = arguments.merged.coverage[realFile][l];
 					var srcLineData = coverage[fKey][l];
@@ -362,12 +361,11 @@ component {
 				if (arrayLen(targetLine) != arrayLen(sourceLine)) {
 					throw("mergeCoverageData: Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 				}
-				for (var key=1; key <= arrayLen(sourceLine); key++) {
-					if (key > arrayLen(targetLine)) {
-						throw("mergeCoverageData: Array index [" & key & "] out of range for targetLine (size=" & arrayLen(targetLine) & ") at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
-					}
-					targetLine[ key ] += sourceLine[ key ];
-				}
+				// Only add positions [1] and [2] (hitCount and execTime)
+				// Position [3] is the isChildTime boolean flag - preserve from target, don't add
+				targetLine[1] += sourceLine[1]; // hitCount
+				targetLine[2] += sourceLine[2]; // execTime
+				// targetLine[3] is isChildTime boolean - leave unchanged
 			}
 			linesMerged++;
 		}
@@ -504,11 +502,13 @@ component {
 			// Merge line coverage
 			for (var lineNum in sourceCoverage) {
 				if (!structKeyExists(targetCoverage, lineNum)) {
-					targetCoverage[lineNum] = sourceCoverage[lineNum];
+					targetCoverage[lineNum] = duplicate(sourceCoverage[lineNum]);
 				} else {
 					// Add hit counts and execution times together
 					targetCoverage[lineNum][1] += sourceCoverage[lineNum][1];
 					targetCoverage[lineNum][2] += sourceCoverage[lineNum][2];
+					// Preserve isChild flag from first occurrence (should be consistent across all runs)
+					// Position [3] is isChildTime flag - don't modify it during merge
 				}
 			}
 		}

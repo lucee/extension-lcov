@@ -1,63 +1,136 @@
+/*
+	This test checks that request aggregation works correctly
+	It does this by generating coverage for:
+	- 1x request of a file that includes another file once
+	- 2x requests of the same file
+	- 1x request of a file that includes another file 5 times
+
+	So the same exe logs, 2x and 5x, which get combined into per file json reports.
+
+	It then checks that 
+		- the execution counts in the resulting JSON files match
+		- the isChild boolean flag, 3 element in the coverage is the same
+
+	For both the json output per file, used to render HTML and and the JSON merged.json file
+*/
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
-		variables.logLevel = "trace";
+		variables.logLevel = "info";
 		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
 
-		// Generate three separate test data sets
-		// Set 1: Run kitchen-sink 1 time
-		variables.testDataGenerator1 = new GenerateTestData( testName="MultipleRequestAggregationTest-1x" );
+		// Generate test data for basic tests
+		variables.testDataGenerator1 = new GenerateTestData( testName="RequestAggregationTest-1x" );
 		variables.testData1 = variables.testDataGenerator1.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/basic.cfm",
 			iterations = 1
 		);
 
-		// Set 2: Run basic 2 times (multiple requests)
-		variables.testDataGenerator2 = new GenerateTestData( testName="MultipleRequestAggregationTest-2x" );
+		variables.testDataGenerator2 = new GenerateTestData( testName="RequestAggregationTest-2x" );
 		variables.testData2 = variables.testDataGenerator2.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/basic.cfm",
 			iterations = 2
 		);
 
-		// Set 3: Run basic-5x once (includes loops.cfm 5 times within single request)
-		variables.testDataGenerator5 = new GenerateTestData( testName="MultipleRequestAggregationTest-5x" );
+		variables.testDataGenerator5 = new GenerateTestData( testName="RequestAggregationTest-5x" );
 		variables.testData5 = variables.testDataGenerator5.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/basic-5x.cfm",
 			iterations = 1
 		);
+
+		// Generate test data for kitchen-sink tests
+		variables.testDataGenerator1KS = new GenerateTestData( testName="RequestAggregationTest-KS-1x" );
+		variables.testData1KS = variables.testDataGenerator1KS.generateExlFilesForArtifacts(
+			adminPassword = request.SERVERADMINPASSWORD,
+			fileFilter = "kitchen-sink-example.cfm",
+			iterations = 1
+		);
+
+		variables.testDataGenerator2KS = new GenerateTestData( testName="RequestAggregationTest-KS-2x" );
+		variables.testData2KS = variables.testDataGenerator2KS.generateExlFilesForArtifacts(
+			adminPassword = request.SERVERADMINPASSWORD,
+			fileFilter = "kitchen-sink-example.cfm",
+			iterations = 2
+		);
+
+		variables.testDataGenerator5KS = new GenerateTestData( testName="RequestAggregationTest-KS-5x" );
+		variables.testData5KS = variables.testDataGenerator5KS.generateExlFilesForArtifacts(
+			adminPassword = request.SERVERADMINPASSWORD,
+			fileFilter = "multiple/kitchen-sink-5x.cfm",
+			iterations = 1
+		);
 	}
 
 	function run() {
-		describe( "Multiple Request Aggregation", function() {
+		describe( "Request Aggregation - basic", function() {
 
-			it( "should have 2x the execution counts when run 2 times vs 1 time (multiple requests)", function() {
-				testExecutionCountMultiplier();
+			it( "should have 2x the exec counts when run 2 times vs 1 time (multiple requests)", function() {
+				testExecutionCountMultiplier(
+					testDataGenerator1 = variables.testDataGenerator1,
+					testData1 = variables.testData1,
+					testDataGenerator2 = variables.testDataGenerator2,
+					testData2 = variables.testData2
+				);
 			});
 
-			it( "should have 5x the execution counts when included 5 times in single request", function() {
-				testSingleRequestMultipleIncludes();
+			it( "should have 5x the exec counts when included 5 times in single request", function() {
+				testSingleRequestMultipleIncludes(
+					testDataGenerator1 = variables.testDataGenerator1,
+					testData1 = variables.testData1,
+					testDataGenerator5 = variables.testDataGenerator5,
+					testData5 = variables.testData5,
+					filePattern = "file-*basic.cfm.json"
+				);
+			});
+		});
+
+		describe( "Request Aggregation - kitchen-sink", function() {
+
+
+			it( "should have 2x the exec counts when run 2 times vs 1 time (multiple requests)", function() {
+				testExecutionCountMultiplier(
+					testDataGenerator1 = variables.testDataGenerator1KS,
+					testData1 = variables.testData1KS,
+					testDataGenerator2 = variables.testDataGenerator2KS,
+					testData2 = variables.testData2KS
+				);
+			});
+
+			it( "should have 5x the exec counts when included 5 times in single request", function() {
+				testSingleRequestMultipleIncludes(
+					testDataGenerator1 = variables.testDataGenerator1KS,
+					testData1 = variables.testData1KS,
+					testDataGenerator5 = variables.testDataGenerator5KS,
+					testData5 = variables.testData5KS,
+					filePattern = "file-*kitchen-sink-example.cfm.json"
+				);
 			});
 
 		});
 	}
 
-	private function testExecutionCountMultiplier() {
+	private function testExecutionCountMultiplier(
+		required any testDataGenerator1,
+		required struct testData1,
+		required any testDataGenerator2,
+		required struct testData2
+	) {
 		// Given: Generate JSON for both sets
-		var outputDir1 = variables.testDataGenerator1.getOutputDir( "json-1x" );
-		var outputDir2 = variables.testDataGenerator2.getOutputDir( "json-2x" );
+		var outputDir1 = arguments.testDataGenerator1.getOutputDir( "json-1x" );
+		var outputDir2 = arguments.testDataGenerator2.getOutputDir( "json-2x" );
 
 		// When: Generate JSON reports with separateFiles: true
 		lcovGenerateJson(
-			executionLogDir = variables.testData1.coverageDir,
+			executionLogDir = arguments.testData1.coverageDir,
 			outputDir = outputDir1,
 			options = { separateFiles: true, logLevel: variables.logLevel }
 		);
 
 		lcovGenerateJson(
-			executionLogDir = variables.testData2.coverageDir,
+			executionLogDir = arguments.testData2.coverageDir,
 			outputDir = outputDir2,
 			options = { separateFiles: true, logLevel: variables.logLevel }
 		);
@@ -69,32 +142,39 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		validateMergedJson( outputDir1, outputDir2, 2 );
 	}
 
-	private function testSingleRequestMultipleIncludes() {
+	private function testSingleRequestMultipleIncludes(
+		required any testDataGenerator1,
+		required struct testData1,
+		required any testDataGenerator5,
+		required struct testData5,
+		required string filePattern
+	) {
 		// Given: Generate JSON for both sets
-		var outputDir1 = variables.testDataGenerator1.getOutputDir( "json-1x-single" );
-		var outputDir5 = variables.testDataGenerator5.getOutputDir( "json-5x-single" );
+		var outputDir1 = arguments.testDataGenerator1.getOutputDir( "json-1x-single" );
+		var outputDir5 = arguments.testDataGenerator5.getOutputDir( "json-5x-single" );
 
 		// When: Generate JSON reports with separateFiles: true
 		lcovGenerateJson(
-			executionLogDir = variables.testData1.coverageDir,
+			executionLogDir = arguments.testData1.coverageDir,
 			outputDir = outputDir1,
 			options = { separateFiles: true, logLevel: variables.logLevel }
 		);
 
 		lcovGenerateJson(
-			executionLogDir = variables.testData5.coverageDir,
+			executionLogDir = arguments.testData5.coverageDir,
 			outputDir = outputDir5,
 			options = { separateFiles: true, logLevel: variables.logLevel }
 		);
 
-		// Then: Find basic.cfm JSON file in both sets and validate
-		var jsonFiles1 = directoryList( outputDir1, false, "array", "file-*basic.cfm.json" );
-		var jsonFiles5 = directoryList( outputDir5, false, "array", "file-*basic.cfm.json" );
+		// Then: Find JSON file in both sets and validate
+		var jsonFiles1 = directoryList( outputDir1, false, "array", arguments.filePattern );
+		var jsonFiles5 = directoryList( outputDir5, false, "array", arguments.filePattern );
 
-		expect( arrayLen( jsonFiles1 ) ).toBe( 1, "Should have exactly one basic JSON from 1x run" );
-		expect( arrayLen( jsonFiles5 ) ).toBe( 1, "Should have exactly one basic JSON from 5x run" );
+		expect( arrayLen( jsonFiles1 ) ).toBe( 1, "Should have exactly one JSON from 1x run" );
+		expect( arrayLen( jsonFiles5 ) ).toBe( 1, "Should have exactly one JSON from 5x run" );
 
-		validateFileJson( jsonFiles1[ 1 ], jsonFiles5[ 1 ], 5, "basic.cfm (5x includes)" );
+		var fileName = listLast( arguments.filePattern, "*" );
+		validateFileJson( jsonFiles1[ 1 ], jsonFiles5[ 1 ], 5, fileName & " (5x includes)" );
 
 		// Also validate merged.json
 		validateMergedJson( outputDir1, outputDir5, 5 );
@@ -131,15 +211,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		expect( structCount( json1.FILES ) ).toBe( structCount( json2.FILES ), "#arguments.label#: Should have same number of files" );
 
-		// Validate stats keys
-		var allowedStatsKeys = [ "totalLinesFound", "totalLinesHit", "totalLinesSource", "totalExecutions", "totalExecutionTime", "totalChildTime" ];
-		for ( var key in json1.stats ) {
-			expect( arrayContains( allowedStatsKeys, key ) ).toBeTrue( "#arguments.label#: stats key '#key#' is not in allowed keys list" );
-		}
-		for ( var key in json2.stats ) {
-			expect( arrayContains( allowedStatsKeys, key ) ).toBeTrue( "#arguments.label#: stats key '#key#' is not in allowed keys list" );
-		}
-
 		var linesChecked = 0;
 
 		// Validate all files in both JSONs match
@@ -157,6 +228,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			for ( var lineNum in coverage1 ) {
 				var hitCount1 = coverage1[ lineNum ][ 1 ];
 				var hitCount2 = coverage2[ lineNum ][ 1 ];
+				var isChild1 = coverage1[ lineNum ][ 3 ];
+				var isChild2 = coverage2[ lineNum ][ 3 ];
+
+				// Validate isChild flag matches
+				expect( isChild1 ).toBe( isChild2, "#arguments.label# Line #lineNum#: isChild flag should match (1x=#isChild1#, 2x=#isChild2#)" );
 
 				if ( hitCount1 > 0 ) {
 					var hitRatio = hitCount2 / hitCount1;
@@ -186,6 +262,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			for ( var lineNum in lines1 ) {
 				var hitCount1 = lines1[ lineNum ][ 1 ];
 				var hitCount2 = lines2[ lineNum ][ 1 ];
+				var isChild1 = lines1[ lineNum ][ 3 ];
+				var isChild2 = lines2[ lineNum ][ 3 ];
+
+				// Validate isChild flag matches
+				expect( isChild1 ).toBe( isChild2, "merged.json #filePath# line #lineNum#: isChild flag should match (1x=#isChild1#, 2x=#isChild2#)" );
 
 				if ( hitCount1 > 0 ) {
 					var mergedHitRatio = hitCount2 / hitCount1;

@@ -69,6 +69,17 @@ component accessors="true" {
 	}
 
 	/**
+	* Calculate stats for all merged result objects
+	* @mergedResults Struct of result objects keyed by file index
+	*/
+	public static void function calculateStatsForMergedResults(required struct mergedResults) {
+		// Calculate stats for each file
+		for (var fileIndex in arguments.mergedResults) {
+			calculateCoverageStats( arguments.mergedResults[ fileIndex ] );
+		}
+	}
+
+	/**
 	* Calculate overall coverage stats from a result struct
 	*/
 	public any function calculateCoverageStats(result result) {
@@ -315,19 +326,5 @@ component accessors="true" {
 			"processingTimeMs": arguments.processingTimeMs
 		};
 	}
-
-	/**
-	* Calculate stats for all merged result objects (moved from CoverageMerger)
-	* @mergedResults Struct of result objects keyed by file index
-	*/
-	public static void function calculateStatsForMergedResults(required struct mergedResults) {
-		var statsCalculator = new CoverageStats();
-
-		// Calculate stats for each file
-		for (var fileIndex in arguments.mergedResults) {
-			var startTime = getTickCount();
-			var result = statsCalculator.calculateCoverageStats(arguments.mergedResults[fileIndex]);
-			// calculateCoverageStats returns the result with updated stats, so we don't need to set .stats manually
-		}
-	}
+	
 }

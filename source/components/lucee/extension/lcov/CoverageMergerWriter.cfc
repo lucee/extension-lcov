@@ -87,6 +87,7 @@ component accessors=false {
 			if (!directoryExists(outputDirNormalized)) {
 				directoryCreate(outputDirNormalized, true);
 			}
+
 			fileWrite(jsonFilePath, serializeJSON(var=filteredEntry, compact=false));
 			arrayAppend(writtenFiles, jsonFilePath);
 			logger.trace("writeMergedResultsToFiles: Wrote source file JSON: " & jsonFileName & " for source file: " & sourceFilePath);

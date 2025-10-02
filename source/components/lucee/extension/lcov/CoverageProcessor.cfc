@@ -48,7 +48,7 @@ component {
 			for (var lineNum = startLine; lineNum <= endLine; lineNum++) {
 				var lineKey = toString(lineNum);
 				if (!structKeyExists(coverage[fileIdx], lineKey)) {
-					coverage[fileIdx][lineKey] = [0, 0]; // [count, totalTime]
+					coverage[fileIdx][lineKey] = [0, 0, false]; // [hitCount, execTime, isChildTime]
 				}
 				coverage[fileIdx][lineKey][1] += entry[4]; // add aggregated hit count
 				coverage[fileIdx][lineKey][2] += entry[5]; // add aggregated execution time

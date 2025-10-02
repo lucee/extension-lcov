@@ -136,8 +136,8 @@ component {
 					// Skip if file not valid
 					if (!structKeyExists(validFileIds, parts[1])) continue;
 
-					// Extract key - optimized: join parts 2 and 3 with tab
-					var key = chr(9) & parts[2] & chr(9) & parts[3];
+					// Extract key - include fileIdx to aggregate per-file: fileIdx + startPos + endPos
+					var key = parts[1] & chr(9) & parts[2] & chr(9) & parts[3];
 
 					// Aggregate
 					if (structKeyExists(c, key)) {

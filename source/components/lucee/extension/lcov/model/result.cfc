@@ -288,6 +288,10 @@ component accessors=true {
 		return model;
 	}
 
+	/*
+	MARK: Validation
+	*/
+
 	/**
 	 * Validates the result model for required canonical fields and structure.
 	 * Collects all problems and throws a single error at the end if any are found.
@@ -316,6 +320,9 @@ component accessors=true {
 				arrayAppend(problems, "Missing stats field: " & s);
 			}
 		}
+
+		// TODO Validate stats keys are only from allowed set, not lines
+
 
 		// Validate isFile business rule: if isFile=true, files must have only one entry with key "0"
 		if (variables.isFile) {

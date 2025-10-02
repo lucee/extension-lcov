@@ -1,7 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
-		variables.logLevel = "trace";
+		variables.logLevel = "info";
 		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
 
 		// Generate 2x test data
@@ -152,29 +152,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	private void function outputDebugInfo( required string sourceDir, required string reversedDir, required string outputDir2x, required string outputDirModified ) {
 		var json2x = deserializeJSON( fileRead( arguments.outputDir2x & "/file-F72B577-basic.cfm.json" ) );
 		var jsonMod = deserializeJSON( fileRead( arguments.outputDirModified & "/file-F72B577-basic.cfm.json" ) );
-
-		systemOutput( "=== json-original (fileID=0) coverage ===" );
-		systemOutput( serializeJSON( json2x.coverage ) );
-		systemOutput( "=== json-modified (fileID=1) coverage ===" );
-		systemOutput( serializeJSON( jsonMod.coverage ) );
-
-		systemOutput( "=== Per-request JSON from sourceDir (fileID=0) - count: #arrayLen(directoryList(arguments.sourceDir, false, 'array', '*.json'))# ===" );
-		var exlFiles1 = directoryList( arguments.sourceDir, false, "array", "*.json" );
-		for ( var jsonFile in exlFiles1 ) {
-			var perReqJson = deserializeJSON( fileRead( jsonFile ) );
-			systemOutput( "File: " & getFileFromPath( jsonFile ) & " coverage: " & serializeJSON( perReqJson.coverage ) );
-		}
-
-		systemOutput( "=== Per-request JSON from reversedDir (fileID=1) - count: #arrayLen(directoryList(arguments.reversedDir, false, 'array', '*.json'))# ===" );
-		var exlFiles2 = directoryList( arguments.reversedDir, false, "array", "*.json" );
-		for ( var jsonFile in exlFiles2 ) {
-			var perReqJson = deserializeJSON( fileRead( jsonFile ) );
-			systemOutput( "File: " & getFileFromPath( jsonFile ) & " coverage: " & serializeJSON( perReqJson.coverage ) );
-		}
-
-		systemOutput( "=== Total .json files being merged ===" );
-		systemOutput( "sourceDir (.exl): " & arrayLen(directoryList(arguments.sourceDir, false, 'array', '*.exl')) );
-		systemOutput( "reversedDir (.exl): " & arrayLen(directoryList(arguments.reversedDir, false, 'array', '*.exl')) );
 	}
 
 	private void function validateIdenticalCoverage( required string outputDir2x, required string outputDirModified ) {
