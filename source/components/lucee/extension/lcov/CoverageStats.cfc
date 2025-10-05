@@ -2,10 +2,10 @@ component accessors="true" {
 
 	/**
 	 * Initialize CoverageStats
-	 * @logLevel Log level for debugging stats calculations
+	 * @logger Logger instance for debugging stats calculations
 	 */
-	public function init(string logLevel="none") {
-		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
 		return this;
 	}
 

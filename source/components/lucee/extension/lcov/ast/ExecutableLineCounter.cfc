@@ -4,11 +4,10 @@ component accessors="true" {
 	* Initialize the AST component with options
 	* @options Configuration options struct (optional)
 	*/
-	public function init(struct options = {}) {
-		// Store options and initialize logger
+	public function init(required Logger logger, struct options = {}) {
+		// Store options and logger
+		variables.logger = arguments.logger;
 		variables.options = arguments.options;
-		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
-		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 				// List of node types that represent executable statements (expand as needed)
 		variables.executableTypes = [
 			"ExpressionStatement", "IfStatement", "SwitchCase", "WhileStatement", "ForStatement",

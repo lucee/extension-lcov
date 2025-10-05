@@ -227,12 +227,12 @@ component {
 		factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
 
 		// Parse execution logs using ExecutionLogProcessor
-		var logProcessor = new ExecutionLogProcessor(_options);
-		var jsonFilePaths = logProcessor.parseExecutionLogs(arguments.executionLogDir, _options);
+		var logProcessor = new ExecutionLogProcessor( _options );
+		var jsonFilePaths = logProcessor.parseExecutionLogs( arguments.executionLogDir, _options );
 
 		// Generate HTML reports using focused HTML reporter
-		var htmlReporter = new reporter.HtmlReporter(_options.displayUnit, _options.logLevel);
-		htmlReporter.setOutputDir(arguments.outputDir); // Set output directory for individual HTML files
+		var htmlReporter = new reporter.HtmlReporter( logger=logger, displayUnit=_options.displayUnit );
+		htmlReporter.setOutputDir( arguments.outputDir ); // Set output directory for individual HTML files
 		var htmlIndex = "";
 
 		// Process results based on separateFiles option
@@ -248,7 +248,7 @@ component {
 			}
 
 			// Create per-file merged results following the same pattern as CoverageMergerTest
-			var merger = new lucee.extension.lcov.CoverageMerger(logLevel=_options.logLevel);
+			var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
 			var utils = new lucee.extension.lcov.CoverageMergerUtils();
 			var validResults = utils.filterValidResults(results);
 			var mappings = utils.buildFileIndexMappings(validResults);
@@ -258,8 +258,8 @@ component {
 			// Merge results into per-file mergedResults struct
 			// Aggregate call tree metrics before calculating stats
 			merger.aggregateCallTreeMetricsForMergedResults(mergedResults, results);
-			new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
-			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.logLevel);
+			new lucee.extension.lcov.CoverageStats( logger=logger ).calculateStatsForMergedResults( mergedResults );
+			var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles( mergedResults, arguments.outputDir, _options.logLevel );
 			logger.commitEvent(mergeStatsEvent);
 			var fileEvent = logger.beginEvent("Render Per-File HTML Reports");
 			// Generate HTML reports for each source file JSON
@@ -365,9 +365,10 @@ component {
 			var _options = mergeDefaultOptions(defaultOptions, arguments.options);
 
 			var startTime = getTickCount();
+			var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
 
 			var factory = new lucee.extension.lcov.CoverageComponentFactory();
-			factory.getComponent(name="CoverageBlockProcessor").ensureDirectoryExists(arguments.outputDir);
+			factory.getComponent( name="CoverageBlockProcessor" ).ensureDirectoryExists( arguments.outputDir );
 
 			// Parse execution logs using ExecutionLogProcessor
 			var logProcessor = new ExecutionLogProcessor(_options);
@@ -397,7 +398,7 @@ component {
 			jsonFiles.results = resultsFile;
 
 			// Create merged coverage data progressively from JSON files
-			var merged = new lucee.extension.lcov.CoverageMerger(logLevel=_options.logLevel).mergeResultsByFile(jsonFilePaths);
+			var merged = new lucee.extension.lcov.CoverageMerger( logger=logger ).mergeResultsByFile( jsonFilePaths );
 			var mergedFile = arguments.outputDir & "/merged.json";
 			fileWrite(mergedFile, serializeJSON(var=merged, compact=_options.compact));
 			jsonFiles.merged = mergedFile;
@@ -413,15 +414,15 @@ component {
 			// Generate separate files if requested
 			if (_options.separateFiles) {
 				// Create per-file merged results following the same pattern as CoverageMergerTest
-				var merger = new lucee.extension.lcov.CoverageMerger(logLevel=_options.logLevel);
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
 				var utils = new lucee.extension.lcov.CoverageMergerUtils();
-				var validResults = utils.filterValidResults(results);
-				var mappings = utils.buildFileIndexMappings(validResults);
-				var mergedResults = utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
-				var sourceFileStats = merger.createSourceFileStats(mappings.indexToFilePath);
-				merger.mergeAllCoverageDataFromResults(validResults, mergedResults, mappings, sourceFileStats);
-				new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
-				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, arguments.outputDir, _options.logLevel);
+				var validResults = utils.filterValidResults( results );
+				var mappings = utils.buildFileIndexMappings( validResults );
+				var mergedResults = utils.initializeMergedResults( validResults, mappings.filePathToIndex, mappings.indexToFilePath );
+				var sourceFileStats = merger.createSourceFileStats( mappings.indexToFilePath );
+				merger.mergeAllCoverageDataFromResults( validResults, mergedResults, mappings, sourceFileStats );
+				new lucee.extension.lcov.CoverageStats( logger=logger ).calculateStatsForMergedResults( mergedResults );
+				var sourceFileJsons = new CoverageMergerWriter().writeMergedResultsToFiles( mergedResults, arguments.outputDir, _options.logLevel );
 				for (var jsonFile in sourceFileJsons) {
 					jsonFiles[getFileFromPath(jsonFile)] = jsonFile;
 				}
@@ -510,17 +511,19 @@ component {
 	}
 
 	private string function buildLcovContent(required array jsonFilePaths, required struct options) {
+		var logger = new lucee.extension.lcov.Logger( level=arguments.options.logLevel ?: "none" );
+
 		// Process JSON files progressively without loading all into memory
-		var merger = new lucee.extension.lcov.CoverageMerger(logLevel=arguments.options.logLevel ?: "none");
-		var merged = merger.mergeResultsByFile(arguments.jsonFilePaths);
+		var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
+		var merged = merger.mergeResultsByFile( arguments.jsonFilePaths );
 
 		// write out merged to a json file a log it
-		var tempMerged = getTempFile("", "lcov-merged-", ".json");
-		fileWrite(tempMerged, serializeJSON(var=merged, compact=false));
-		
-		// Create LCOV writer with options and build LCOV format
-		var lcovWriter = new reporter.LcovWriter(arguments.options);
-		return lcovWriter.buildLCOV(merged.mergedCoverage, arguments.options.useRelativePath ?: false);
+		var tempMerged = getTempFile( "", "lcov-merged-", ".json" );
+		fileWrite( tempMerged, serializeJSON( var=merged, compact=false ) );
+
+		// Create LCOV writer with logger and build LCOV format
+		var lcovWriter = new reporter.LcovWriter( logger=logger, options=arguments.options );
+		return lcovWriter.buildLCOV( merged.mergedCoverage, arguments.options.useRelativePath ?: false );
 	}
 
 	/**

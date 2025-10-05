@@ -8,7 +8,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 	function run() {
 		describe("calculateLcovStats synthetic", function() {
 			it("computes correct stats for synthetic merged data", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: {
 						"A": { path: "/tmp/A.cfm", linesFound: 3, linesSource: 5 },
@@ -29,7 +29,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("computes correct stats for complex synthetic merged data", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: {
 						"A": { path: "/tmp/A.cfm", linesFound: 5, linesSource: 10 },
@@ -57,7 +57,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 		describe("calculateDetailedStats synthetic", function() {
 			it("computes correct global stats for synthetic results", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var resultA = mockResult({
 					files: { "/tmp/A.cfm": { path: "/tmp/A.cfm", linesFound: 3, linesSource: 5, executableLines: {"10": true, "11": true, "12": true} } },
 					coverage: { "/tmp/A.cfm": { "10": [1, 2], "11": [0, 0], "12": [1, 1] } }
@@ -91,7 +91,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("computes correct global stats for complex synthetic results", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var resultA = mockResult({
 					files: { "/tmp/A.cfm": { path: "/tmp/A.cfm", linesFound: 5, linesSource: 10, executableLines: {"10": true, "11": true, "12": true, "13": true, "14": true} } },
 					coverage: { "/tmp/A.cfm": { "10": [1, 2], "11": [0, 0], "12": [1, 1], "13": [1, 1], "14": [0, 0] } }
@@ -135,7 +135,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 		describe("calculateStatsForMergedResults synthetic", function() {
 			it("sets stats on merged result objects", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var mergedResults = {
 					0: mockResult({
 						files: {
@@ -168,7 +168,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("sets stats on complex merged result objects", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var mergedResults = {
 					0: mockResult({
 						files: {
@@ -217,7 +217,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 		// ...existing code...
 		describe("edge and error cases", function() {
 			it("throws error if linesHit exceeds linesFound (synthetic aggregation bug)", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				// linesFound is 2, but 3 lines are covered (should error)
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 2, linesSource: 5 } },
@@ -228,7 +228,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				}).toThrow();
 			});
 			it("throws error if linesSource is missing", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 3 } },
 					coverage: { "A": { "10": [1, 2] } }
@@ -239,7 +239,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("throws error if linesFound is missing", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesSource: 5 } },
 					coverage: { "A": { "10": [1, 2] } }
@@ -250,7 +250,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("throws error if linesSource is negative", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 3, linesSource: -5 } },
 					coverage: { "A": { "10": [1, 2] } }
@@ -261,7 +261,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("throws error if linesFound > linesSource", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 10, linesSource: 5 } },
 					coverage: { "A": { "10": [1, 2] } }
@@ -272,7 +272,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("handles duplicate file entries by aggregating stats", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: {
 						"A": { path: "/tmp/A.cfm", linesFound: 2, linesSource: 5 },
@@ -290,7 +290,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("handles file with zero executable lines", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 0, linesSource: 5 } },
 					coverage: { "A": {} }
@@ -302,7 +302,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("handles file with zero source lines", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 0, linesSource: 0 } },
 					coverage: { "A": {} }
@@ -314,7 +314,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("handles empty results struct", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var stats = statsComponent.aggregateCoverageStats([]);
 				expect(stats.totalLinesFound).toBe(0);
 				expect(stats.totalLinesHit).toBe(0);
@@ -323,7 +323,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("handles file with only one line, all covered", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 1, linesSource: 1 } },
 					coverage: { "A": { "1": [1, 1] } }
@@ -335,7 +335,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			});
 
 			it("handles file with only one line, none covered", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 1, linesSource: 1 } },
 					coverage: { "A": { "1": [0, 0] } }
@@ -350,7 +350,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 		describe("calculateDetailedStats merging bug reproduction", function() {
 
 			it("should correctly handle multiple results covering same file (linesHit <= linesFound)", function() {
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 
 				// Create two result objects that cover the SAME source file
 				// This simulates multiple HTTP requests executing the same .cfm file

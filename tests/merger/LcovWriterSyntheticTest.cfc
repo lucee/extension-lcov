@@ -64,8 +64,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		};
 
 		// Test LcovWriter.buildLCOV with this merged data
-		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter({});
-		var lcovContent = lcovWriter.buildLCOV(mergedCoverage, false);
+		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter( logger=variables.logger, options={} );
+		var lcovContent = lcovWriter.buildLCOV( mergedCoverage, false );
 
 		variables.logger.debug("Generated LCOV content:");
 		variables.logger.debug(lcovContent);
@@ -192,11 +192,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			}
 		};
 
-		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter({});
+		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter( logger=variables.logger, options={} );
 
 		// This should throw an error because coverage[file1Path] doesn't exist
-		expect(function() {
-			lcovWriter.buildLCOV(wrongStructure, false);
+		expect( function() {
+			lcovWriter.buildLCOV( wrongStructure, false );
 		}).toThrow(message="Should throw error when coverage key doesn't match file path");
 	}
 
@@ -209,8 +209,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			coverage: {}
 		};
 
-		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter({});
-		var lcovContent = lcovWriter.buildLCOV(emptyCoverage, false);
+		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter( logger=variables.logger, options={} );
+		var lcovContent = lcovWriter.buildLCOV( emptyCoverage, false );
 
 		// Should return empty string or minimal content
 		expect(lcovContent).toBeString();
@@ -241,8 +241,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			}
 		};
 
-		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter({});
-		var lcovContent = lcovWriter.buildLCOV(singleFileCoverage, false);
+		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter( logger=variables.logger, options={} );
+		var lcovContent = lcovWriter.buildLCOV( singleFileCoverage, false );
 
 		// Should produce valid LCOV for single file
 		expect(lcovContent).toInclude("SF:" & singleFilePath);

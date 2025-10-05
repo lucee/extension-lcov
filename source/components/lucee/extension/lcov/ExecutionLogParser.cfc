@@ -19,9 +19,9 @@ component accessors="true" {
 
 		// Use factory for code coverage helpers, support useDevelop override
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
-		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor");
-		variables.ast = new ast.ExecutableLineCounter(arguments.options);
-		variables.callTreeAnalyzer = new ast.CallTreeAnalyzer();
+		variables.CoverageBlockProcessor = variables.factory.getComponent( name="CoverageBlockProcessor" );
+		variables.ast = new ast.ExecutableLineCounter( logger=variables.logger, options=arguments.options );
+		variables.callTreeAnalyzer = new ast.CallTreeAnalyzer( logger=variables.logger );
 
 		// Cache for file analysis (AST + executable lines) to avoid regenerating across .exl files
 		variables.fileAnalysisCache = {};
@@ -198,8 +198,8 @@ component accessors="true" {
 		}
 
 		// STAGE 1: Pre-aggregate identical coverage entries using optimized streaming parallel approach
-		var aggregator = new lucee.extension.lcov.CoverageAggregator(logLevel=variables.options.logLevel ?: "none");
-		var aggregationResult = aggregator.aggregate(exlPath, validFileIds);
+		var aggregator = new lucee.extension.lcov.CoverageAggregator( logger=variables.logger );
+		var aggregationResult = aggregator.aggregate( exlPath, validFileIds );
 
 		var exclusionStart = getTickCount();
 		var beforeEntities = structCount(aggregationResult.aggregated);
@@ -216,7 +216,7 @@ component accessors="true" {
 		// STAGE 1.6: Call tree analysis using AST
 		var callTreeStart = getTickCount();
 		var callTreeData = {};
-		var callTreeResult = arguments.callTreeAnalyzer.analyzeCallTree( aggregationResult.aggregated, files, variables.logger );
+		var callTreeResult = arguments.callTreeAnalyzer.analyzeCallTree( aggregationResult.aggregated, files );
 		var callTreeMetrics = arguments.callTreeAnalyzer.getCallTreeMetrics( callTreeResult );
 
 		callTreeData = {
@@ -239,7 +239,7 @@ component accessors="true" {
 			& "ms. Lines with call tree data: " & structCount(lineCallTree));
 
 		// STAGE 2: Process aggregated entries to line coverage
-		var processor = new lucee.extension.lcov.CoverageProcessor(logLevel=variables.options.logLevel ?: "none");
+		var processor = new lucee.extension.lcov.CoverageProcessor( logger=variables.logger );
 		var processingResult = processor.processAggregatedToLineCoverage(
 			aggregationResult.aggregated,
 			files,
@@ -389,15 +389,36 @@ component accessors="true" {
 				var sourceLines = readFileAsArrayBylines( path );
 				var lineInfo = {};
 
-				// systemOutput("Generating AST for [" & path & "]", true);
-				var ast = astFromString( fileRead( path ) );// astFromPath( path );
 
-				// TEMP write the ast to a debug file
-				/*
-				var astDebugPath = path & ".ast.json";
-				systemOutput("Generated AST for " & path & " saved as " & astDebugPath, true);
-				fileWrite( astDebugPath, serializeJSON(var=ast, compact=false) );
-				*/
+				// WORKAROUND: astFromString() treats .cfc files as StringLiteral (Lucee bug LDEV-5839)
+				// Use astFromPath() which parses .cfc files correctly
+				try {
+					var ast = astFromPath( path );
+				} catch ( any e ) {
+					// astFromPath() can fail with certain files - fall back to astFromString()
+					variables.logger.debug( "astFromPath failed for [" & path & "], falling back to astFromString: " & e.message );
+					var fileContent = variables.fileContentsCache[ path ];
+
+					// Fix for .cfc files: wrap in cfscript tags if it doesn't contain cfcomponent tag
+					if ( path.endsWith( ".cfc" ) && !findNoCase( "<" & "cfcomponent", fileContent ) ) {
+						fileContent = "<" & "cfscript>" & fileContent & "</" & "cfscript>";
+					}
+
+					var ast = astFromString( fileContent );
+				}
+
+				// DEBUG: write the ast to a debug file
+				var debugAstOutput = structKeyExists(server.system.environment, "LCOV_DEBUG_AST") && server.system.environment.LCOV_DEBUG_AST == "true";
+				if (debugAstOutput) {
+					var astDebugDir = getTempDirectory() & "lcov-ast-debug/";
+					if (!directoryExists(astDebugDir)) {
+						directoryCreate(astDebugDir);
+					}
+					var fileName = listLast(path, "\/");
+					var astDebugPath = astDebugDir & fileName & ".ast.json";
+					variables.logger.debug( "Writing AST debug file: " & astDebugPath );
+					fileWrite( astDebugPath, serializeJSON(ast, false, "utf-8") );
+				}
 
 				// Always use AST-based counting (matches what Lucee tracks)
 				lineInfo = variables.ast.countExecutableLinesFromAst( ast );

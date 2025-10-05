@@ -65,11 +65,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				expect(structKeyExists(metrics, "childTimeBlocks")).toBeTrue("Should have childTimeBlocks");
 				expect(structKeyExists(metrics, "builtInBlocks")).toBeTrue("Should have builtInBlocks");
 
-				// Create output directory for HTML
 				var htmlOutputDir = variables.testDataGenerator.getOutputDir( "html" );
 				variables.logger.debug( "Creating HTML output directory: " & htmlOutputDir );
 
-				// Generate HTML report using lcovGenerateHtml function
 				var htmlResult = lcovGenerateHtml(
 					executionLogDir: variables.testDir,
 					outputDir: htmlOutputDir

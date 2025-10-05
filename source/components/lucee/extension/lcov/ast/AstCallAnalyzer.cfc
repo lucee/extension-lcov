@@ -12,6 +12,11 @@
  */
 component {
 
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
+		return this;
+	}
+
 	/**
 	 * Extract all function definitions from an AST
 	 * @ast The abstract syntax tree from Lucee
@@ -45,6 +50,7 @@ component {
 					nodeType = "";
 				}
 
+							variables.logger.trace("traverseForFunctions: nodeType=" & nodeType);
 				// Handle different function definition patterns
 				if (nodeType == "FunctionDeclaration" ||
 				    nodeType == "FunctionExpression" ||
@@ -230,6 +236,7 @@ component {
 				    nodeType == "TaggedTemplateExpression") {
 
 					var callName = extractCallName(arguments.node);
+									variables.logger.trace("findCallsRecursive: found " & nodeType & ", name=" & callName);
 					var callInfo = {
 						type: nodeType,
 						name: callName,
@@ -286,7 +293,9 @@ component {
 						for (var attr in arguments.node.attributes) {
 							if (isStruct(attr) && structKeyExists(attr, "name")) {
 								if (attr.name == "template" || attr.name == "name" || attr.name == "component") {
-									callInfo.target = attr.value ?: "";
+									// attr.value might be a struct (complex expression) - only use if simple string
+									var attrValue = attr.value ?: "";
+									callInfo.target = isSimpleValue( attrValue ) ? attrValue : "";
 									if (len(callInfo.target)) {
 										callInfo.name = fullName & ":" & callInfo.target;
 									}
@@ -365,14 +374,14 @@ component {
 			}
 			else if (isStruct(arguments.callNode.callee)) {
 				// Named function
-				if (structKeyExists(arguments.callNode.callee, "name")) {
+				if (structKeyExists(arguments.callNode.callee, "name") && isSimpleValue(arguments.callNode.callee.name)) {
 					return arguments.callNode.callee.name;
 				}
 				// Member expression (object.method)
 				else if (structKeyExists(arguments.callNode.callee, "property")) {
 					if (isStruct(arguments.callNode.callee.property) &&
 					    structKeyExists(arguments.callNode.callee.property, "name")) {
-						return arguments.callNode.callee.property.name;
+						return isSimpleValue(arguments.callNode.callee.property.name) ? arguments.callNode.callee.property.name : "unknown";
 					}
 					else if (isSimpleValue(arguments.callNode.callee.property)) {
 						return arguments.callNode.callee.property;
@@ -381,7 +390,7 @@ component {
 				// Identifier
 				else if (structKeyExists(arguments.callNode.callee, "type") &&
 				         arguments.callNode.callee.type == "Identifier") {
-					return arguments.callNode.callee.name ?: "unknown";
+					return (structKeyExists(arguments.callNode.callee, "name") && isSimpleValue(arguments.callNode.callee.name)) ? arguments.callNode.callee.name : "unknown";
 				}
 			}
 		}
@@ -392,7 +401,7 @@ component {
 			}
 			else if (isStruct(arguments.callNode.constructor) &&
 			         structKeyExists(arguments.callNode.constructor, "name")) {
-				return "new " & arguments.callNode.constructor.name;
+				return isSimpleValue(arguments.callNode.constructor.name) ? "new " & arguments.callNode.constructor.name : "new unknown";
 			}
 		}
 

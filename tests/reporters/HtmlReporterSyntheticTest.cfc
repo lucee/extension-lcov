@@ -11,9 +11,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	 * Test the HTML reporter with synthetic coverage data (no file I/O)
 	 */
 	function testHtmlReporterWithSyntheticData() {
-		var HtmlReporter = new lucee.extension.lcov.reporter.HtmlReporter();
+		var HtmlReporter = new lucee.extension.lcov.reporter.HtmlReporter( logger=variables.logger );
 		var outDir = variables.testDataHelper.getOutputDir();
-		HtmlReporter.setOutputDir(outDir);
+		HtmlReporter.setOutputDir( outDir );
 		// Synthetic result object: 2 files, one fully covered, one partially covered
 		// Use a CFC instance to match the model API and allow member access
 		var syntheticResult = new lucee.extension.lcov.model.result();

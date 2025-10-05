@@ -8,8 +8,8 @@ component {
 	import java.lang.reflect.Array;
 	import java.lang.String;
 
-	public function init(string logLevel="none") {
-		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
 		return this;
 	}
 

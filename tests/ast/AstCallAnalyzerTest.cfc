@@ -2,8 +2,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 	function beforeAll() {
 		variables.logLevel = "info";
-		variables.testDataGenerator = new "../GenerateTestData"(testName="AstCallAnalyzerTest");
-		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
+		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
+		variables.testDataGenerator = new "../GenerateTestData"( testName="AstCallAnalyzerTest" );
+		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
 	}
 
 	function run() {

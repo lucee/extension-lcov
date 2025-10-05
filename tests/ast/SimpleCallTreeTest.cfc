@@ -51,8 +51,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 							variables.logger.debug("Saved AST for " & sourcePath & " to: " & astPath);
 
 							// Debug: Try extracting functions directly
-							var astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
-							var testFunctions = astCallAnalyzer.extractFunctions(files[fileId].ast);
+							var astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
+							var testFunctions = astCallAnalyzer.extractFunctions( files[fileId].ast );
 							variables.logger.debug("Direct extraction found " & arrayLen(testFunctions) & " functions");
 							for (var func in testFunctions) {
 								variables.logger.debug("  - Function: " & func.name & " at pos " & func.startPos & "-" & func.endPos);

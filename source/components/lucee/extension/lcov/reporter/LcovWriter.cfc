@@ -7,11 +7,9 @@ component {
 	 * Initialize the LCOV writer with options
 	 * @options Configuration options struct (optional)
 	 */
-	public function init(struct options = {}) {
-		// Store options and initialize logger
+	public function init(required Logger logger, struct options = {}) {
+		variables.logger = arguments.logger;
 		variables.options = arguments.options;
-		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
-		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
 	}
 

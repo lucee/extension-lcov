@@ -23,8 +23,8 @@
  */
 component {
 
-	public function init(string logLevel="none") {
-		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
 		return this;
 	}
 
@@ -78,7 +78,7 @@ component {
 		}
 
 		// Recalculate and synchronize all per-file stats
-		new CoverageStats().calculateStatsForMergedResults(mergedResults);
+		new CoverageStats( logger=variables.logger ).calculateStatsForMergedResults( mergedResults );
 		//variables.logger.trace( "Merged Results: " & serializeJSON(var=mergedResults, compact=false) );
 		return mergedResults;
 	}

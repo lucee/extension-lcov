@@ -34,8 +34,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var exlPath = exlFiles[1];
 
 				// Create parser and ExecutableLineCounter instances
-				var parser = new lucee.extension.lcov.ExecutionLogParser(options={logLevel: variables.logLevel});
-				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
+				var parser = new lucee.extension.lcov.ExecutionLogParser( options={logLevel: variables.logLevel} );
+				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
 
 				// Parse to get file path and source
 				var result = parser.parseExlFile(exlPath = exlPath);
@@ -165,7 +165,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				variables.logger.trace("");
 
 				// Extract bytecode LineNumberTable (ground truth)
-				var bytecodeAnalyzer = new lucee.extension.lcov.ast.BytecodeAnalyzer();
+				var bytecodeAnalyzer = new lucee.extension.lcov.ast.BytecodeAnalyzer( logger=variables.logger );
 				var bytecodeLines = bytecodeAnalyzer.extractLineNumberTable(filePath);
 				variables.logger.debug("Bytecode extraction returned #structCount(bytecodeLines)# lines");
 				if (structCount(bytecodeLines) > 0) {
@@ -261,7 +261,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("should handle edge cases correctly", function() {
-				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
+				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
 
 				// Test with empty lines and comments
 				var testSourceLines = [
@@ -303,8 +303,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				variables.logger.debug("=== Testing All Artifact Files ===");
 				variables.logger.debug("Found #arrayLen(artifactFiles)# artifact files to test");
 
-				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter();
-				var bytecodeAnalyzer = new lucee.extension.lcov.ast.BytecodeAnalyzer();
+				var ast = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
+				var bytecodeAnalyzer = new lucee.extension.lcov.ast.BytecodeAnalyzer( logger=variables.logger );
 				var totalFiles = 0;
 				var perfectMatches = 0;
 				var totalAccuracy = 0;

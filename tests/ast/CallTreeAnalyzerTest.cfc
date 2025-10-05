@@ -2,8 +2,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.logLevel = "info";
-		variables.testDataGenerator = new "../GenerateTestData"(testName="CallTreeAnalyzerTest");
-		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer();
+		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
+		variables.testDataGenerator = new "../GenerateTestData"( testName="CallTreeAnalyzerTest" );
+		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
 		variables.adminPassword = request.SERVERADMINPASSWORD ?: "admin";
 	}
 
@@ -163,6 +164,98 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(result.metrics.builtInBlocks).toBe(0, "Built-in blocks metric should be 0");
 			});
 
+			it("should mark top-level _createcomponent calls as child time", function() {
+				// Test that top-level 'new ClassName()' calls (outside functions) are marked as child time
+				// This uses _createcomponent which is what Lucee's AST generates for 'new'
+				var aggregated = {};
+				aggregated[arrayToList(["0", 1, 1000, 1], chr(9))] = ["0", 1, 1000, 1, 10000];   // entire script
+				aggregated[arrayToList(["0", 150, 250, 1], chr(9))] = ["0", 150, 250, 1, 5000];  // constructor call block
+
+				var files = {
+					"0": {
+						ast: {
+							body: [{
+								type: "CallExpression",
+								callee: {
+									type: "Identifier",
+									name: "_createcomponent"
+								},
+								arguments: [
+									{
+										type: "StringLiteral",
+										value: "MyComponent"
+									}
+								],
+								start: {offset: 150, line: 7},
+								isBuiltIn: true  // Lucee marks _createcomponent as built-in
+							}]
+						}
+					}
+				};
+
+				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+
+				// Find the constructor call block and verify it's marked as child time
+				var constructorBlockFound = false;
+				for (var key in result.blocks) {
+					var block = result.blocks[key];
+					if (block.startPos == 150 && block.endPos == 250) {
+						constructorBlockFound = true;
+						expect(block.isChildTime).toBeTrue("_createcomponent (constructor) block should be marked as child time even though isBuiltIn=true");
+					}
+				}
+
+				expect(constructorBlockFound).toBeTrue("Should find the _createcomponent block");
+
+				// Verify metrics count it as child time
+				expect(result.metrics.childTimeBlocks).toBeGTE(1, "Should have at least 1 child time block for _createcomponent");
+			});
+
+			it("should mark NewExpression (constructor calls) as child time", function() {
+				// Test that 'new ClassName()' calls are marked as child time
+				var aggregated = {};
+				aggregated[arrayToList(["0", 50, 600, 1], chr(9))] = ["0", 50, 600, 1, 10000];   // main function
+				aggregated[arrayToList(["0", 150, 250, 1], chr(9))] = ["0", 150, 250, 1, 5000];  // constructor call block
+
+				var files = {
+					"0": {
+						ast: {
+							body: [{
+								type: "function",
+								name: "testFunction",
+								start: {offset: 50, line: 1},
+								end: {offset: 600, line: 30},
+								body: {
+									body: [{
+										type: "NewExpression",
+										constructor: "MyComponent",
+										start: {offset: 150, line: 7},
+										isBuiltIn: false
+									}]
+								}
+							}]
+						}
+					}
+				};
+
+				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+
+				// Find the constructor call block and verify it's marked as child time
+				var constructorBlockFound = false;
+				for (var key in result.blocks) {
+					var block = result.blocks[key];
+					if (block.startPos == 150 && block.endPos == 250) {
+						constructorBlockFound = true;
+						expect(block.isChildTime).toBeTrue("NewExpression (constructor) block should be marked as child time");
+					}
+				}
+
+				expect(constructorBlockFound).toBeTrue("Should find the NewExpression block");
+
+				// Verify metrics count it as child time
+				expect(result.metrics.childTimeBlocks).toBeGTE(1, "Should have at least 1 child time block for NewExpression");
+			});
+
 			it("should generate child time metrics", function() {
 				var result = {
 					blocks: {
@@ -206,6 +299,51 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(metrics.childTime).toBe(6000);
 				expect(metrics.builtInTime).toBe(6000);
 				expect(metrics.childTimePercentage).toBe(37.5);
+			});
+
+			it("should mark constructor calls in real CFML code as child time", function() {
+				// Use GenerateTestData to run kitchen-sink-example.cfm
+				var testGen = new "../GenerateTestData"(testName="ConstructorTest");
+				var testData = testGen.generateExlFilesForArtifacts(
+					adminPassword: request.SERVERADMINPASSWORD,
+					fileFilter: "kitchen-sink-example.cfm",
+					iterations: 1
+				);
+
+				// Generate JSON from the execution logs
+				var outputDir = testGen.getOutputDir("json");
+				lcovGenerateJson(
+					executionLogDir: testData.coverageDir,
+					outputDir: outputDir,
+					options: {separateFiles: true, logLevel: "info"}
+				);
+
+				// Find and read the kitchen-sink JSON file
+				var jsonFiles = directoryList(outputDir, false, "array", "file-*kitchen-sink-example.cfm.json");
+				expect(arrayLen(jsonFiles)).toBe(1, "Should find kitchen-sink JSON file");
+
+				var jsonData = deserializeJSON(fileRead(jsonFiles[1]));
+				var coverage = jsonData.coverage["0"]; // First file
+
+				// Check specific lines that have constructor calls
+				var constructorLines = [34, 42, 52]; // Lines with 'new SimpleComponent()', 'new MathUtils()', 'new DataProcessor()'
+
+				var failedLines = [];
+				for (var lineNum in constructorLines) {
+					if (structKeyExists(coverage, lineNum) && isArray(coverage[lineNum])) {
+						var lineData = coverage[lineNum];
+						var isChild = lineData[3]; // Third element is isChildTime
+						if (!isChild) {
+							arrayAppend(failedLines, lineNum);
+						}
+					}
+				}
+
+				if (arrayLen(failedLines) > 0) {
+					fail("Constructor lines not marked as child time: " & arrayToList(failedLines));
+				}
+
+				expect(arrayLen(failedLines)).toBe(0, "All 3 constructor lines should be marked as child time");
 			});
 
 			it("should run call-tree-test.cfm and analyze results", function() {

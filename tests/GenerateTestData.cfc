@@ -81,23 +81,19 @@ component {
 			);
 		}
 
-		// Clean coverage directory
 		if (directoryExists(variables.tempCoverageDir)) {
 			directoryDelete(variables.tempCoverageDir, true);
 		}
 		directoryCreate(variables.tempCoverageDir, true);
 
-		// Create exeLogger instance
 		var exeLogger = new lucee.extension.lcov.exeLogger(arguments.adminPassword);
 
-		// Default execution log options
 		var defaultLogOptions = {
 			"unit": "micro",
 			"min-time": 0,
 			"directory": variables.tempCoverageDir
 		};
 
-		// Merge custom options with defaults
 		var logOptions = structCopy(defaultLogOptions);
 		structAppend(logOptions, arguments.executionLogOptions, true);
 

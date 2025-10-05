@@ -23,7 +23,13 @@ component accessors="true" {
 	public any function getComponent(required string name, struct initArgs = {}, boolean overrideUseDevelop) {
 		var useDev = arguments.overrideUseDevelop ?: variables.useDevelop;
 		var path = useDev ? "develop." & arguments.name : "lucee.extension.lcov." & arguments.name;
-		return new "#path#"(argumentCollection=initArgs);
+
+		// Provide default logger if not supplied and component needs one
+		if (!structKeyExists( arguments.initArgs, "logger" )) {
+			arguments.initArgs.logger = new lucee.extension.lcov.Logger( level="none" );
+		}
+
+		return new "#path#"( argumentCollection=initArgs );
 	}
 
 }

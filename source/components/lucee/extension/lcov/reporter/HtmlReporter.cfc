@@ -9,9 +9,9 @@ component {
 	/**
 	* Constructor/init function
 	*/
-	public function init(string displayUnit = "μs", string logLevel = "none") {
+	public function init(required Logger logger, string displayUnit = "μs") {
+		variables.logger = arguments.logger;
 		variables.displayUnit = arguments.displayUnit;
-		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
 		return this;
 	}
 
@@ -35,7 +35,7 @@ component {
 			return; // Skip empty files
 		}
 
-		var htmlWriter = new HtmlWriter( variables.displayUnit, variables.logger.getLevel() );
+		var htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
 		var html = htmlWriter.generateHtmlContent( result, variables.displayUnit );
 		var htmlPath = createHtmlPath(result);
 		fileWrite(htmlPath, html);
@@ -50,7 +50,7 @@ component {
 	*/
 	public string function generateIndexHtml(string outputDirectory) {
 
-		var htmlWriter = new HtmlWriter( variables.displayUnit, variables.logger.getLevel() );
+		var htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
 
 		var indexJsonPath = outputDirectory & "/index.json";
 

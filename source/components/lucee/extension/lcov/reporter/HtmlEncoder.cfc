@@ -42,11 +42,11 @@ component {
 		}
 	}
 
-	// these will be ignored for the BIF, but allows compiling without ESAPI installed	
+	// these will be ignored for the BIF, but allows compiling without ESAPI installed
 	private string function encodeForHtml(required string text) {
-		return encodeForHtml(arguments.text);	
+		throw( type="NotImplemented", message="This placeholder should never be called - use the BIF instead" );
 	}
 	private string function encodeForHtmlAttribute(required string text) {
-		return encodeForHtmlAttribute(arguments.text);	
+		throw( type="NotImplemented", message="This placeholder should never be called - use the BIF instead" );
 	}
 }

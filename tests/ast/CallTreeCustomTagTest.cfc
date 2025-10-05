@@ -2,11 +2,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.logLevel = "info";
-		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
-		variables.testDataGenerator = new "../GenerateTestData"(testName="CallTreeCustomTagTest");
-		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer();
-		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer();
-		variables.artifactsDir = expandPath("/testAdditional/artifacts/ast");
+		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
+		variables.testDataGenerator = new "../GenerateTestData"( testName="CallTreeCustomTagTest" );
+		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
+		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
+		variables.artifactsDir = expandPath( "/testAdditional/artifacts/ast" );
 	}
 
 	function run() {

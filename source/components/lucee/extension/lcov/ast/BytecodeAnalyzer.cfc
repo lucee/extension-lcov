@@ -8,8 +8,8 @@ component {
 	 * Initialize BytecodeAnalyzer
 	 * @logLevel Log level for debugging bytecode extraction
 	 */
-	public function init(string logLevel="none") {
-		variables.logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
 		return this;
 	}
 

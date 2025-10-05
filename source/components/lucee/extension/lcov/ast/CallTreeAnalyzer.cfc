@@ -12,46 +12,42 @@ component {
 	// Cache for per-file call extraction to avoid repeated AST analysis across .exl files
 	variables.fileCallCache = {};
 
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
+		return this;
+	}
+
 	/**
 	 * Analyzes execution blocks to identify which represent child time
 	 * @aggregated The aggregated execution blocks (position-based format)
 	 * @files File information including AST data
 	 * @return Struct containing blocks marked as child time
 	 */
-	public struct function analyzeCallTree(required struct aggregated, required struct files, any logger) {
-		var hasLogger = structKeyExists( arguments, "logger" ) && !isNull( arguments.logger );
+	public struct function analyzeCallTree(required struct aggregated, required struct files) {
 		var startTime = getTickCount();
 
-		if ( hasLogger ) {
-			arguments.logger.trace( "CallTreeAnalyzer: Starting analysis with " & structCount( arguments.aggregated ) & " blocks and " & structCount( arguments.files ) & " files" );
-		}
+		variables.logger.trace( "CallTreeAnalyzer: Starting analysis with " & structCount( arguments.aggregated ) & " blocks and " & structCount( arguments.files ) & " files" );
 
 		// Create AST call analyzer instance
-		var astCallAnalyzer = new AstCallAnalyzer();
+		var astCallAnalyzer = new AstCallAnalyzer( logger=variables.logger );
 		var astStart = getTickCount();
 
 		// Extract all function calls from AST for all files
-		var callsMap = extractAllCalls( arguments.files, astCallAnalyzer, hasLogger ? arguments.logger : nullValue() );
+		var callsMap = extractAllCalls( arguments.files, astCallAnalyzer );
 
-		if ( hasLogger ) {
-			arguments.logger.trace( "CallTreeAnalyzer: extractAllCalls completed in " & ( getTickCount() - astStart ) & "ms, found " & structCount( callsMap ) & " call positions" );
-		}
+		variables.logger.trace( "CallTreeAnalyzer: extractAllCalls completed in " & ( getTickCount() - astStart ) & "ms, found " & structCount( callsMap ) & " call positions" );
 
 		// Mark blocks that represent child time (function calls)
 		var markStart = getTickCount();
 		var markedBlocks = markChildTimeBlocks( arguments.aggregated, callsMap );
 
-		if ( hasLogger ) {
-			arguments.logger.trace( "CallTreeAnalyzer: markChildTimeBlocks completed in " & ( getTickCount() - markStart ) & "ms" );
-		}
+		variables.logger.trace( "CallTreeAnalyzer: markChildTimeBlocks completed in " & ( getTickCount() - markStart ) & "ms" );
 
 		var metricsStart = getTickCount();
 		var metrics = calculateChildTimeMetrics( markedBlocks );
 
-		if ( hasLogger ) {
-			arguments.logger.trace( "CallTreeAnalyzer: calculateChildTimeMetrics completed in " & ( getTickCount() - metricsStart ) & "ms" );
-			arguments.logger.trace( "CallTreeAnalyzer: Total analysis time: " & ( getTickCount() - startTime ) & "ms" );
-		}
+		variables.logger.trace( "CallTreeAnalyzer: calculateChildTimeMetrics completed in " & ( getTickCount() - metricsStart ) & "ms" );
+		variables.logger.trace( "CallTreeAnalyzer: Total analysis time: " & ( getTickCount() - startTime ) & "ms" );
 
 		return {
 			blocks: markedBlocks,
@@ -65,28 +61,23 @@ component {
 	 * @astCallAnalyzer The AST call analyzer component
 	 * @return Struct mapping call positions to call info
 	 */
-	private struct function extractAllCalls(required struct files, required any astCallAnalyzer, any logger) {
-		var hasLogger = structKeyExists( arguments, "logger" ) && !isNull( arguments.logger );
+	private struct function extractAllCalls(required struct files, required any astCallAnalyzer) {
 		var callsMap = {};
 		var fileCount = 0;
 		var totalFiles = structCount( arguments.files );
 		var cacheHits = 0;
 		var cacheMisses = 0;
 
-		if ( hasLogger ) {
-			arguments.logger.trace( "extractAllCalls: Processing " & totalFiles & " files" );
-		}
+		variables.logger.trace( "extractAllCalls: Processing " & totalFiles & " files" );
 
 		for ( var fileIdx in arguments.files ) {
 			var file = arguments.files[ fileIdx ];
 			fileCount++;
 
-			// Skip if no AST available (this can happen for dynamic or generated files)
+t		// Fail fast if no AST available
 			if ( !structKeyExists( file, "ast" ) || !isStruct( file.ast ) ) {
-				if ( structKeyExists( file, "path" ) ) {
-					systemOutput( "WARNING: No AST available for file: " & file.path, true );
-				}
-				continue;
+				var filePath = structKeyExists( file, "path" ) ? file.path : "unknown file (fileIdx: " & fileIdx & ")";
+				throw( type="MissingAST", message="No AST available for file: " & filePath );
 			}
 
 			var filePath = structKeyExists( file, "path" ) ? file.path : fileIdx;
@@ -180,6 +171,20 @@ component {
 					if (structKeyExists(arguments.node, "callee")) {
 						if (isStruct(arguments.node.callee) && structKeyExists(arguments.node.callee, "name")) {
 							callName = arguments.node.callee.name;
+						}
+					}
+
+					// Special case: _createcomponent is marked as built-in but it's instantiating user code
+					if (lCase(callName) == "_createcomponent") {
+						isBuiltIn = false;
+						// Try to get the component name from the first argument
+						if (structKeyExists(arguments.node, "arguments") &&
+						    isArray(arguments.node.arguments) &&
+						    arrayLen(arguments.node.arguments) > 0) {
+							var firstArg = arguments.node.arguments[1];
+							if (isStruct(firstArg) && structKeyExists(firstArg, "value")) {
+								callName = "new " & firstArg.value;
+							}
 						}
 					}
 

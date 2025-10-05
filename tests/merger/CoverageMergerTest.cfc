@@ -2,9 +2,10 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
+		variables.logger = new lucee.extension.lcov.Logger( level="info" );
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 		variables.utils = new lucee.extension.lcov.CoverageMergerUtils();
-		variables.testDataGenerator = new "../GenerateTestData"(testName="SeparateFilesStepsTest");
+		variables.testDataGenerator = new "../GenerateTestData"( testName="SeparateFilesStepsTest" );
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "kitchen-sink-example.cfm"
@@ -189,7 +190,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var validResults = variables.utils.filterValidResults(results);
 				var mappings = variables.utils.buildFileIndexMappings(validResults);
 				var mergedResults = variables.utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
-				   new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
+				   new lucee.extension.lcov.CoverageStats( logger=variables.logger ).calculateStatsForMergedResults( mergedResults );
 				for (var idx in mergedResults) {
 					var result = mergedResults[idx];
 					// Stats are set on the result object
@@ -210,7 +211,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var validResults = variables.utils.filterValidResults(results);
 				var mappings = variables.utils.buildFileIndexMappings(validResults);
 				var mergedResults = variables.utils.initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
-				new lucee.extension.lcov.CoverageStats().calculateStatsForMergedResults(mergedResults);
+				new lucee.extension.lcov.CoverageStats( logger=variables.logger ).calculateStatsForMergedResults( mergedResults );
 				var outputDir = variables.testData.COVERAGEDIR & "/bdd/";
 				var writtenFiles = new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles(mergedResults, outputDir, variables.logLevel);
 				expect(writtenFiles).toBeArray();

@@ -1,11 +1,16 @@
 component {
 
+	public function init(required Logger logger) {
+		variables.logger = arguments.logger;
+		return this;
+	}
+
 	/**
 	 * Enriches a result model with child time analysis data.
 	 * This marks blocks that represent child time (function calls).
 	 */
 	public void function enrich(required any result, struct options = {}) {
-		var callTreeAnalyzer = new CallTreeAnalyzer();
+		var callTreeAnalyzer = new CallTreeAnalyzer( logger=variables.logger );
 
 		// Build aggregated data from the result's coverage
 		var aggregated = buildAggregatedFromResult(arguments.result);

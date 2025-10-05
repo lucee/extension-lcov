@@ -18,9 +18,9 @@ component {
 	* Accepts either a displayUnit struct or a string ("micro", "ms", "s").
 	* Always stores a struct with name, symbol, and factor.
 	*/
-	public HtmlWriter function init(string displayUnit = "μs", string logLevel = "none") {
+	public HtmlWriter function init(required Logger logger, string displayUnit = "μs") {
+		variables.logger = arguments.logger;
 		variables.displayUnit = arguments.displayUnit;
-		variables.logger = new lucee.extension.lcov.Logger( level=arguments.logLevel );
 		return this;
 	}
 

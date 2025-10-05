@@ -24,8 +24,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 			it("throws error if linesHit exceeds linesFound (fail-fast policy)", function() {
 				var factory = new lucee.extension.lcov.CoverageComponentFactory();
-				var merger = factory.getComponent(name="CoverageMerger");
-				var statsComponent = new lucee.extension.lcov.CoverageStats();
+				var merger = factory.getComponent( name="CoverageMerger" );
+				var logger = new lucee.extension.lcov.Logger( level="none" );
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=logger );
 				// Create a synthetic mergedResults struct with invalid stats
 				var mergedResults = {
 					0: {
