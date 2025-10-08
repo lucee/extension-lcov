@@ -25,6 +25,7 @@ component {
 
 	/**
 	 * Generates an HTML report using the result model instance (must be lucee.extension.lcov.model.result)
+	 * Also generates a Markdown report alongside the HTML
 	 * @result The parsed result model instance (must have getMetadataProperty, getStatsProperty, etc.)
 	 */
 	public string function generateHtmlReport(required result result) {
@@ -43,11 +44,16 @@ component {
 
 		// Track this report in the index data
 		trackReportInIndex(htmlPath, result);
+
+		// Generate markdown report alongside HTML
+		generateMarkdownReport(result);
+
 		return htmlPath;
 	}
 
 	/**
 	* Generates an index.html file listing all HTML reports
+	* Also generates index.md alongside it
 	*/
 	public string function generateIndexHtml(string outputDirectory) {
 
@@ -88,6 +94,10 @@ component {
 		fileWrite(indexHtmlPath, html);
 
 		variables.logger.debug("Generated index.html with " & arrayLen( indexData ) & " reports");
+
+		// Generate index.md alongside HTML
+		generateIndexMarkdown(indexData, arguments.outputDirectory);
+
 		return indexHtmlPath;
 	}
 
@@ -153,5 +163,44 @@ component {
 		return variables.fileUtils.createOutputPath( arguments.result, variables.outputDir, ".html" );
 	}
 
+	/**
+	* Generates a Markdown report using the result model instance (must be lucee.extension.lcov.model.result)
+	* @result The parsed result model instance (must have getMetadataProperty, getStatsProperty, etc.)
+	*/
+	public string function generateMarkdownReport(required result result) {
+		if (!isInstanceOf(arguments.result, "lucee.extension.lcov.model.result")) {
+			throw(message="generateMarkdownReport requires a lucee.extension.lcov.model.result instance, got: " & getMetaData(arguments.result).name);
+		}
+		if (!isStruct(arguments.result.getCoverage()) || structIsEmpty(arguments.result.getCoverage())) {
+			variables.logger.debug("No coverage data found in " & arguments.result.getExeLog() & ", skipping Markdown report generation");
+			return; // Skip empty files
+		}
+
+		var markdownWriter = new MarkdownWriter( logger=variables.logger, displayUnit=variables.displayUnit );
+		var markdown = markdownWriter.generateMarkdownContent( result );
+		var markdownPath = createMarkdownPath(result);
+		fileWrite(markdownPath, markdown);
+
+		variables.logger.debug("Generated Markdown report: " & markdownPath);
+		return markdownPath;
+	}
+
+	/**
+	* Creates a Markdown filename from the .exl path and metadata
+	*/
+	private string function createMarkdownPath(struct result) {
+		return variables.fileUtils.createOutputPath( arguments.result, variables.outputDir, ".md" );
+	}
+
+	/**
+	* Generates an index.md file listing all Markdown reports
+	* @indexData Array of report entries from index.json
+	* @outputDirectory The directory containing the reports
+	* @return Path to the generated index.md file
+	*/
+	public string function generateIndexMarkdown(required array indexData, required string outputDirectory) {
+		var markdownWriter = new MarkdownWriter( logger=variables.logger, displayUnit=variables.displayUnit );
+		return markdownWriter.generateIndexMarkdown(indexData=arguments.indexData, outputDirectory=arguments.outputDirectory);
+	}
 
 }
