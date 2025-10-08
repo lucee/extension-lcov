@@ -5,7 +5,8 @@ component {
 
 	variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
 	variables.outputDir = "";
-	
+	variables.fileUtils = new FileUtils();
+
 	/**
 	* Constructor/init function
 	*/
@@ -149,72 +150,8 @@ component {
 	* Creates a human-friendly HTML filename from the .exl path and metadata
 	*/
 	private string function createHtmlPath(struct result) {
-		var directory = len(variables.outputDir) ? variables.outputDir : getDirectoryFromPath( result.getExeLog() );
-
-		// Check directory exists first to avoid expandPath issues with non-existent directories
-		if (!directoryExists(directory)) {
-			throw(message="HTML output directory does not exist: " & directory);
-		}
-
-		// Ensure directory ends with separator
-		if (len(directory) && !right(directory, 1) == "/" && !right(directory, 1) == "\") {
-			directory = directory & "/";
-		}
-
-		var newFileName = result.getOutputFilename();
-		// Require outputFilename to be set, fail fast if not present
-		if (len(newFileName) eq 0) {
-			throw(message="Result model must have outputFilename set for HTML report generation.");
-		}
-		// Ensure .html extension
-		if (!right(newFileName, 5) == ".html") {
-			newFileName &= ".html";
-		}
-		// Don't use expandPath - it has issues with directories in certain contexts
-		var fullPath = directory & newFileName;
-		return fullPath;
+		return variables.fileUtils.createOutputPath( arguments.result, variables.outputDir, ".html" );
 	}
 
-	/**
-	* Clean script name to make it safe for use as filename, preserving query parameter info
-	* @scriptName The script name from metadata (may contain URL parameters, slashes, etc)
-	* @return Clean filename-safe string with query parameters preserved as underscores
-	*/
-	private string function cleanScriptNameForFilename(required string scriptName) {
-		var cleaned = arguments.scriptName;
-		
-		// Remove leading slash
-		cleaned = reReplace( cleaned, "^/", "" );
-		
-		// Handle query parameters - preserve them but make them filename-safe
-		if (find("?", cleaned)) {
-			var scriptPart = listFirst( cleaned, "?" );
-			var queryPart = listLast( cleaned, "?" );
-			
-			// Clean up the query parameters to be filename-safe
-			queryPart = replace( queryPart, "=", "_", "all" );  // param=value becomes param_value
-			queryPart = replace( queryPart, "&", "_", "all" );  // param1&param2 becomes param1_param2
-			queryPart = replace( queryPart, "%", "_", "all" );  // URL encoded characters
-			queryPart = replace( queryPart, "+", "_", "all" );  // URL encoded spaces
-			
-			// Recombine with underscore separator
-			cleaned = scriptPart & "_" & queryPart;
-		}
-		
-		// Convert filesystem-unsafe characters to underscores
-		cleaned = replace( cleaned, "/", "_", "all" );  // Convert slashes to underscores
-		cleaned = replace( cleaned, ".", "_", "all" );  // Convert dots to underscores
-		cleaned = replace( cleaned, ":", "_", "all" );  // Convert colons to underscores (Windows drive letters, etc)
-		cleaned = replace( cleaned, "*", "_", "all" );  // Convert asterisks to underscores
-		cleaned = replace( cleaned, "?", "_", "all" );  // Convert any remaining question marks to underscores
-		cleaned = replace( cleaned, '"', "_", "all" );  // Convert quotes to underscores
-		cleaned = replace( cleaned, "<", "_", "all" );  // Convert less-than to underscores
-		cleaned = replace( cleaned, ">", "_", "all" );  // Convert greater-than to underscores
-		cleaned = replace( cleaned, "|", "_", "all" );  // Convert pipes to underscores
-		cleaned = replace( cleaned, " ", "_", "all" );  // Convert spaces to underscores
-		cleaned = replace( cleaned, "##", "_", "all" );  // Convert hash symbols to underscores
-		
-		return cleaned;
-	}
 
 }

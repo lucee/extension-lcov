@@ -105,9 +105,9 @@ component accessors=false {
 		entry.setIsFile(true); // Mark this as a file-level result
 		entry.initStats();
 		var metadataData = arguments.sourceResult.getMetadata();
-		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
+		var fileUtils = new lucee.extension.lcov.reporter.FileUtils();
 		entry.setMetadata("metadata": {
-			"script-name": htmlUtils.safeContractPath(arguments.sourceFilePath),
+			"script-name": fileUtils.safeContractPath(arguments.sourceFilePath),
 			"execution-time": structKeyExists(metadataData, "execution-time") ? metadataData["execution-time"] : "0",
 			"unit": metadataData.unit ?: "μs"
 		});

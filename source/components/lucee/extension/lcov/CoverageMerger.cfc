@@ -375,7 +375,7 @@ component {
 	}
 
 
-	private struct function initializeMergedStructure(required any firstResult) {
+	private struct function initializeMergedStructure(required any firstResult) localmode="modern" {
 		var merged = {};
 		var files = arguments.firstResult.getFiles();
 
@@ -391,7 +391,7 @@ component {
 		return merged;
 	}
 
-	private struct function buildFileIndexMappingsForResult(required any result) {
+	private struct function buildFileIndexMappingsForResult(required any result) localmode="modern" {
 		var mappings = {};
 		var files = arguments.result.getFiles();
 
@@ -405,7 +405,7 @@ component {
 		return mappings;
 	}
 
-	private void function mergeCurrentResultProgressive(required struct mergedResults, required any currentResult, required struct fileMappings) {
+	private void function mergeCurrentResultProgressive(required struct mergedResults, required any currentResult, required struct fileMappings) localmode="modern" {
 		var currentFiles = arguments.currentResult.getFiles();
 		var currentCoverage = arguments.currentResult.getCoverage();
 
@@ -446,7 +446,7 @@ component {
 		}
 	}
 
-	private void function initializeMergedByFileStructure(required struct merged, required any firstResult) {
+	private void function initializeMergedByFileStructure(required struct merged, required any firstResult) localmode="modern" {
 		var files = arguments.firstResult.getFiles();
 		var coverage = arguments.firstResult.getCoverage();
 
@@ -465,7 +465,7 @@ component {
 		}
 	}
 
-	private void function mergeCurrentResultByFile(required struct merged, required any currentResult, required struct fileMappings) {
+	private void function mergeCurrentResultByFile(required struct merged, required any currentResult, required struct fileMappings) localmode="modern" {
 		var currentFiles = arguments.currentResult.getFiles();
 		var currentCoverage = arguments.currentResult.getCoverage();
 

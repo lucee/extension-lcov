@@ -11,7 +11,7 @@ component {
 	variables.fileSection = new HtmlFileSection();
 	variables.legend = new HtmlLegend();
 	variables.index = new HtmlIndex();
-	variables.utils = new HtmlUtils();
+	variables.fileUtils = new FileUtils();
 	
 	/**
 	* Constructor/init function

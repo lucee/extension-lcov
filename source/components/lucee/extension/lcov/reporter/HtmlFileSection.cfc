@@ -9,10 +9,10 @@ component {
 				required any htmlEncoder, required any heatmapCalculator, required any displayUnit) localmode=true {
 		var legend = new HtmlLegend();
 		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.displayUnit);
-		var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
+		var fileUtils = new lucee.extension.lcov.reporter.FileUtils();
 
 		var filePath = result.getFileItem(arguments.fileIndex, "path");
-		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder, htmlUtils);
+		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder, fileUtils);
 
 		var stats = result.getFileItem(arguments.fileIndex);
 		var totalExecutionTime = result.getStatsProperty("totalExecutionTime");
@@ -256,12 +256,12 @@ component {
 	 * @return String HTML for file header section
 	 */
 	private string function generateFileHeader(required numeric fileIndex, required string filePath,
-			required result result, required any htmlEncoder, required any htmlUtils) {
+			required result result, required any htmlEncoder, required any fileUtils) {
 		var vscodeLink = "vscode://file/" & replace(arguments.filePath, "\", "/", "all");
 		return '<div class="file-section" data-file-section data-file-index="' & arguments.fileIndex & '" data-filename="' & arguments.htmlEncoder.htmlAttributeEncode(arguments.filePath) & '">'
 			& '<div class="file-header">'
 				& '<h3><a href="' & vscodeLink & '" class="file-header-link">'
-				& arguments.htmlEncoder.htmlEncode(arguments.htmlUtils.safeContractPath(arguments.filePath))
+				& arguments.htmlEncoder.htmlEncode(arguments.fileUtils.safeContractPath(arguments.filePath))
 				& '</a></h3>'
 			& '</div>'
 			& '<div class="file-content">';

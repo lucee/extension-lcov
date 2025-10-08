@@ -183,7 +183,7 @@ component accessors="true" {
 	/**
 	* Combine identical coverage entries before line processing
 	*/
-	private struct function parseCoverage( result coverageData, required any callTreeAnalyzer, boolean includeCallTree = false) {
+	private struct function parseCoverage( result coverageData, required any callTreeAnalyzer, boolean includeCallTree = false) localmode="modern" {
 		var files = arguments.coverageData.getFiles();
 		var exlPath = arguments.coverageData.getExeLog();
 		var start = getTickCount();
@@ -315,7 +315,7 @@ component accessors="true" {
 	* File parsing with early validation
 	*/
 	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blocklist) {
+			array allowList, array blocklist) localmode="modern" {
 
 		var files = {};
 		var skipped = {};
@@ -447,7 +447,7 @@ component accessors="true" {
 		};
 	}
 
-	public numeric function getLineFromCharacterPosition( charPos, path, lineMapping, mappingLen, minLine = 1 ) {
+	public numeric function getLineFromCharacterPosition( charPos, path, lineMapping, mappingLen, minLine = 1 ) localmode="modern" {
 		return LinePositionUtils::getLineFromCharacterPosition(
 			arguments.charPos,
 			arguments.lineMapping,
@@ -459,7 +459,7 @@ component accessors="true" {
 	/**
 	* Same as original
 	*/
-	private array function readFileAsArrayBylines( string path ) {
+	private array function readFileAsArrayBylines( string path ) localmode="modern" {
 		if ( !structKeyExists( variables.fileContentsCache, arguments.path ) ) {
 			variables.fileContentsCache[ arguments.path ] = fileRead( arguments.path );
 		}
@@ -470,7 +470,7 @@ component accessors="true" {
 	/**
 	 * Parse metadata lines from EXL file
 	 */
-	public struct function parseMetadata(array lines) {
+	public struct function parseMetadata(array lines) localmode="modern" {
 		var metadata = {};
 		for (var metaLine in arguments.lines) {
 			var parts = listToArray(metaLine, ":", true, true);

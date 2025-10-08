@@ -48,8 +48,8 @@ component {
 			// Apply relative path conversion if requested
 			if (arguments.useRelativePath) {
 				try {
-					var htmlUtils = new lucee.extension.lcov.reporter.HtmlUtils();
-					filePath = htmlUtils.safeContractPath(filePath);
+					var fileUtils = new lucee.extension.lcov.reporter.FileUtils();
+					filePath = fileUtils.safeContractPath(filePath);
 					variables.logger.debug("Converted path to relative: " & filePath);
 				} catch (any e) {
 					// If contractPath fails, use original path

@@ -148,7 +148,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 * Filter overlapping blocks for position-based (character offset) data
 	 * Blocks are defined by character positions [fileIdx, startPos, endPos, execTime]
 	 */
-	private array function filterOverlappingBlocks(blocks) {
+	private array function filterOverlappingBlocks(blocks) localmode="modern" {
 		var filteredBlocks = [];
 
 		// Sort blocks by span size (smallest first)

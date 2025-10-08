@@ -87,78 +87,15 @@ component {
 				}
 			}
 
-			// Store chunk: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks]
-			arrayAppend(chunks, [arguments.exlFile, actualStart, actualEnd, chunkIdx, duplicate(arguments.validFileIds), actualNumChunks]);
+			// Store chunk: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks, logger]
+			arrayAppend(chunks, [arguments.exlFile, actualStart, actualEnd, chunkIdx, duplicate(arguments.validFileIds), actualNumChunks, variables.logger]);
 		}
 
 		var boundaryTime = getTickCount() - boundaryStart;
 		event["boundaryTime"] = boundaryTime;
 
 		// Process chunks in parallel
-		var chunkResults = arrayMap(chunks, function(chunk) {
-			var chunkStart = getTickCount();
-			var c = structNew('regular');
-
-			// chunk is: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks]
-			var exlFile = chunk[1];
-			var startByte = chunk[2];
-			var endByte = chunk[3];
-			var chunkIdx = chunk[4];
-			var validFileIds = chunk[5];
-			var numChunks = chunk[6];
-
-			// Open FileInputStream and skip to start position
-			var fis = new FileInputStream(exlFile);
-
-			try {
-				fis.skip(startByte);
-
-				// Read entire chunk at once (5x faster than line-by-line)
-				var chunkBytes = endByte - startByte;
-				var ByteClass = Byte::TYPE;
-				var buffer = Array::newInstance(ByteClass, chunkBytes);
-				var bytesActuallyRead = fis.read(buffer);
-
-				// Convert to string and split into lines
-				var chunkString = new String(buffer, "UTF-8");
-				var lines = listToArray(chunkString, chr(10), false, false);
-				var linesProcessed = 0;
-
-				// Process each line
-				for (var line in lines) {
-					linesProcessed++;
-
-					var parts = listToArray(line, chr(9), false, false);
-
-					// Validate data
-					if (arrayLen(parts) < 4) continue;
-
-					// Skip if file not valid
-					if (!structKeyExists(validFileIds, parts[1])) continue;
-
-					// Extract key - include fileIdx to aggregate per-file: fileIdx + startPos + endPos
-					var key = parts[1] & chr(9) & parts[2] & chr(9) & parts[3];
-
-					// Aggregate
-					if (structKeyExists(c, key)) {
-						var r = c[key];
-						r[4]++;
-						r[5] += int(parts[4]);
-					} else {
-						c[key] = [parts[1], int(parts[2]), int(parts[3]), 1, int(parts[4])];
-					}
-				}
-
-				variables.logger.trace("Chunk " & chunkIdx & " of " & numChunks
-					& " processed " & numberFormat(linesProcessed) & " lines in "
-					& numberFormat(getTickCount() - chunkStart) & "ms");
-
-			} finally {
-				fis.close();
-			}
-
-			return {aggregated: c, linesProcessed: linesProcessed};
-		}, true);  // parallel=true
+		var chunkResults = arrayMap(chunks, processChunk, true);  // parallel=true
 
 		// Merge chunk results
 		var mergeStart = getTickCount();
@@ -210,6 +147,88 @@ component {
 			"boundaryTime": boundaryTime,
 			"mergeTime": mergeTime
 		};
+	}
+
+	/**
+	 * Process a single chunk of the exl file
+	 * chunk is: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks, logger]
+	 */
+	private static function processChunk( required array chunk ) localmode="modern" {
+		var chunkStart = getTickCount();
+		var c = structNew('regular');
+
+		// chunk is: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks, logger]
+		var exlFile = chunk[1];
+		var startByte = chunk[2];
+		var endByte = chunk[3];
+		var chunkIdx = chunk[4];
+		var validFileIds = chunk[5];
+		var numChunks = chunk[6];
+		var logger = chunk[7];
+
+		// Open FileInputStream and skip to start position
+		var fis = new FileInputStream(exlFile);
+
+		try {
+			fis.skip(startByte);
+
+			// Read entire chunk at once (5x faster than line-by-line)
+			var chunkBytes = endByte - startByte;
+			var ByteClass = Byte::TYPE;
+			var buffer = Array::newInstance(ByteClass, chunkBytes);
+			var bytesActuallyRead = fis.read(buffer);
+
+			// Convert to string and split into lines
+			var chunkString = new String(buffer, "UTF-8");
+			var lines = listToArray(chunkString, chr(10), false, false);
+
+			// Process lines and aggregate
+			var linesProcessed = processLines(lines, validFileIds, c);
+
+			logger.trace("Chunk " & chunkIdx & " of " & numChunks
+				& " processed " & numberFormat(linesProcessed) & " lines in "
+				& numberFormat(getTickCount() - chunkStart) & "ms");
+
+		} finally {
+			fis.close();
+		}
+
+		return {aggregated: c, linesProcessed: linesProcessed};
+	}
+
+	/**
+	 * Process lines from chunk and aggregate coverage data
+	 * Returns the count of lines processed
+	 */
+	private static function processLines( required array lines, required struct validFileIds, required struct aggregated ) localmode="modern" {
+		var linesProcessed = 0;
+
+		// Process each line
+		for ( var line in arguments.lines ) {
+			linesProcessed++;
+
+			var parts = listToArray(line, chr(9), false, false);
+
+			// Validate data
+			if ( arrayLen(parts) < 4 ) continue;
+
+			// Skip if file not valid
+			if ( !structKeyExists(arguments.validFileIds, parts[1]) ) continue;
+
+			// Extract key - include fileIdx to aggregate per-file: fileIdx + startPos + endPos
+			var key = parts[1] & chr(9) & parts[2] & chr(9) & parts[3];
+
+			// Aggregate
+			if ( structKeyExists(arguments.aggregated, key) ) {
+				var r = arguments.aggregated[key];
+				r[4]++;
+				r[5] += int(parts[4]);
+			} else {
+				arguments.aggregated[key] = [parts[1], int(parts[2]), int(parts[3]), 1, int(parts[4])];
+			}
+		}
+
+		return linesProcessed;
 	}
 
 }

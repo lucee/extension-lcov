@@ -61,7 +61,7 @@ component {
 	 * @astCallAnalyzer The AST call analyzer component
 	 * @return Struct mapping call positions to call info
 	 */
-	private struct function extractAllCalls(required struct files, required any astCallAnalyzer) {
+	private struct function extractAllCalls(required struct files, required any astCallAnalyzer) localmode="modern" {
 		var callsMap = {};
 		var fileCount = 0;
 		var totalFiles = structCount( arguments.files );
@@ -142,7 +142,7 @@ t		// Fail fast if no AST available
 	/**
 	 * Extract CFML tags and function calls from AST nodes
 	 */
-	private void function extractCFMLTagsAndCalls(required any node, required array fileCalls) {
+	private void function extractCFMLTagsAndCalls(required any node, required array fileCalls) localmode="modern" {
 		if (isStruct(arguments.node)) {
 			// Check if this is a CFML tag
 			if (structKeyExists(arguments.node, "type")) {
@@ -249,7 +249,7 @@ t		// Fail fast if no AST available
 	/**
 	 * Mark execution blocks that represent child time (function calls)
 	 */
-	private struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) {
+	private struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) localmode="modern" {
 		var markedBlocks = {};
 
 		for (var blockKey in arguments.aggregated) {
@@ -301,7 +301,7 @@ t		// Fail fast if no AST available
 	/**
 	 * Calculate metrics based on child time blocks
 	 */
-	private struct function calculateChildTimeMetrics(required struct markedBlocks) {
+	private struct function calculateChildTimeMetrics(required struct markedBlocks) localmode="modern" {
 		var metrics = {
 			"totalBlocks": structCount(arguments.markedBlocks),
 			"childTimeBlocks": 0,
