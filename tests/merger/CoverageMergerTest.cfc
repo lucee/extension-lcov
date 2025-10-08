@@ -101,8 +101,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				targetResult.setMetadata({ "script-name": "synthetic.cfm", "execution-time": 0, "unit": "ms" });
 				targetResult.setOutputFilename("synthetic-mergeCoverageData-test");
 
-				// Source coverage: line 10 hit 2 times, line 20 hit 3 times
-				var sourceCoverage = {"10": [10, 2], "20": [20, 3]};
+				// Source coverage: line 10 hit 10 times with 2ns ownTime, line 20 hit 20 times with 3ns ownTime
+				// NEW FORMAT: [hitCount, ownTime, childTime]
+				var sourceCoverage = {"10": [10, 2, 0], "20": [20, 3, 0]};
 				// Merge into empty target
 				var mergedLines = merger.mergeCoverageData(targetResult, sourceCoverage, "/tmp/Synthetic.cfm", 0);
 				expect(mergedLines).toBe(2);
@@ -112,12 +113,80 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(cov["0"]["20"][2]).toBe(3);
 
 				// Merge again with new hits
-				var sourceCoverage2 = {"10": [10, 5], "20": [20, 7]};
+				var sourceCoverage2 = {"10": [10, 5, 0], "20": [20, 7, 0]};
 				var mergedLines2 = merger.mergeCoverageData(targetResult, sourceCoverage2, "/tmp/Synthetic.cfm", 0);
 				expect(mergedLines2).toBe(2);
 				cov = targetResult.getCoverage();
 				expect(cov["0"]["10"][2]).toBe(7); // 2+5
 				expect(cov["0"]["20"][2]).toBe(10); // 3+7
+			});
+
+			it("merges childTime correctly (NEW FORMAT: [hitCount, ownTime, childTime])", function() {
+				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var targetResult = new lucee.extension.lcov.model.result();
+				targetResult.setExeLog("/tmp/synthetic.exl");
+				targetResult.setStats({
+					totalLinesFound: 0,
+					totalLinesHit: 0,
+					totalLinesSource: 0,
+					coveragePercentage: 0,
+					totalFiles: 1,
+					linesFound: 0,
+					linesHit: 0,
+					totalExecutions: 0,
+					totalExecutionTime: 0
+				});
+				targetResult.setStatsProperty("files", { 0: { linesFound: 0, linesHit: 0, totalExecutions: 0, totalExecutionTime: 0 } });
+				targetResult.setFiles({
+					0: {
+						path: "/tmp/Synthetic.cfm",
+						linesFound: 0,
+						linesHit: 0,
+						linesSource: 0,
+						coveragePercentage: 0,
+						totalExecutions: 0,
+						totalExecutionTime: 0,
+						lines: [],
+						executableLines: {}
+					}
+				});
+				targetResult.setCoverage({});
+				targetResult.setMetadata({ "script-name": "synthetic.cfm", "execution-time": 0, "unit": "ms" });
+				targetResult.setOutputFilename("synthetic-childTime-test");
+
+				// First merge: line 10 has constructor call with childTime
+				// Format: [hitCount, ownTime, childTime]
+				var sourceCoverage1 = {
+					"10": [ 1, 0, 5000 ],  // 1 hit, 0 ownTime, 5000 childTime (constructor call)
+					"20": [ 1, 100, 0 ]     // 1 hit, 100 ownTime, 0 childTime (regular code)
+				};
+				var mergedLines1 = merger.mergeCoverageData( targetResult, sourceCoverage1, "/tmp/Synthetic.cfm", 0 );
+				expect( mergedLines1 ).toBe( 2 );
+
+				var cov = targetResult.getCoverage();
+				expect( cov[ "0" ][ "10" ][ 1 ] ).toBe( 1, "Line 10 hitCount should be 1" );
+				expect( cov[ "0" ][ "10" ][ 2 ] ).toBe( 0, "Line 10 ownTime should be 0" );
+				expect( cov[ "0" ][ "10" ][ 3 ] ).toBe( 5000, "Line 10 childTime should be 5000" );
+				expect( cov[ "0" ][ "20" ][ 1 ] ).toBe( 1, "Line 20 hitCount should be 1" );
+				expect( cov[ "0" ][ "20" ][ 2 ] ).toBe( 100, "Line 20 ownTime should be 100" );
+				expect( cov[ "0" ][ "20" ][ 3 ] ).toBe( 0, "Line 20 childTime should be 0" );
+
+				// Second merge: same lines executed again (simulating multiple requests)
+				var sourceCoverage2 = {
+					"10": [ 1, 0, 3000 ],  // 1 more hit, 0 ownTime, 3000 childTime (faster due to JIT)
+					"20": [ 1, 50, 0 ]      // 1 more hit, 50 ownTime (faster due to JIT), 0 childTime
+				};
+				var mergedLines2 = merger.mergeCoverageData( targetResult, sourceCoverage2, "/tmp/Synthetic.cfm", 0 );
+				expect( mergedLines2 ).toBe( 2 );
+
+				cov = targetResult.getCoverage();
+				// Validate hitCount, ownTime, and childTime are ALL summed
+				expect( cov[ "0" ][ "10" ][ 1 ] ).toBe( 2, "Line 10 hitCount should be 1+1=2" );
+				expect( cov[ "0" ][ "10" ][ 2 ] ).toBe( 0, "Line 10 ownTime should be 0+0=0" );
+				expect( cov[ "0" ][ "10" ][ 3 ] ).toBe( 8000, "Line 10 childTime should be 5000+3000=8000 (THIS IS THE BUG FIX!)" );
+				expect( cov[ "0" ][ "20" ][ 1 ] ).toBe( 2, "Line 20 hitCount should be 1+1=2" );
+				expect( cov[ "0" ][ "20" ][ 2 ] ).toBe( 150, "Line 20 ownTime should be 100+50=150" );
+				expect( cov[ "0" ][ "20" ][ 3 ] ).toBe( 0, "Line 20 childTime should be 0+0=0" );
 			});
 
 			it("merges all coverage data from synthetic results (mergeAllCoverageDataFromResults)", function() {
@@ -129,14 +198,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result1 = new lucee.extension.lcov.model.result();
 				result1.setExeLog(exlPath1);
 				result1.setFiles({ 0: { path: filePath, linesFound: 0, linesHit: 0, linesSource: 0, coveragePercentage: 0, totalExecutions: 0, totalExecutionTime: 0, lines: [], executableLines: {} } });
-				result1.setCoverage({ 0: { "10": [10, 2], "20": [20, 3] } });
+				result1.setCoverage({ 0: { "10": [10, 2, 0], "20": [20, 3, 0] } });
 				result1.setMetadata({ "script-name": "synthetic1.cfm", "execution-time": 0, "unit": "ms" });
 				result1.setOutputFilename("synthetic1-mergeAll-test");
 
 				var result2 = new lucee.extension.lcov.model.result();
 				result2.setExeLog(exlPath2);
 				result2.setFiles({ 0: { path: filePath, linesFound: 0, linesHit: 0, linesSource: 0, coveragePercentage: 0, totalExecutions: 0, totalExecutionTime: 0, lines: [], executableLines: {} } });
-				result2.setCoverage({ 0: { "10": [10, 5], "30": [30, 4] } });
+				result2.setCoverage({ 0: { "10": [10, 5, 0], "30": [30, 4, 0] } });
 				result2.setMetadata({ "script-name": "synthetic2.cfm", "execution-time": 0, "unit": "ms" });
 				result2.setOutputFilename("synthetic2-mergeAll-test");
 
@@ -256,27 +325,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(mappingResult.merged).toHaveKey("files");
 				expect(mappingResult.merged).toHaveKey("coverage");
 				expect(mappingResult.fileMappings).toBeStruct();
-			});
-
-			it("merges coverage lines into merged struct", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
-				var results = duplicate(variables.parsedResults);
-				var mappingResult = merger.buildFileMappingsAndInitMerged(results);
-				merger.mergeCoverageLines(mappingResult.merged, mappingResult.fileMappings, results);
-				expect(structCount(mappingResult.merged.coverage)).toBeGT(0);
-			});
-
-			it("merges coverage lines without finalizing stats", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
-				var results = duplicate(variables.parsedResults);
-				var mappingResult = merger.buildFileMappingsAndInitMerged(results);
-				merger.mergeCoverageLines(mappingResult.merged, mappingResult.fileMappings, results);
-				// Stats calculation now handled by CoverageStats component
-				for (var filePath in mappingResult.merged.files) {
-					var stats = mappingResult.merged.files[filePath];
-					// File metadata should exist but stats calculation happens elsewhere
-					expect(stats).toHaveKey("path");
-				}
 			});
 
 			it("merges results by file (integration)", function() {

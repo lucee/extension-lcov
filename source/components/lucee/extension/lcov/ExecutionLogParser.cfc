@@ -6,6 +6,7 @@ component accessors="true" {
 	property name="positionMappingsCache" type="struct" default="#{}#";
 	property name="fileExistsCache" type="struct" default="#{}#";
 	property name="fileIgnoreCache" type="struct" default="#{}#"; // files not allowed due to allow/block lists
+	property name="astCache" type="struct" default="#{}#"; // parsed AST cache to avoid re-parsing same files
 
 	/**
 	* Initialize the parser with cache structures
@@ -238,48 +239,56 @@ component accessors="true" {
 		variables.logger.debug("Call tree line mapping completed in " & numberFormat(getTickCount() - lineMapperStart)
 			& "ms. Lines with call tree data: " & structCount(lineCallTree));
 
-		// STAGE 2: Process aggregated entries to line coverage
-		var processor = new lucee.extension.lcov.CoverageProcessor( logger=variables.logger );
-		var processingResult = processor.processAggregatedToLineCoverage(
-			aggregationResult.aggregated,
-			files,
-			lineMappingsCache,
-			this
-		);
-		var coverage = processingResult.coverage;
-		var processingTime = processingResult.processingTime;
+		// STAGE 1.8: Store block-level data in result model with isChild flag from call tree
+		var blockStorageStart = getTickCount();
+		var blockAggregator = new lucee.extension.lcov.BlockAggregator();
+		var blocks = blockAggregator.convertAggregatedToBlocks(aggregationResult.aggregated, callTreeResult.blocks);
+		arguments.coverageData.setBlocks(blocks);
+		variables.logger.debug("Block storage completed in " & numberFormat(getTickCount() - blockStorageStart) & "ms");
 
-		// STAGE 2.5: Populate coverage with zero-count entries for unexecuted executable lines
-		// This makes coverage the single source of truth (all executable lines present)
-		var zeroPopulateStart = getTickCount();
+		// STAGE 2: Aggregate blocks to line coverage using new block-based pipeline
+		var aggregatorStart = getTickCount();
+		var blockAggregator = new lucee.extension.lcov.BlockAggregator();
+		var coverage = {};
+
 		for (var fileIdx in files) {
 			var fileInfo = files[fileIdx];
-			if (!structKeyExists(fileInfo, "executableLines")) {
-				continue; // Skip files without executable line data
-			}
 
-			// Initialize coverage for this file if it doesn't exist
-			if (!structKeyExists(coverage, fileIdx)) {
+			// Aggregate blocks for this file
+			if (structKeyExists(blocks, fileIdx) && structCount(blocks[fileIdx]) > 0) {
+				// Ensure line mapping exists for this file
+				if (!structKeyExists(variables.lineMappingsCache, fileInfo.path)) {
+					throw(message="Line mapping not found for file: " & fileInfo.path & " (fileIdx: " & fileIdx & ")");
+				}
+
+				coverage[fileIdx] = blockAggregator.aggregateBlocksToLines(
+					arguments.coverageData,
+					fileIdx,
+					variables.lineMappingsCache[fileInfo.path]
+				);
+			} else {
 				coverage[fileIdx] = {};
 			}
 
-			// Add zero-count entries for all executable lines not already in coverage
-			for (var lineNum in fileInfo.executableLines) {
-				if (!structKeyExists(coverage[fileIdx], lineNum)) {
-					coverage[fileIdx][lineNum] = [0, 0, false]; // [hitCount, execTime, isChildTime]
+			// STAGE 2.5: Add zero-count entries for unexecuted executable lines
+			// This makes coverage the single source of truth (all executable lines present)
+			if (structKeyExists(fileInfo, "executableLines")) {
+				for (var lineNum in fileInfo.executableLines) {
+					if (!structKeyExists(coverage[fileIdx], lineNum)) {
+						coverage[fileIdx][lineNum] = [0, 0, 0]; // [hitCount, ownTime, childTime] - NEW FORMAT
+					}
 				}
 			}
 
-			// Remove temporary fields now that coverage has been populated and call tree analysis is complete
+			// Remove temporary fields now that coverage has been populated
 			structDelete(fileInfo, "executableLines");
 			structDelete(fileInfo, "ast");  // AST only needed during parsing, not in JSON output
 			structDelete(fileInfo, "lineMapping");  // Line mapping only needed during parsing
 			structDelete(fileInfo, "mappingLen");  // Mapping length only needed during parsing
 		}
-		//variables.logger.trace("Zero-count population completed in " & numberFormat(getTickCount() - zeroPopulateStart) & "ms");
 
-		// Enrich coverage with call tree line data (own time and child time)
-		coverage = callTreeLineMapper.enrichCoverageWithCallTree(coverage, lineCallTree);
+		var processingTime = getTickCount() - aggregatorStart;
+		variables.logger.debug("Block aggregation to lines completed in " & numberFormat(processingTime) & "ms");
 
 		var totalTime = getTickCount() - start;
 		var timePerAggregatedEntry = aggregationResult.aggregatedEntries > 0 ? numberFormat((processingTime / aggregationResult.aggregatedEntries), "0.00") : "0";
@@ -390,21 +399,29 @@ component accessors="true" {
 				var lineInfo = {};
 
 
-				// WORKAROUND: astFromString() treats .cfc files as StringLiteral (Lucee bug LDEV-5839)
-				// Use astFromPath() which parses .cfc files correctly
-				try {
-					var ast = astFromPath( path );
-				} catch ( any e ) {
-					// astFromPath() can fail with certain files - fall back to astFromString()
-					variables.logger.debug( "astFromPath failed for [" & path & "], falling back to astFromString: " & e.message );
-					var fileContent = variables.fileContentsCache[ path ];
+				// Check AST cache first
+				if ( structKeyExists( variables.astCache, path ) ) {
+					var ast = variables.astCache[ path ];
+				} else {
+					// WORKAROUND: astFromString() treats .cfc files as StringLiteral (Lucee bug LDEV-5839)
+					// Use astFromPath() which parses .cfc files correctly
+					try {
+						var ast = astFromPath( path );
+					} catch ( any e ) {
+						// astFromPath() can fail with certain files - fall back to astFromString()
+						variables.logger.debug( "astFromPath failed for [" & path & "], falling back to astFromString: " & e.message );
+						var fileContent = variables.fileContentsCache[ path ];
 
-					// Fix for .cfc files: wrap in cfscript tags if it doesn't contain cfcomponent tag
-					if ( path.endsWith( ".cfc" ) && !findNoCase( "<" & "cfcomponent", fileContent ) ) {
-						fileContent = "<" & "cfscript>" & fileContent & "</" & "cfscript>";
+						// Fix for .cfc files: wrap in cfscript tags if it doesn't contain cfcomponent tag
+						if ( path.endsWith( ".cfc" ) && !findNoCase( "<" & "cfcomponent", fileContent ) ) {
+							fileContent = "<" & "cfscript>" & fileContent & "</" & "cfscript>";
+						}
+
+						var ast = astFromString( fileContent );
 					}
 
-					var ast = astFromString( fileContent );
+					// Cache the AST for future use
+					variables.astCache[ path ] = ast;
 				}
 
 				// DEBUG: write the ast to a debug file
@@ -428,6 +445,7 @@ component accessors="true" {
 					"linesSource": arrayLen( variables.lineMappingsCache[ path] ),
 					"linesFound": lineInfo.count,
 					"lines": sourceLines,
+					"content": variables.fileContentsCache[ path ],  // Full file content for block extraction
 					"ast": ast,  // Store AST for call tree analysis
 					"executableLines": lineInfo.executableLines  // Temporary - used for zero-count population then removed from struct
 				};

@@ -145,7 +145,7 @@ component accessors="true" {
 					var lineNum = lineNumbers[j];
 					var lineData = filecoverage[lineNum];
 
-					// lineData[1] is hit count, lineData[2] is execution time, lineData[3] is isChildTime (optional)
+					// lineData[1] is hit count, lineData[2] is ownTime, lineData[3] is childTime
 					// Count lines with hitCount > 0 as executed
 					if (isNumeric(lineData[1]) && lineData[1] > 0) {
 						totalStats.totalLinesHit++;
@@ -153,22 +153,21 @@ component accessors="true" {
 					}
 
 					totalStats.totalExecutions += lineData[1];
-					totalStats.totalExecutionTime += lineData[2];
+					// totalExecutionTime = ownTime + childTime
+					totalStats.totalExecutionTime += lineData[2] + lineData[3];
 					fileInfo.totalExecutions += lineData[1];
-					fileInfo.totalExecutionTime += lineData[2];
+					fileInfo.totalExecutionTime += lineData[2] + lineData[3];
 
-					// If this line has child time flag and it's true, add execution time to child time
-					if (arrayLen(lineData) >= 3 && lineData[3] == true) {
-						totalStats.totalChildTime += lineData[2];
-						fileInfo.totalChildTime += lineData[2];
-					}
+					// Track childTime separately for reporting
+					totalStats.totalChildTime += lineData[3];
+					fileInfo.totalChildTime += lineData[3];
 				}
 			}
 			// fileinfo is passed by reference and updated in place
 		});
 
 		// Child time is now calculated from coverage data in the loop above
-		// where we check lineData[3] for the isChildTime flag
+		// where we sum lineData[3] (childTime) for each line
 
 		arguments.result.setStats(totalStats);
 

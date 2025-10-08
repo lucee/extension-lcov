@@ -458,7 +458,7 @@ tbody tr:nth-child(even) {
 }
 
 
-.exec-count, .exec-time, .own-time, .child-time {
+.exec-count, .total-time, .own-time, .child-time {
 	text-align: right;
 	font-weight: bold;
 	font-size: 12px;

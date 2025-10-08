@@ -73,9 +73,12 @@ component {
 			var execHtmlText = trim(htmlParser.getText(execCell));
 			var execDataValue = htmlParser.getAttr(execCell, "data-value");
 
-			if (structKeyExists(jsonReport, "executionTime") && isNumeric(jsonReport.executionTime)) {
-				var sourceUnit = structKeyExists(jsonReport, "unit") ? jsonReport.unit : "μs";
-				var executionTimeMicros = timeFormatter.convertTime(jsonReport.executionTime, sourceUnit, "μs");
+			// Get source unit from JSON report
+			var sourceUnit = jsonReport.unit;
+
+			// Use stats.totalExecutionTime (calculated as ownTime + childTime from coverage data)
+			if (structKeyExists(jsonReport, "stats") && structKeyExists(jsonReport.stats, "totalExecutionTime")) {
+				var executionTimeMicros = timeFormatter.convertTime(jsonReport.stats.totalExecutionTime, sourceUnit, "μs");
 				var expectedTimeFormatted = timeFormatter.format(executionTimeMicros);
 
 				if (execHtmlText != "") {
@@ -94,9 +97,12 @@ component {
 			var childSortValue = htmlParser.getAttr(childCell, "data-sort-value");
 
 			if (structKeyExists(jsonReport, "totalChildTime") && isNumeric(jsonReport.totalChildTime)) {
-				var childTimeMicros = jsonReport.totalChildTime;
-				// Use timeFormatter.format() same as production code
-				var expectedChildFormatted = timeFormatter.format(childTimeMicros);
+				var childTimeSourceUnit = jsonReport.totalChildTime;
+				// Convert from source unit to microseconds for comparison (same as production code)
+				var childTimeMicros = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
+				// Convert from source unit to display unit for formatting
+				var childTimeDisplayUnit = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, arguments.expectedDisplayUnit);
+				var expectedChildFormatted = timeFormatter.format(childTimeDisplayUnit);
 
 				if (childHtmlText != "" && childSortValue != "0") {
 					hasNonZeroChildTime = true;
@@ -104,7 +110,7 @@ component {
 						"Child time mismatch for #scriptName# - HTML: '#childHtmlText#', Expected: '#expectedChildFormatted#'");
 				}
 
-				// Validate data-sort-value
+				// Validate data-sort-value (should be in microseconds)
 				expect(childSortValue).toBe(toString(childTimeMicros),
 					"Child time data-sort-value mismatch for #scriptName#");
 			}
@@ -115,7 +121,14 @@ component {
 			var ownSortValue = htmlParser.getAttr(ownCell, "data-sort-value");
 
 			if (isNumeric(execDataValue) && isNumeric(childSortValue)) {
-				var expectedOwnTime = parseNumber(execDataValue) - parseNumber(childSortValue);
+				// CRITICAL: childTime should never exceed executionTime
+				var execTime = parseNumber(execDataValue);
+				var childTime = parseNumber(childSortValue);
+
+				expect(childTime).toBeLTE(execTime,
+					"Child time (#childTime#) should not exceed execution time (#execTime#) for #scriptName#");
+
+				var expectedOwnTime = execTime - childTime;
 				if (expectedOwnTime < 0) expectedOwnTime = 0;
 
 				expect(ownSortValue).toBe(toString(expectedOwnTime),
@@ -135,6 +148,44 @@ component {
 		if (arguments.debug) {
 			systemOutput("Index has non-zero child time: #hasNonZeroChildTime#", true);
 			systemOutput("Index has non-zero own time: #hasNonZeroOwnTime#", true);
+		}
+
+		// IMPORTANT: Validate that if detail pages have childTime, the index aggregates it correctly
+		// This catches bugs where CoverageStats doesn't aggregate childTime properly
+		for (var row in rows) {
+			var htmlFile = htmlParser.getAttr(row, "data-html-file");
+			var jsonReport = findJsonReportByHtmlFile(indexData, htmlFile);
+			if (!isNull(jsonReport) && structKeyExists(jsonReport, "totalChildTime")) {
+				var indexChildTime = jsonReport.totalChildTime;
+
+				// Load the detail page JSON to check if it has any childTime
+				var detailJsonPath = getDirectoryFromPath(arguments.indexHtmlPath) & replace(htmlFile, ".html", ".json");
+				if (fileExists(detailJsonPath)) {
+					var detailData = deserializeJSON(fileRead(detailJsonPath));
+					var detailHasChildTime = false;
+					var detailChildTimeSum = 0;
+
+					// Check all coverage data for childTime values
+					if (structKeyExists(detailData, "coverage")) {
+						for (var fileIdx in detailData.coverage) {
+							var fileCoverage = detailData.coverage[fileIdx];
+							for (var lineNum in fileCoverage) {
+								var lineData = fileCoverage[lineNum];
+								var childTime = lineData[3];
+								if (childTime > 0) {
+									detailHasChildTime = true;
+									detailChildTimeSum += childTime;
+								}
+							}
+						}
+					}
+
+					// If detail has childTime, index MUST have totalChildTime > 0
+					if (detailHasChildTime && indexChildTime == 0) {
+						fail("Detail page #htmlFile# has childTime values (sum=#detailChildTimeSum#) but index shows totalChildTime=0. CoverageStats is not aggregating childTime correctly!");
+					}
+				}
+			}
 		}
 	}
 
@@ -186,6 +237,37 @@ component {
 			for (var row in lineRows) {
 				var lineNumber = htmlParser.getAttr(row, "data-line-number");
 
+				// Validate CSS class based on coverage data
+				var rowClass = htmlParser.getAttr(row, "class");
+				if (structKeyExists(coverageData, lineNumber) && arrayLen(coverageData[lineNumber]) > 0) {
+					var hitCount = coverageData[lineNumber][1];
+					var ownTime = coverageData[lineNumber][2];
+					var childTime = coverageData[lineNumber][3];
+
+					if (hitCount > 0) {
+						// Check for exact "executed" class (not "not-executed")
+						expect(rowClass).toBe("executed",
+							"Line #lineNumber# with hitCount=#hitCount# should have class 'executed' but got '#rowClass#' in [#arguments.reportHtmlPath#]");
+
+						// NOTE: We don't validate time > 0 because lines can execute too fast to measure (execTime=0)
+						// This is especially common with simple assignments, returns, or very fast operations
+					} else {
+						// Check for exact "not-executed" class
+						expect(rowClass).toBe("not-executed",
+							"Line #lineNumber# with hitCount=0 should have class 'not-executed' but got '#rowClass#' in [#arguments.reportHtmlPath#]");
+
+						// Not executed lines should have 0 time
+						expect(ownTime).toBe(0,
+							"Line #lineNumber# with hitCount=0 should have ownTime=0 but got #ownTime# in [#arguments.reportHtmlPath#]");
+						expect(childTime).toBe(0,
+							"Line #lineNumber# with hitCount=0 should have childTime=0 but got #childTime# in [#arguments.reportHtmlPath#]");
+					}
+				} else {
+					// Check for exact "non-executable" class
+					expect(rowClass).toBe("non-executable",
+						"Line #lineNumber# not in coverage should have class 'non-executable' but got '#rowClass#' in [#arguments.reportHtmlPath#]");
+				}
+
 				// Get execution time cell and child time cell
 				var execTimeCells = htmlParser.select(row, "[data-execution-time-cell]");
 				var childTimeCells = htmlParser.select(row, "td.child-time");
@@ -197,36 +279,37 @@ component {
 				var execHtmlText = trim(htmlParser.getText(execTimeCells[1]));
 				var childHtmlText = trim(htmlParser.getText(childTimeCells[1]));
 
-				// Validate mutual exclusivity
-				if (execHtmlText != "" && childHtmlText != "") {
-					fail("Line #lineNumber# should not have both execution and child time in [#arguments.reportHtmlPath#]");
-				}
-
 				// Find matching line in JSON coverage data
+				// NEW FORMAT: [hitCount, ownTime, childTime] - both ownTime and childTime can be present
 				if (structKeyExists(coverageData, lineNumber) && arrayLen(coverageData[lineNumber]) >= 2) {
-					var jsonTimeNanos = coverageData[lineNumber][2]; // Time in source unit
-					var isChildTime = arrayLen(coverageData[lineNumber]) >= 3 ? coverageData[lineNumber][3] : false;
+					var ownTimeNanos = coverageData[lineNumber][2]; // Own time in source unit
+					var childTimeNanos = arrayLen(coverageData[lineNumber]) >= 3 ? coverageData[lineNumber][3] : 0; // Child time in source unit
 
 					// Convert to display unit using same logic as production code
-					var timeMicros = timeFormatter.convertTime(jsonTimeNanos, sourceUnit, "μs");
-					var expectedTimeFormatted = timeFormatter.format(timeMicros);
+					var ownTimeMicros = timeFormatter.convertTime(ownTimeNanos, sourceUnit, "μs");
+					var childTimeMicros = timeFormatter.convertTime(childTimeNanos, sourceUnit, "μs");
 
-					if (isChildTime) {
-						// Should show child time, not execution time
-						if (timeMicros > 0) {
-							expect(childHtmlText).toBe(expectedTimeFormatted,
-								"Child time mismatch at line #lineNumber# - HTML: '#childHtmlText#', Expected: '#expectedTimeFormatted#' [#arguments.reportHtmlPath#]");
-							expect(execHtmlText).toBe("",
-								"Line #lineNumber# marked as child time should have empty execution time [#arguments.reportHtmlPath#]");
-						}
+					// Validate total time (ownTime + childTime)
+					var totalTimeMicros = ownTimeMicros + childTimeMicros;
+					if (totalTimeMicros > 0) {
+						var expectedTotalFormatted = timeFormatter.format(totalTimeMicros);
+						expect(execHtmlText).toBe(expectedTotalFormatted,
+							"Total time mismatch at line #lineNumber# - HTML: '#execHtmlText#', Expected: '#expectedTotalFormatted#' [#arguments.reportHtmlPath#]");
 					} else {
-						// Should show execution time, not child time
-						if (timeMicros > 0) {
-							expect(execHtmlText).toBe(expectedTimeFormatted,
-								"Execution time mismatch at line #lineNumber# - HTML: '#execHtmlText#', Expected: '#expectedTimeFormatted#' [#arguments.reportHtmlPath#]");
-							expect(childHtmlText).toBe("",
-								"Line #lineNumber# should have empty child time [#arguments.reportHtmlPath#]");
-						}
+						// No time at all, execution time cell should be empty
+						expect(execHtmlText).toBe("",
+							"Line #lineNumber# with totalTime=0 should have empty execution time cell [#arguments.reportHtmlPath#]");
+					}
+
+					// Validate child time if present
+					if (childTimeMicros > 0) {
+						var expectedChildFormatted = timeFormatter.format(childTimeMicros);
+						expect(childHtmlText).toBe(expectedChildFormatted,
+							"Child time mismatch at line #lineNumber# - HTML: '#childHtmlText#', Expected: '#expectedChildFormatted#' [#arguments.reportHtmlPath#]");
+					} else {
+						// No child time, child time cell should be empty
+						expect(childHtmlText).toBe("",
+							"Line #lineNumber# with childTime=0 should have empty child time cell [#arguments.reportHtmlPath#]");
 					}
 				}
 			}

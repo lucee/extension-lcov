@@ -48,13 +48,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 
 					var lineData = coverage[ lineNum ];
-					if ( !isArray( lineData ) || arrayLen( lineData ) < 3 ) {
-						arrayAppend( failedLines, lineNum & " (invalid format)" );
-						continue;
-					}
 
-					var isChild = lineData[ 3 ]; // Third element is isChildTime
-					if ( !isChild ) {
+					// NEW FORMAT: [hitCount, ownTime, childTime]
+					// Third element is childTime (numeric) - time spent in function calls
+					var childTime = lineData[ 3 ];
+					if ( childTime == 0 ) {
 						arrayAppend( failedLines, lineNum & " (not marked as child)" );
 					}
 				}

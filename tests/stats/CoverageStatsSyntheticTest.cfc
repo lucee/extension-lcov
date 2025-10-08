@@ -15,8 +15,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 						"B": { path: "/tmp/B.cfm", linesFound: 2, linesSource: 4 }
 					},
 					coverage: {
-						"A": { "10": [1, 2], "11": [0, 0], "12": [1, 1] },
-						"B": { "20": [1, 1], "21": [0, 0] }
+						"A": { "10": [1, 2, 0], "11": [0, 0, 0], "12": [1, 1, 0] },
+						"B": { "20": [1, 1, 0], "21": [0, 0, 0] }
 					}
 				};
 				var stats = statsComponent.calculateLcovStats(fileCoverage);
@@ -37,9 +37,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 						"C": { path: "/tmp/C.cfm", linesFound: 6, linesSource: 12 }
 					},
 					coverage: {
-						"A": { "10": [1, 2], "11": [0, 0], "12": [1, 1], "13": [1, 1], "14": [0, 0] },
-						"B": { "20": [1, 1], "21": [0, 0], "22": [1, 1], "23": [1, 1] },
-						"C": { "30": [1, 2], "31": [1, 1], "32": [0, 0], "33": [1, 1], "34": [1, 1], "35": [0, 0] }
+						"A": { "10": [1, 2, 0], "11": [0, 0, 0], "12": [1, 1, 0], "13": [1, 1, 0], "14": [0, 0, 0] },
+						"B": { "20": [1, 1, 0], "21": [0, 0, 0], "22": [1, 1, 0], "23": [1, 1, 0] },
+						"C": { "30": [1, 2, 0], "31": [1, 1, 0], "32": [0, 0, 0], "33": [1, 1, 0], "34": [1, 1, 0], "35": [0, 0, 0] }
 					}
 				};
 				var stats = statsComponent.calculateLcovStats(fileCoverage);
@@ -60,11 +60,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var resultA = mockResult({
 					files: { "/tmp/A.cfm": { path: "/tmp/A.cfm", linesFound: 3, linesSource: 5, executableLines: {"10": true, "11": true, "12": true} } },
-					coverage: { "/tmp/A.cfm": { "10": [1, 2], "11": [0, 0], "12": [1, 1] } }
+					coverage: { "/tmp/A.cfm": { "10": [1, 2, 0], "11": [0, 0, 0], "12": [1, 1, 0] } }
 				});
 				var resultB = mockResult({
 					files: { "/tmp/B.cfm": { path: "/tmp/B.cfm", linesFound: 2, linesSource: 4, executableLines: {"20": true, "21": true} } },
-					coverage: { "/tmp/B.cfm": { "20": [1, 1], "21": [0, 0] } }
+					coverage: { "/tmp/B.cfm": { "20": [1, 1, 0], "21": [0, 0, 0] } }
 				});
 				// Write results to temporary JSON files for progressive processing
 				var tempDir = getTempDirectory() & "/stats-test-" & createUUID();
@@ -94,15 +94,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var resultA = mockResult({
 					files: { "/tmp/A.cfm": { path: "/tmp/A.cfm", linesFound: 5, linesSource: 10, executableLines: {"10": true, "11": true, "12": true, "13": true, "14": true} } },
-					coverage: { "/tmp/A.cfm": { "10": [1, 2], "11": [0, 0], "12": [1, 1], "13": [1, 1], "14": [0, 0] } }
+					coverage: { "/tmp/A.cfm": { "10": [1, 2, 0], "11": [0, 0, 0], "12": [1, 1, 0], "13": [1, 1, 0], "14": [0, 0, 0] } }
 				});
 				var resultB = mockResult({
 					files: { "/tmp/B.cfm": { path: "/tmp/B.cfm", linesFound: 4, linesSource: 8, executableLines: {"20": true, "21": true, "22": true, "23": true} } },
-					coverage: { "/tmp/B.cfm": { "20": [1, 1], "21": [0, 0], "22": [1, 1], "23": [1, 1] } }
+					coverage: { "/tmp/B.cfm": { "20": [1, 1, 0], "21": [0, 0, 0], "22": [1, 1, 0], "23": [1, 1, 0] } }
 				});
 				var resultC = mockResult({
 					files: { "/tmp/C.cfm": { path: "/tmp/C.cfm", linesFound: 6, linesSource: 12, executableLines: {"30": true, "31": true, "32": true, "33": true, "34": true, "35": true} } },
-					coverage: { "/tmp/C.cfm": { "30": [1, 2], "31": [1, 1], "32": [0, 0], "33": [1, 1], "34": [1, 1], "35": [0, 0] } }
+					coverage: { "/tmp/C.cfm": { "30": [1, 2, 0], "31": [1, 1, 0], "32": [0, 0, 0], "33": [1, 1, 0], "34": [1, 1, 0], "35": [0, 0, 0] } }
 				});
 				// Write results to temporary JSON files for progressive processing
 				var tempDir = getTempDirectory() & "/stats-test-" & createUUID();
@@ -146,7 +146,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 								executableLines: { "10": true, "11": true, "12": true }
 							}
 						},
-						coverage: { 1: { "10": [1, 2], "11": [0, 0], "12": [1, 1] } }
+						coverage: { 1: { "10": [1, 2, 0], "11": [0, 0, 0], "12": [1, 1, 0] } }
 					}),
 					1: mockResult({
 						files: {
@@ -157,7 +157,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 								executableLines: { "20": true, "21": true }
 							}
 						},
-						coverage: { 2: { "20": [1, 1], "21": [0, 0] } }
+						coverage: { 2: { "20": [1, 1, 0], "21": [0, 0, 0] } }
 					})
 				};
 				statsComponent.calculateStatsForMergedResults(mergedResults);
@@ -179,7 +179,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 								executableLines: { "10": true, "11": true, "12": true, "13": true, "14": true }
 							}
 						},
-						coverage: { 1: { "10": [1, 2], "11": [0, 0], "12": [1, 1], "13": [1, 1], "14": [0, 0] } }
+						coverage: { 1: { "10": [1, 2, 0], "11": [0, 0, 0], "12": [1, 1, 0], "13": [1, 1, 0], "14": [0, 0, 0] } }
 					}),
 					1: mockResult({
 						files: {
@@ -190,7 +190,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 								executableLines: { "20": true, "21": true, "22": true, "23": true }
 							}
 						},
-						coverage: { 2: { "20": [1, 1], "21": [0, 0], "22": [1, 1], "23": [1, 1] } }
+						coverage: { 2: { "20": [1, 1, 0], "21": [0, 0, 0], "22": [1, 1, 0], "23": [1, 1, 0] } }
 					}),
 					2: mockResult({
 						files: {
@@ -201,7 +201,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 								executableLines: { "30": true, "31": true, "32": true, "33": true, "34": true, "35": true }
 							}
 						},
-						coverage: { 3: { "30": [1, 2], "31": [1, 1], "32": [0, 0], "33": [1, 1], "34": [1, 1], "35": [0, 0] } }
+						coverage: { 3: { "30": [1, 2, 0], "31": [1, 1, 0], "32": [0, 0, 0], "33": [1, 1, 0], "34": [1, 1, 0], "35": [0, 0, 0] } }
 					})
 				};
 				statsComponent.calculateStatsForMergedResults(mergedResults);
@@ -221,7 +221,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				// linesFound is 2, but 3 lines are covered (should error)
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 2, linesSource: 5 } },
-					coverage: { "A": { "10": [1, 1], "11": [1, 1], "12": [1, 1] } }
+					coverage: { "A": { "10": [1, 1, 0], "11": [1, 1, 0], "12": [1, 1, 0] } }
 				};
 				expect(function() {
 					statsComponent.calculateLcovStats(fileCoverage);
@@ -231,7 +231,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 3 } },
-					coverage: { "A": { "10": [1, 2] } }
+					coverage: { "A": { "10": [1, 2, 0] } }
 				};
 				expect(function() {
 					statsComponent.calculateLcovStats(fileCoverage);
@@ -242,7 +242,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesSource: 5 } },
-					coverage: { "A": { "10": [1, 2] } }
+					coverage: { "A": { "10": [1, 2, 0] } }
 				};
 				expect(function() {
 					statsComponent.calculateLcovStats(fileCoverage);
@@ -253,7 +253,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 3, linesSource: -5 } },
-					coverage: { "A": { "10": [1, 2] } }
+					coverage: { "A": { "10": [1, 2, 0] } }
 				};
 				expect(function() {
 					statsComponent.calculateLcovStats(fileCoverage);
@@ -264,7 +264,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 10, linesSource: 5 } },
-					coverage: { "A": { "10": [1, 2] } }
+					coverage: { "A": { "10": [1, 2, 0] } }
 				};
 				expect(function() {
 					statsComponent.calculateLcovStats(fileCoverage);
@@ -279,8 +279,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 						"A_dup": { path: "/tmp/A.cfm", linesFound: 3, linesSource: 5 }
 					},
 					coverage: {
-						"A": { "10": [1, 2], "11": [0, 0] },
-						"A_dup": { "12": [1, 1] }
+						"A": { "10": [1, 2, 0], "11": [0, 0, 0] },
+						"A_dup": { "12": [1, 1, 0] }
 					}
 				};
 				var stats = statsComponent.calculateLcovStats(fileCoverage);
@@ -326,7 +326,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 1, linesSource: 1 } },
-					coverage: { "A": { "1": [1, 1] } }
+					coverage: { "A": { "1": [1, 1, 0] } }
 				};
 				var stats = statsComponent.calculateLcovStats(fileCoverage);
 				expect(stats["/tmp/A.cfm"].linesFound).toBe(1);
@@ -338,7 +338,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 				var fileCoverage = {
 					files: { "A": { path: "/tmp/A.cfm", linesFound: 1, linesSource: 1 } },
-					coverage: { "A": { "1": [0, 0] } }
+					coverage: { "A": { "1": [0, 0, 0] } }
 				};
 				var stats = statsComponent.calculateLcovStats(fileCoverage);
 				expect(stats["/tmp/A.cfm"].linesFound).toBe(1);
@@ -368,8 +368,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					},
 					coverage: {
 						"/tmp/SameFile.cfm": {
-							"10": [1, 100], // line 10 hit once
-							"12": [2, 200]  // line 12 hit twice
+							"10": [1, 100, 0], // line 10 hit once
+							"12": [2, 200, 0]  // line 12 hit twice
 						}
 					}
 				});
@@ -386,9 +386,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					},
 					coverage: {
 						"/tmp/SameFile.cfm": {
-							"14": [1, 150], // line 14 hit once
-							"16": [3, 300], // line 16 hit 3 times
-							"18": [1, 100]  // line 18 hit once
+							"14": [1, 150, 0], // line 14 hit once
+							"16": [3, 300, 0], // line 16 hit 3 times
+							"18": [1, 100, 0]  // line 18 hit once
 						}
 					}
 				});
@@ -409,7 +409,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					},
 					coverage: {
 						"/tmp/SameFile.cfm": {
-							"20": [2, 400], // extra line 20
+							"20": [2, 400, 0], // extra line 20
 							"22": [1, 200]  // extra line 22
 						}
 					}

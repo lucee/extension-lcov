@@ -176,7 +176,7 @@ component {
 	public struct function mergeResultsByFile(required array jsonFilePaths, string logLevel="none") {
 		// Progressive loading - process one file at a time to minimize memory usage
 		var resultFactory = new lucee.extension.lcov.model.result();
-		var merged = { "files": {}, "coverage": {} };
+		var merged = { "files": {}, "coverage": {}, "blocks": {} };
 		var fileMappings = {};
 		var isFirstFile = true;
 
@@ -230,42 +230,6 @@ component {
 			}
 		}
 		return { merged: merged, fileMappings: fileMappings };
-	}
-
-	public void function mergeCoverageLines(required struct merged, required struct fileMappings, required struct results) {
-		var totalCoverageLines = 0;
-		for (var src in arguments.results) {
-			var coverage = arguments.results[src].getCoverage();
-			var mapping = arguments.fileMappings[src];
-			for (var fKey in coverage) {
-				var realFile = mapping[fKey];
-				if (!structKeyExists(arguments.merged.coverage, realFile)) {
-					arguments.merged.coverage[realFile] = {};
-				}
-				var sourceLines = structKeyArray(coverage[fKey]);
-				var maxLine = 0;
-				if (structKeyExists(arguments.merged.files, realFile) && structKeyExists(arguments.merged.files[realFile], "linesSource")) {
-					maxLine = arguments.merged.files[realFile].linesSource;
-				}
-				for (var l in coverage[fKey]) {
-					if (maxLine > 0 && (l < 1 || l > maxLine)) {
-						throw(
-							"mergeCoverageLines: Invalid coverage data: line " & l & " is out of range for file " & realFile & " (max line: " & maxLine & ") in mergeResultsByFile. All lines: " & serializeJSON(sourceLines),
-							"CoverageDataError"
-						);
-					}
-					if (!structKeyExists(arguments.merged.coverage[realFile], l)) {
-						arguments.merged.coverage[realFile][l] = [0, 0, false]; // [hitCount, execTime, isChildTime]
-					}
-					var lineData = arguments.merged.coverage[realFile][l];
-					var srcLineData = coverage[fKey][l];
-					lineData[1] += srcLineData[1];
-					lineData[2] += srcLineData[2];
-					totalCoverageLines++;
-				}
-			}
-		}
-		variables.logger.trace( "Merged " & totalCoverageLines & " coverage lines. merged: " & serializeJSON(arguments.merged) );
 	}
 
 
@@ -361,11 +325,10 @@ component {
 				if (arrayLen(targetLine) != arrayLen(sourceLine)) {
 					throw("mergeCoverageData: Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 				}
-				// Only add positions [1] and [2] (hitCount and execTime)
-				// Position [3] is the isChildTime boolean flag - preserve from target, don't add
+				// NEW FORMAT: Sum all three values [hitCount, ownTime, childTime]
 				targetLine[1] += sourceLine[1]; // hitCount
-				targetLine[2] += sourceLine[2]; // execTime
-				// targetLine[3] is isChildTime boolean - leave unchanged
+				targetLine[2] += sourceLine[2]; // ownTime
+				targetLine[3] += sourceLine[3]; // childTime
 			}
 			linesMerged++;
 		}
@@ -468,6 +431,7 @@ component {
 	private void function mergeCurrentResultByFile(required struct merged, required any currentResult, required struct fileMappings) localmode="modern" {
 		var currentFiles = arguments.currentResult.getFiles();
 		var currentCoverage = arguments.currentResult.getCoverage();
+		var currentBlocks = arguments.currentResult.getBlocks();
 
 		//systemOutput("Coverage keys for current result: " & serializeJSON(var=structKeyArray(currentCoverage)), true);
 		//systemOutput("Coverage Files for current result: " & serializeJSON(var=structKeyArray(currentFiles)), true);
@@ -504,11 +468,34 @@ component {
 				if (!structKeyExists(targetCoverage, lineNum)) {
 					targetCoverage[lineNum] = duplicate(sourceCoverage[lineNum]);
 				} else {
-					// Add hit counts and execution times together
+					// Add hit counts, execution times, and child times together
 					targetCoverage[lineNum][1] += sourceCoverage[lineNum][1];
 					targetCoverage[lineNum][2] += sourceCoverage[lineNum][2];
-					// Preserve isChild flag from first occurrence (should be consistent across all runs)
-					// Position [3] is isChildTime flag - don't modify it during merge
+					targetCoverage[lineNum][3] += sourceCoverage[lineNum][3]; // childTime
+				}
+			}
+
+			// Merge block coverage
+			var hasBlocks = structKeyExists(currentBlocks, fileIndex);
+			if (hasBlocks) {
+				if (!structKeyExists(arguments.merged.blocks, filePath)) {
+					arguments.merged.blocks[filePath] = {};
+				}
+
+				var sourceBlocks = currentBlocks[fileIndex];
+				var targetBlocks = arguments.merged.blocks[filePath];
+
+				// Merge each block
+				for (var blockKey in sourceBlocks) {
+					var sourceBlock = sourceBlocks[blockKey];
+					if (!structKeyExists(targetBlocks, blockKey)) {
+						targetBlocks[blockKey] = duplicate(sourceBlock);
+					} else {
+						// Add hit counts and execution times together
+						targetBlocks[blockKey].hitCount += sourceBlock.hitCount;
+						targetBlocks[blockKey].execTime += sourceBlock.execTime;
+						// isChild flag should be consistent across runs - keep first value
+					}
 				}
 			}
 		}

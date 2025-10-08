@@ -211,8 +211,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				htmlFile: result.getOutputFilename() & ".html",
 				totalLinesHit: result.getStats().totalLinesHit,
 				totalLinesFound: result.getStats().totalLinesFound,
-				executionTime: result.getStats().totalExecutionTime,
-				totalChildTime: result.getStats().totalChildTime
+				totalExecutionTime: result.getStats().totalExecutionTime,
+				totalChildTime: result.getStats().totalChildTime,
+				unit: "μs",
+				timestamp: now()
 			};
 			arrayAppend(resultsData, resultData);
 		}

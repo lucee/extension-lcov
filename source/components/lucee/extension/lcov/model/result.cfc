@@ -4,7 +4,8 @@ component accessors=true {
 	// Always use these methods for property access in tests and core logic; do not use direct assignment or member access.
 	property name="metadata" type="struct" default="#{}#";
 	property name="stats" type="struct" default="#{}#"; // overall stats for all files
-	property name="coverage" type="struct" default="#{}#"; // per file coverage data
+	property name="coverage" type="struct" default="#{}#"; // per file coverage data (line-based, derived from blocks)
+	property name="blocks" type="struct" default="#{}#"; // per file block-level execution data: {fileIdx: {"startPos-endPos": {hitCount, execTime, isChild}}}
 	property name="files" type="struct" default="#{}#"; // contains per file stats, source and info 
 	property name="exeLog" type="string" default=""; // file path of the .exl used to generate this result
 	property name="exlChecksum" type="string" default=""; // checksum of the .exl file to detect reprocessing
@@ -227,6 +228,52 @@ component accessors=true {
 	}
 
 	/**
+	 * Gets the blocks struct for a specific file index.
+	 * Returns empty struct if no blocks found for this file.
+	 * @fileIndex The file index (numeric)
+	 */
+	public struct function getBlocksForFile(required numeric fileIndex) {
+		if (!isStruct(variables.blocks)) {
+			variables.blocks = {};
+		}
+		if (!structKeyExists(variables.blocks, arguments.fileIndex)) {
+			return {};
+		}
+		return variables.blocks[arguments.fileIndex];
+	}
+
+	/**
+	 * Sets the blocks for a specific file index.
+	 * @fileIndex The file index (numeric)
+	 * @data The blocks data struct (keyed by "startPos-endPos")
+	 */
+	public void function setBlocksForFile(required numeric fileIndex, required struct data) {
+		if (!isStruct(variables.blocks)) {
+			variables.blocks = {};
+		}
+		variables.blocks[arguments.fileIndex] = arguments.data;
+	}
+
+	/**
+	 * Adds a single block for a file.
+	 * @fileIndex The file index (numeric)
+	 * @startPos Block start position
+	 * @endPos Block end position
+	 * @blockData Struct containing hitCount, execTime, isChild
+	 */
+	public void function addBlock(required numeric fileIndex, required numeric startPos, required numeric endPos, required struct blockData) {
+		if (!isStruct(variables.blocks)) {
+			variables.blocks = {};
+		}
+		if (!structKeyExists(variables.blocks, arguments.fileIndex)) {
+			variables.blocks[arguments.fileIndex] = {};
+		}
+		var blockKey = arguments.startPos & "-" & arguments.endPos;
+		variables.blocks[arguments.fileIndex][blockKey] = arguments.blockData;
+	}
+
+
+	/**
 	 * Gets a file entry from the result's files struct, throws if missing.
 	 * @fileIndex The file index (numeric)
 	 */
@@ -423,16 +470,10 @@ component accessors=true {
 				}
 			}
 
-			// Compare calculated totals with reported stats
-			if (structKeyExists(variables.stats, "totalExecutionTime")) {
-				var reportedTotalTime = variables.stats.totalExecutionTime;
-				// Allow small differences due to rounding/aggregation
-				var timeDiff = abs(calculatedTotalTime - reportedTotalTime);
-				if (timeDiff > reportedTotalTime * 0.01 && timeDiff > 1000) { // More than 1% difference and more than 1ms
-					arrayAppend(problems, "Total execution time mismatch: calculated [" & calculatedTotalTime
-						& "] vs reported [" & reportedTotalTime & "], difference: " & timeDiff);
-				}
-			}
+			// NOTE: We no longer validate totalExecutionTime match because:
+			// - CoverageStats now calculates totalExecutionTime as ownTime + childTime from coverage arrays
+			// - This is the correct total time and may differ from .exl metadata which only tracks ownTime
+			// - The coverage data is the source of truth for execution times
 
 			if (structKeyExists(variables.stats, "totalExecutions")) {
 				var reportedTotalExecutions = variables.stats.totalExecutions;

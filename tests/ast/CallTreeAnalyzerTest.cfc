@@ -332,8 +332,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				for (var lineNum in constructorLines) {
 					if (structKeyExists(coverage, lineNum) && isArray(coverage[lineNum])) {
 						var lineData = coverage[lineNum];
-						var isChild = lineData[3]; // Third element is isChildTime
-						if (!isChild) {
+						// NEW FORMAT: [hitCount, ownTime, childTime]
+						// Third element is now childTime (numeric), not isChildTime (boolean)
+						var childTime = lineData[3];
+						if (childTime == 0) {
 							arrayAppend(failedLines, lineNum);
 						}
 					}

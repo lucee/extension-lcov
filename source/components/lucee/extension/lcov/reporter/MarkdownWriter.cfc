@@ -64,13 +64,22 @@ component {
 		var totalTimeDisplay = timeFormatter.formatTime(totalTimeMicros, variables.displayUnit, true);
 		arrayAppend( parts, "- **Total Time:** " & totalTimeDisplay );
 
-		// Child time if available
+		// Child time if available (in source unit from .exl file)
 		var totalChildTime = arguments.result.getStatsProperty("totalChildTime");
 		if (totalChildTime > 0) {
-			var childTimeMicros = timeFormatter.convertTime(totalChildTime, "ns", "μs");
+			var childTimeMicros = timeFormatter.convertTime(totalChildTime, sourceUnit, "μs");
 			var childTimeDisplay = timeFormatter.formatTime(childTimeMicros, variables.displayUnit, true);
 			arrayAppend( parts, "- **Child Time:** " & childTimeDisplay );
 		}
+
+		// Add source unit and request execution time from metadata for reference
+		var requestExecutionTime = arguments.result.getMetadataProperty("execution-time");
+		if (isDefined("requestExecutionTime") && isNumeric(requestExecutionTime)) {
+			var reqTimeMicros = timeFormatter.convertTime(requestExecutionTime, sourceUnit, "μs");
+			var reqTimeDisplay = timeFormatter.formatTime(reqTimeMicros, variables.displayUnit, true);
+			arrayAppend( parts, "- **Request Execution Time (metadata):** " & reqTimeDisplay );
+		}
+		arrayAppend( parts, "- **Source Unit:** " & sourceUnit );
 
 		arrayAppend( parts, "" );
 
@@ -123,7 +132,7 @@ component {
 		arrayAppend( parts, "- **Total Time:** " & fileTimeDisplay );
 
 		if (structKeyExists(fileData, "totalChildTime") && fileData.totalChildTime > 0) {
-			var fileChildTimeMicros = arguments.timeFormatter.convertTime(fileData.totalChildTime, "ns", "μs");
+			var fileChildTimeMicros = arguments.timeFormatter.convertTime(fileData.totalChildTime, arguments.sourceUnit, "μs");
 			var fileChildTimeDisplay = arguments.timeFormatter.formatTime(fileChildTimeMicros, variables.displayUnit, true);
 			arrayAppend( parts, "- **Child Time:** " & fileChildTimeDisplay );
 		}
@@ -150,11 +159,11 @@ component {
 
 				if (hasData) {
 					var count = lineData[1];
-					var time = lineData[2];
-					var isChildTime = arrayLen(lineData) >= 3 ? lineData[3] : false;
+					var ownTime = lineData[2];
+					var childTime = lineData[3];
 
 					// Only show executed lines
-					if (count > 0 || time > 0) {
+					if (count > 0 || ownTime > 0 || childTime > 0) {
 						arrayAppend( parts, "**Line " & lineNum & ":** `" & escapeMarkdown(lineCode) & "`" );
 						arrayAppend( parts, "" );
 
@@ -162,15 +171,18 @@ component {
 							arrayAppend( parts, "- Executed: " & numberFormat(count) & " times" );
 						}
 
-						if (time > 0) {
-							var lineMicros = arguments.timeFormatter.convertTime(time, arguments.sourceUnit, "μs");
-							var lineTimeDisplay = arguments.timeFormatter.formatTime(lineMicros, variables.displayUnit, true);
+						// Display own time if present
+						if (ownTime > 0) {
+							var ownTimeMicros = arguments.timeFormatter.convertTime(ownTime, arguments.sourceUnit, "μs");
+							var ownTimeDisplay = arguments.timeFormatter.formatTime(ownTimeMicros, variables.displayUnit, true);
+							arrayAppend( parts, "- Time: " & ownTimeDisplay );
+						}
 
-							if (isChildTime) {
-								arrayAppend( parts, "- Child Time: " & lineTimeDisplay );
-							} else {
-								arrayAppend( parts, "- Time: " & lineTimeDisplay );
-							}
+						// Display child time if present
+						if (childTime > 0) {
+							var childTimeMicros = arguments.timeFormatter.convertTime(childTime, arguments.sourceUnit, "μs");
+							var childTimeDisplay = arguments.timeFormatter.formatTime(childTimeMicros, variables.displayUnit, true);
+							arrayAppend( parts, "- Child Time: " & childTimeDisplay );
 						}
 
 						arrayAppend( parts, "" );
@@ -253,8 +265,8 @@ component {
 		// Reports table
 		arrayAppend(parts, repeatString("##", 4) & " Reports");
 		arrayAppend(parts, "");
-		arrayAppend(parts, "| Script | Coverage | Lines Hit | Lines Found | Executions | Total Time |");
-		arrayAppend(parts, "|--------|----------|-----------|-------------|------------|------------|");
+		arrayAppend(parts, "| Script | Coverage | Lines Hit | Lines Found | Executions | Total Time | Child Time | Own Time |");
+		arrayAppend(parts, "|--------|----------|-----------|-------------|------------|------------|------------|----------|");
 
 		for (var entry in arguments.indexData) {
 			var coverage = entry.totalLinesFound > 0 ? numberFormat((entry.totalLinesHit / entry.totalLinesFound) * 100, "0.00") : "0.00";
@@ -262,12 +274,22 @@ component {
 			var mdFile = replace(entry.htmlFile, ".html", ".md");
 			var scriptLink = "[" & scriptName & "](" & mdFile & ")";
 
-			// Format execution time
+			// Format execution time (totalExecutionTime is in source unit from .exl file)
 			var sourceUnit = timeFormatter.getUnitInfo(entry.unit).symbol;
 			var timeMicros = timeFormatter.convertTime(entry.totalExecutionTime, sourceUnit, "μs");
 			var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit, false);
 
-			arrayAppend(parts, "| " & scriptLink & " | " & coverage & "% | " & numberFormat(entry.totalLinesHit) & " | " & numberFormat(entry.totalLinesFound) & " | " & numberFormat(entry.totalExecutions) & " | " & timeDisplay & " |");
+			// Format child time (stored in source unit from .exl file, convert to microseconds)
+			var childTimeSourceUnit = structKeyExists(entry, "totalChildTime") ? entry.totalChildTime : 0;
+			var childTimeMicros = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
+			var childTimeDisplay = childTimeMicros > 0 ? timeFormatter.formatTime(childTimeMicros, variables.displayUnit, false) : "";
+
+			// Calculate own time
+			var ownTimeMicros = timeMicros - childTimeMicros;
+			if (ownTimeMicros < 0) ownTimeMicros = 0;
+			var ownTimeDisplay = ownTimeMicros > 0 ? timeFormatter.formatTime(ownTimeMicros, variables.displayUnit, false) : "";
+
+			arrayAppend(parts, "| " & scriptLink & " | " & coverage & "% | " & numberFormat(entry.totalLinesHit) & " | " & numberFormat(entry.totalLinesFound) & " | " & numberFormat(entry.totalExecutions) & " | " & timeDisplay & " | " & childTimeDisplay & " | " & ownTimeDisplay & " |");
 		}
 
 		arrayAppend(parts, "");

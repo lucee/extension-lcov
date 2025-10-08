@@ -228,16 +228,24 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			for ( var lineNum in coverage1 ) {
 				var hitCount1 = coverage1[ lineNum ][ 1 ];
 				var hitCount2 = coverage2[ lineNum ][ 1 ];
-				var isChild1 = coverage1[ lineNum ][ 3 ];
-				var isChild2 = coverage2[ lineNum ][ 3 ];
+				var childTime1 = coverage1[ lineNum ][ 3 ];
+				var childTime2 = coverage2[ lineNum ][ 3 ];
 
-				// Validate isChild flag matches
-				expect( isChild1 ).toBe( isChild2, "#arguments.label# Line #lineNum#: isChild flag should match (1x=#isChild1#, 2x=#isChild2#)" );
+				// NOTE: We don't validate childTime VALUES because they vary between runs due to JIT compilation.
+				// First run is slower (not JIT-compiled), subsequent runs are faster (JIT-compiled).
+				// This means childTime can differ by orders of magnitude between test runs.
+				// HOWEVER, we DO validate that if childTime1 > 0, then childTime2 MUST be > 0.
+				// This ensures childTime is being aggregated/merged correctly, not dropped.
 
 				if ( hitCount1 > 0 ) {
 					var hitRatio = hitCount2 / hitCount1;
 					expect( hitRatio ).toBe( arguments.expectedRatio, "#arguments.label# Line #lineNum#: Expected #arguments.expectedRatio#x hit count ratio but got #hitRatio# (1x=#hitCount1#, #arguments.expectedRatio#x=#hitCount2#)" );
 					linesChecked++;
+
+					// Validate childTime is preserved during aggregation
+					if ( childTime1 > 0 ) {
+						expect( childTime2 ).toBeGT( 0, "#arguments.label# Line #lineNum#: Line had childTime=#childTime1# in 1x run but childTime=#childTime2# in #arguments.expectedRatio#x run. ChildTime must be aggregated, not dropped!" );
+					}
 				}
 			}
 		}
@@ -262,16 +270,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			for ( var lineNum in lines1 ) {
 				var hitCount1 = lines1[ lineNum ][ 1 ];
 				var hitCount2 = lines2[ lineNum ][ 1 ];
-				var isChild1 = lines1[ lineNum ][ 3 ];
-				var isChild2 = lines2[ lineNum ][ 3 ];
+				var childTime1 = lines1[ lineNum ][ 3 ];
+				var childTime2 = lines2[ lineNum ][ 3 ];
 
-				// Validate isChild flag matches
-				expect( isChild1 ).toBe( isChild2, "merged.json #filePath# line #lineNum#: isChild flag should match (1x=#isChild1#, 2x=#isChild2#)" );
+				// NOTE: We don't validate childTime VALUES because they vary between runs due to JIT compilation (see comment above)
+				// HOWEVER, we DO validate that if childTime1 > 0, then childTime2 MUST be > 0 (ensures it's being merged)
 
 				if ( hitCount1 > 0 ) {
 					var mergedHitRatio = hitCount2 / hitCount1;
 					expect( mergedHitRatio ).toBe( arguments.expectedRatio, "merged.json #filePath# line #lineNum#: Expected #arguments.expectedRatio#x hit count but got #mergedHitRatio# (1x=#hitCount1#, #arguments.expectedRatio#x=#hitCount2#)" );
 					mergedLinesChecked++;
+
+					// Validate childTime is preserved during merge
+					if ( childTime1 > 0 ) {
+						expect( childTime2 ).toBeGT( 0, "merged.json #filePath# line #lineNum#: Line had childTime=#childTime1# in 1x run but childTime=#childTime2# in #arguments.expectedRatio#x run. ChildTime must be merged, not dropped!" );
+					}
 				}
 			}
 		}

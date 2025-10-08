@@ -112,8 +112,19 @@ component {
 				lookup[fileIdx] = {};
 			}
 
+			// Calculate total childTime from blocks where isChildTime is true
+			var childTime = 0;
+			if (lineData.isChildTime) {
+				for (var block in lineData.blocks) {
+					if (block.isChildTime) {
+						childTime += block.executionTime;
+					}
+				}
+			}
+
 			lookup[fileIdx][lineNum] = {
 				isChildTime: lineData.isChildTime,
+				childTime: childTime,
 				isBuiltIn: lineData.isBuiltIn ?: false,
 				blockCount: arrayLen(lineData.blocks)
 			};
@@ -144,13 +155,6 @@ component {
 				throw "Coverage data for file index " & fileIdx & " must be a struct, got: " & getMetadata(fileCoverage).getName();
 			}
 
-			for (var lineNum in fileCoverage) {
-				var lineData = fileCoverage[lineNum];
-				if (isArray(lineData) && arrayLen(lineData) == 2) {
-					// Add default isChildTime flag of false
-					arrayAppend(lineData, false);
-				}
-			}
 		}
 
 		// Now mark lines that represent child time (function calls)
@@ -165,18 +169,14 @@ component {
 			for (var lineNum in fileCallTree) {
 				var callTreeData = fileCallTree[lineNum];
 
-				// If line already has coverage data, mark if it's child time
-				if (structKeyExists(fileCoverage, lineNum) && isArray(fileCoverage[lineNum])) {
-					// Ensure array has at least 3 elements
-					while (arrayLen(fileCoverage[lineNum]) < 3) {
-						arrayAppend(fileCoverage[lineNum], false);
-					}
-					// [hitCount, executionTime, isChildTime]
-					// Mark as child time if this line represents a function call
-					fileCoverage[lineNum][3] = callTreeData.isChildTime ?: false;
-				} else if (!structKeyExists(fileCoverage, lineNum)) {
-					// Create new coverage entry with call tree flag
-					fileCoverage[lineNum] = [0, 0, callTreeData.isChildTime ?: false];
+				// If line already has coverage data, set the childTime value
+				if (structKeyExists(fileCoverage, lineNum)) {
+					// [hitCount, executionTime, childTime]
+					// Set the actual childTime value (in nanoseconds)
+					fileCoverage[lineNum][3] = callTreeData.childTime;
+				} else {
+					// Create new coverage entry with childTime value
+					fileCoverage[lineNum] = [0, 0, callTreeData.childTime];
 				}
 			}
 		}

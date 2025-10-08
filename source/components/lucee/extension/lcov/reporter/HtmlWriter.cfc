@@ -68,6 +68,8 @@ component {
 			<meta charset="UTF-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1.0">
 			<title>' & variables.htmlEncoder.htmlEncode(tabTitle) & '</title>
+			<link rel="alternate" type="application/json" href="' & variables.htmlEncoder.htmlEncode(outputFilename) & '.json">
+			<link rel="alternate" type="text/markdown" href="' & variables.htmlEncoder.htmlEncode(outputFilename) & '.md">
 			<style>' & variables.htmlAssets.getCommonCss() & '</style>
 		</head>
 		<body>

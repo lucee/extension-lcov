@@ -15,6 +15,8 @@ component {
 				<meta charset="UTF-8">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
 				<title>Code Coverage Reports Index</title>
+				<link rel="alternate" type="application/json" href="index.json">
+				<link rel="alternate" type="text/markdown" href="index.md">
 				<style>' & htmlAssets.getCommonCss() & chr(10) & heatmapData.css & '</style>
 				<script>
 				document.addEventListener("DOMContentLoaded", function() {
@@ -118,21 +120,11 @@ component {
 				var totalLinesFound = result["totalLinesFound"];
 				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") : '-';
 				var formattedTime = "";
-				// For per-file reports (file-*.html), use totalExecutionTime instead of executionTime
-				var isPerFileReport = left(htmlFile, 5) == "file-";
-				var timeValue = "";
-				if (isPerFileReport && structKeyExists(result, "totalExecutionTime") && isNumeric(result["totalExecutionTime"])) {
-					// Per-file reports: use totalExecutionTime which is already in microseconds
-					timeValue = result["totalExecutionTime"];
-				} else if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
-					// Request reports: use executionTime from metadata
-					var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
-					timeValue = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
-				}
-				if (isNumeric(timeValue) && timeValue != "") {
-					formattedTime = timeFormatter.format(timeValue);
-				}
-				var timestamp = structKeyExists(result, "timestamp") ? result["timestamp"] : "";
+				// Use totalExecutionTime from stats (in source unit from .exl file)
+				var sourceUnit = timeFormatter.getUnitInfo(result.unit).symbol;
+				var timeValue = timeFormatter.convertTime(result.totalExecutionTime, sourceUnit, "μs");
+				var formattedTime = timeFormatter.format(timeValue);
+				var timestamp = result.timestamp;
 
 				// Calculate heatmap classes for coverage percentage and execution time
 				var coverageClass = "";
@@ -158,26 +150,38 @@ component {
 				}
 
 				// Extract call tree metrics from file stats
-				var childTimeSort = structKeyExists(result, "totalChildTime") ? result.totalChildTime : 0;
-				var childTime = childTimeSort > 0 ? timeFormatter.format(childTimeSort) : "";
+				var childTimeSourceUnit = result.totalChildTime;
+				// Convert to microseconds for sorting
+				var childTimeSort = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
+				// Convert to display unit for formatting
+				var childTimeDisplayUnit = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, arguments.displayUnit);
+				var childTime = childTimeDisplayUnit > 0 ? timeFormatter.format(childTimeDisplayUnit) : "";
 
-				// Calculate own time (execution time minus child time)
-				var ownTimeValue = 0;
-				if (isNumeric(timeValue) && timeValue > 0) {
-					ownTimeValue = timeValue - childTimeSort;
-					if (ownTimeValue < 0) ownTimeValue = 0; // Ensure non-negative
-				}
+				// Calculate own time (execution time minus child time, both in microseconds)
+				var ownTimeValue = timeValue - childTimeSort;
+				if (ownTimeValue < 0) ownTimeValue = 0; // Ensure non-negative
 				var ownTime = ownTimeValue > 0 ? timeFormatter.format(ownTimeValue) : "";
+
+				// Calculate heatmap classes for child and own time (use source unit values)
+				var childTimeClass = "";
+				var ownTimeClass = "";
+				if (arrayLen(heatmapData.executionRanges) > 0) {
+					// Convert own time back to source unit for heatmap calculation
+					var ownTimeSourceUnit = timeFormatter.convertTime(ownTimeValue, "μs", sourceUnit);
+					var childLevel = heatmapData.bucketCalculator.getValueLevel(childTimeSourceUnit, heatmapData.executionRanges, "desc");
+					childTimeClass = " execution-heatmap-level-" & childLevel;
+					var ownLevel = heatmapData.bucketCalculator.getValueLevel(ownTimeSourceUnit, heatmapData.executionRanges, "desc");
+					ownTimeClass = " execution-heatmap-level-" & ownLevel;
+				}
 
 				html &= '<tr data-file-row data-html-file="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '" data-script-name="' & arguments.htmlEncoder.htmlAttributeEncode(scriptName) & '">';
 				html &= '<td class="script-name"><a href="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</a></td>';
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
 				html &= '<td class="percentage' & coverageClass & '">' & percentCovered & '</td>';
 				// Add data-value with raw microsecond value for proper numeric sorting
-				var sortValue = isNumeric(timeValue) ? timeValue : 0;
-				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-value="' & sortValue & '">' & formattedTime & '</td>';
-				html &= '<td class="child-time" data-sort-value="' & childTimeSort & '">' & childTime & '</td>';
-				html &= '<td class="own-time" data-sort-value="' & ownTimeValue & '">' & ownTime & '</td>';
+				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-value="' & timeValue & '">' & formattedTime & '</td>';
+				html &= '<td class="child-time' & childTimeClass & '" data-sort-value="' & childTimeSort & '">' & childTime & '</td>';
+				html &= '<td class="own-time' & ownTimeClass & '" data-sort-value="' & ownTimeValue & '">' & ownTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}
 
@@ -263,6 +267,30 @@ component {
 				"desc",
 				arguments.displayUnit,
 				"Execution Time Heatmap"
+			), true);
+			// Generate CSS for child-time column (same ranges as execution time)
+			arrayAppend(cssRules, cssGenerator.generateCssRules(
+				executionTimes,
+				bucketCounts.timeBucketCount,
+				"reports-table",
+				"child-time.execution-heatmap-level",
+				executionMinColor,
+				executionMaxColor,
+				"desc",
+				arguments.displayUnit,
+				"Child Time Heatmap"
+			), true);
+			// Generate CSS for own-time column (same ranges as execution time)
+			arrayAppend(cssRules, cssGenerator.generateCssRules(
+				executionTimes,
+				bucketCounts.timeBucketCount,
+				"reports-table",
+				"own-time.execution-heatmap-level",
+				executionMinColor,
+				executionMaxColor,
+				"desc",
+				arguments.displayUnit,
+				"Own Time Heatmap"
 			), true);
 		}
 

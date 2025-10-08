@@ -517,13 +517,37 @@ component {
 		var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
 		var merged = merger.mergeResultsByFile( arguments.jsonFilePaths );
 
+		// NEW: Aggregate blocks to line coverage using BlockAggregator
+		var blockAggregator = new lucee.extension.lcov.BlockAggregator();
+		var lineCoverage = {};
+
+		// Check if blocks exist in merged data
+		if ( structKeyExists( merged.mergedCoverage, "blocks" ) && structCount( merged.mergedCoverage.blocks ) > 0 ) {
+			// Use new block-based pipeline
+			logger.debug( "Using block-based aggregation for LCOV generation" );
+			lineCoverage = blockAggregator.aggregateMergedBlocksToLines(
+				merged.mergedCoverage.blocks,
+				merged.mergedCoverage.files
+			);
+		} else {
+			// Fallback to old coverage data if no blocks
+			logger.debug( "No blocks found, using existing line coverage" );
+			lineCoverage = merged.mergedCoverage.coverage;
+		}
+
+		// Replace old coverage with new aggregated coverage
+		var mergedForLcov = {
+			"files": merged.mergedCoverage.files,
+			"coverage": lineCoverage
+		};
+
 		// write out merged to a json file a log it
 		var tempMerged = getTempFile( "", "lcov-merged-", ".json" );
 		fileWrite( tempMerged, serializeJSON( var=merged, compact=false ) );
 
 		// Create LCOV writer with logger and build LCOV format
 		var lcovWriter = new reporter.LcovWriter( logger=logger, options=arguments.options );
-		return lcovWriter.buildLCOV( merged.mergedCoverage, arguments.options.useRelativePath ?: false );
+		return lcovWriter.buildLCOV( mergedForLcov, arguments.options.useRelativePath ?: false );
 	}
 
 	/**
