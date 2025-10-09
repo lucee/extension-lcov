@@ -57,6 +57,10 @@ component {
 	*/
 	public string function generateIndexHtml(string outputDirectory) {
 
+		// Copy CSS/JS assets to output directory
+		var htmlAssets = new HtmlAssets();
+		htmlAssets.copyAssets( arguments.outputDirectory );
+
 		var htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
 
 		var indexJsonPath = outputDirectory & "/index.json";

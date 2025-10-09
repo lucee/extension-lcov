@@ -5,7 +5,7 @@ component {
 			variables.exeLogger = new exeLogger(arguments.adminPassword);
 		}
 		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
-		var useDev = structKeyExists(arguments, "useDevelop") ? arguments.useDevelop : false;
+		var useDev = arguments.useDevelop ?: false;
 		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=useDev);
 		return this;
 	}
@@ -48,7 +48,7 @@ component {
 					"min-time": _options.minTime,
 					"directory": logDir
 				},
-				maxlogs = structKeyExists(_options, "maxLogs") ? _options.maxLogs : 0
+				maxlogs = _options.maxLogs ?: 0
 			);
 
 			return logDir;
@@ -135,11 +135,11 @@ component {
 
 		// Calculate overall stats
 		var processingTime = getTickCount() - startTime;
-		
+
 		return {
 			"lcovFile": lcovFile,
 			"htmlIndex": htmlResult.htmlIndex,
-			"htmlFiles": structKeyExists(htmlResult, "htmlFiles") ? htmlResult.htmlFiles : [],
+			"htmlFiles": htmlResult.htmlFiles ?: [],
 			"jsonFiles": jsonResult.jsonFiles,
 			"stats": {
 				"totalLinesFound": htmlResult.stats.totalLinesFound,

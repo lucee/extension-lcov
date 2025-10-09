@@ -11,11 +11,12 @@ component accessors="true" {
 	/**
 	* Initialize the parser with cache structures
 	* @options Configuration options struct (optional)
+	* @sharedAstCache Optional shared AST cache for multi-file processing (avoids re-parsing same files)
 	*/
-	public function init(struct options = {}) {
+	public function init(struct options = {}, struct sharedAstCache) {
 		// Store options and extract logLevel
 		variables.options = arguments.options;
-		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		var logLevel = variables.options.logLevel ?: "none";
 		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 
 		// Use factory for code coverage helpers, support useDevelop override
@@ -26,6 +27,12 @@ component accessors="true" {
 
 		// Cache for file analysis (AST + executable lines) to avoid regenerating across .exl files
 		variables.fileAnalysisCache = {};
+
+		// Use shared AST cache if provided (for parallel processing), otherwise use instance cache
+		if (structKeyExists(arguments, "sharedAstCache")) {
+			variables.astCache = arguments.sharedAstCache;
+		}
+
 		return this;
 	}
 
@@ -51,11 +58,11 @@ component accessors="true" {
 
 				// Parse JSON directly and check checksum and options
 				var cachedData = deserializeJSON(fileRead(jsonPath));
-				var cachedChecksum = structKeyExists(cachedData, "exlChecksum") ? cachedData.exlChecksum : "";
+				var cachedChecksum = cachedData.exlChecksum ?: "";
 
 				// Create options hash for comparison
 				var currentOptionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.includeCallTree]), "MD5");
-				var cachedOptionsHash = structKeyExists(cachedData, "optionsHash") ? cachedData.optionsHash : "";
+				var cachedOptionsHash = cachedData.optionsHash ?: "";
 
 				if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
 					variables.logger.debug("Using cached result for [" & getFileFromPath(arguments.exlPath) & "]");
@@ -204,7 +211,7 @@ component accessors="true" {
 
 		var exclusionStart = getTickCount();
 		var beforeEntities = structCount(aggregationResult.aggregated);
-		variables.logger.debug("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
+		//variables.logger.debug("Total aggregated entries before exclusion: " & numberFormat(beforeEntities));
 
 		// STAGE 1.5: Exclude overlapping blocks using position-based filtering
 		var overlapFilter = variables.factory.getComponent(name="OverlapFilterPosition");
@@ -244,7 +251,7 @@ component accessors="true" {
 		var blockAggregator = new lucee.extension.lcov.BlockAggregator();
 		var blocks = blockAggregator.convertAggregatedToBlocks(aggregationResult.aggregated, callTreeResult.blocks);
 		arguments.coverageData.setBlocks(blocks);
-		variables.logger.debug("Block storage completed in " & numberFormat(getTickCount() - blockStorageStart) & "ms");
+		variables.logger.trace("Block storage completed in " & numberFormat(getTickCount() - blockStorageStart) & "ms");
 
 		// STAGE 2: Aggregate blocks to line coverage using new block-based pipeline
 		var aggregatorStart = getTickCount();

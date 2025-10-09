@@ -75,7 +75,7 @@ component {
 				}
 			}
 
-			var linesFoundValue = structKeyExists(files[file], "linesFound") ? files[file].linesFound : arrayLen(lineNumbers);
+			var linesFoundValue = files[file].linesFound ?: arrayLen(lineNumbers);
 			arrayAppend(lcovLines, "LF:" & linesFoundValue);
 			arrayAppend(lcovLines, "LH:" & linesHit);
 			arrayAppend(lcovLines, "end_of_record");

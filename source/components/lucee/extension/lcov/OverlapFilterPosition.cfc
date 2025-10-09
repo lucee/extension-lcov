@@ -6,7 +6,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 */
 	public function init(struct options = {}) {
 		variables.options = arguments.options;
-		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		var logLevel = variables.options.logLevel ?: "none";
 		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
 	}
@@ -171,30 +171,30 @@ component displayname="OverlapFilterPosition" accessors="true" {
 
 		// Keep only the most specific blocks (smallest that aren't contained within other blocks)
 		var keptBlocks = [];
-		for (var i = 1; i <= arrayLen(blockRanges); i++) {
+		var blockRangesLen = arrayLen(blockRanges);
+
+		for (var i = 1; i <= blockRangesLen; i++) {
 			var current = blockRanges[i];
+			var currentStart = current.startPos;
+			var currentEnd = current.endPos;
 			var shouldKeep = true;
 
-			// Check if this block is fully contained within any block we're already keeping
-			for (var j = 1; j <= arrayLen(keptBlocks); j++) {
+			// Check both containment conditions in single loop
+			var keptLen = arrayLen(keptBlocks);
+			for (var j = 1; j <= keptLen; j++) {
 				var kept = keptBlocks[j];
+				var keptStart = kept.startPos;
+				var keptEnd = kept.endPos;
+
 				// If an existing block fully contains this block, skip it
-				if (kept.startPos <= current.startPos && kept.endPos >= current.endPos) {
+				if (keptStart <= currentStart && keptEnd >= currentEnd) {
 					shouldKeep = false;
 					break;
 				}
-			}
-
-			// Also check if this block would contain any already-kept blocks
-			// If so, skip it (prefer the more specific blocks we already have)
-			if (shouldKeep) {
-				for (var j = 1; j <= arrayLen(keptBlocks); j++) {
-					var kept = keptBlocks[j];
-					// If this block would fully contain an existing block, skip it
-					if (current.startPos <= kept.startPos && current.endPos >= kept.endPos) {
-						shouldKeep = false;
-						break;
-					}
+				// If this block would fully contain an existing block, skip it
+				if (currentStart <= keptStart && currentEnd >= keptEnd) {
+					shouldKeep = false;
+					break;
 				}
 			}
 

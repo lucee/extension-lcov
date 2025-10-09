@@ -7,7 +7,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	public function init(struct options = {}) {
 		// Store options and initialize logger
 		variables.options = arguments.options;
-		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		var logLevel = variables.options.logLevel ?: "none";
 		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		return this;
 	}

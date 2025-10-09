@@ -17,7 +17,8 @@ component {
 				<title>Code Coverage Reports Index</title>
 				<link rel="alternate" type="application/json" href="index.json">
 				<link rel="alternate" type="text/markdown" href="index.md">
-				<style>' & htmlAssets.getCommonCss() & chr(10) & heatmapData.css & '</style>
+				' & htmlAssets.getCommonCss() & '
+				<style>' & heatmapData.css & '</style>
 				<script>
 				document.addEventListener("DOMContentLoaded", function() {
 					const tableRows = document.querySelectorAll(".reports-table tbody tr");
@@ -50,10 +51,10 @@ component {
 		for (var result in arguments.results) {
 			if (isNumeric(result["totalLinesHit"])) totalLinesHit += result["totalLinesHit"];
 			if (isNumeric(result["totalLinesFound"])) totalLinesFound += result["totalLinesFound"];
-			if (structKeyExists(result, "executionTime") && isNumeric(result["executionTime"])) {
+			if (structKeyExists(result, "totalExecutionTime") && isNumeric(result["totalExecutionTime"])) {
 				// Convert from source unit to microseconds before summing
-				var sourceUnit = structKeyExists(result, "unit") ? result["unit"] : "μs";
-				var executionTimeMicros = timeFormatter.convertTime(result["executionTime"], sourceUnit, "μs");
+				var sourceUnit = result["unit"] ?: "μs";
+				var executionTimeMicros = timeFormatter.convertTime(result["totalExecutionTime"], sourceUnit, "μs");
 				totalExecutionTimeMicroseconds += executionTimeMicros;
 			}
 		}
@@ -92,6 +93,9 @@ component {
 		if (arrayLen(arguments.results) == 0) {
 			html &= '<div class="no-reports">No coverage reports found.</div>';
 		} else {
+			// Don't include unit in header if displayUnit is "auto" (unit varies by value)
+			var unitSuffix = arguments.displayUnit == "auto" ? "" : " (" & timeFormatter.getUnitInfo(arguments.displayUnit).symbol & ")";
+
 			html &= '<table class="reports-table sortable-table">
 				<thead>
 					<tr>
@@ -99,8 +103,8 @@ component {
 						<th data-sort-type="numeric">Coverage</th>
 						<th data-sort-type="numeric" style="font-style: italic;" data-dir="asc">Percentage (%)</th>
 						<th data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader() & '</th>
-						<th data-sort-type="numeric" title="Time spent in called functions">Child Time</th>
-						<th data-sort-type="numeric" title="Time spent in own code (Execution - Child)">Own Time</th>
+						<th data-sort-type="numeric" title="Time spent in called functions">Child Time' & unitSuffix & '</th>
+						<th data-sort-type="numeric" title="Time spent in own code (Execution - Child)">Own Time' & unitSuffix & '</th>
 					</tr>
 				</thead>
 				<tbody>';
@@ -187,6 +191,11 @@ component {
 
 			html &= '</tbody></table>';
 		}
+
+			html &= '<p class="file-links">';
+			html &= '<a href="index.json" target="_blank" class="file-link">JSON</a>';
+			html &= ' &nbsp;|&nbsp; <a href="index.md" target="_blank" class="file-link">Markdown</a>';
+			html &= '</p>';
 
 			html &= '</div>';
 

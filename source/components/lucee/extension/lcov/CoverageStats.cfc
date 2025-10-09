@@ -220,7 +220,7 @@ component accessors="true" {
 
 				// Get executable lines from coverage first (preferred), fall back to executableLines field
 				var executableLinesForFile = {};
-				var fileIdx = structKeyExists(fileInfo, "fileIdx") ? fileInfo.fileIdx : "";
+				var fileIdx = fileInfo.fileIdx ?: "";
 
 				// Try to get from coverage (which should have all lines including zero-counts)
 				if (len(fileIdx) && structKeyExists(coverageData, fileIdx)) {

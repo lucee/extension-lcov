@@ -144,6 +144,24 @@ component {
 			}
 		}
 
+		// Validate total execution time in summary matches sum of all reports
+		var summaryElements = htmlParser.select(doc, ".summary .total-execution-time");
+		expect(arrayLen(summaryElements)).toBe(1, "Should have one .total-execution-time in summary");
+		var summaryTimeText = trim(htmlParser.getText(summaryElements[1]));
+
+		// Calculate expected total from JSON
+		var expectedTotalMicros = 0;
+		for (var entry in indexData) {
+			if (structKeyExists(entry, "totalExecutionTime") && isNumeric(entry.totalExecutionTime)) {
+				var sourceUnit = entry.unit;
+				var timeMicros = timeFormatter.convertTime(entry.totalExecutionTime, sourceUnit, "μs");
+				expectedTotalMicros += timeMicros;
+			}
+		}
+		var expectedTotalFormatted = timeFormatter.formatTime(expectedTotalMicros, arguments.expectedDisplayUnit, true);
+		expect(summaryTimeText).toBe(expectedTotalFormatted,
+			"Summary total execution time mismatch - HTML: '#summaryTimeText#', Expected: '#expectedTotalFormatted#' (sum of all reports)");
+
 		// Ensure we found some non-zero values
 		if (arguments.debug) {
 			systemOutput("Index has non-zero child time: #hasNonZeroChildTime#", true);

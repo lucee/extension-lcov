@@ -72,12 +72,14 @@ component {
 			arrayAppend( parts, "- **Child Time:** " & childTimeDisplay );
 		}
 
-		// Add source unit and request execution time from metadata for reference
-		var requestExecutionTime = arguments.result.getMetadataProperty("execution-time");
-		if (isDefined("requestExecutionTime") && isNumeric(requestExecutionTime)) {
-			var reqTimeMicros = timeFormatter.convertTime(requestExecutionTime, sourceUnit, "μs");
-			var reqTimeDisplay = timeFormatter.formatTime(reqTimeMicros, variables.displayUnit, true);
-			arrayAppend( parts, "- **Request Execution Time (metadata):** " & reqTimeDisplay );
+		// Add request execution time from metadata for request-level reports (not per-file)
+		if (!arguments.result.getIsFile()) {
+			var requestExecutionTime = arguments.result.getMetadataProperty("execution-time");
+			if (isDefined("requestExecutionTime") && isNumeric(requestExecutionTime)) {
+				var reqTimeMicros = timeFormatter.convertTime(requestExecutionTime, sourceUnit, "μs");
+				var reqTimeDisplay = timeFormatter.formatTime(reqTimeMicros, variables.displayUnit, true);
+				arrayAppend( parts, "- **Request Execution Time (metadata):** " & reqTimeDisplay );
+			}
 		}
 		arrayAppend( parts, "- **Source Unit:** " & sourceUnit );
 
@@ -244,14 +246,23 @@ component {
 		var totalLinesFound = 0;
 		var totalLinesHit = 0;
 		var totalExecutions = 0;
+		var totalExecutionTimeMicros = 0;
 
 		for (var entry in arguments.indexData) {
 			totalLinesFound += entry.totalLinesFound;
 			totalLinesHit += entry.totalLinesHit;
 			totalExecutions += entry.totalExecutions;
+
+			// Convert execution time to microseconds for summing
+			if (structKeyExists(entry, "totalExecutionTime") && isNumeric(entry.totalExecutionTime)) {
+				var sourceUnit = timeFormatter.getUnitInfo(entry.unit).symbol;
+				var timeMicros = timeFormatter.convertTime(entry.totalExecutionTime, sourceUnit, "μs");
+				totalExecutionTimeMicros += timeMicros;
+			}
 		}
 
 		var overallCoverage = totalLinesFound > 0 ? numberFormat((totalLinesHit / totalLinesFound) * 100, "0.00") : "0.00";
+		var totalTimeDisplay = timeFormatter.formatTime(totalExecutionTimeMicros, variables.displayUnit, true);
 
 		arrayAppend(parts, repeatString("##", 4) & " Summary");
 		arrayAppend(parts, "");
@@ -260,6 +271,7 @@ component {
 		arrayAppend(parts, "- **Total Lines Hit:** " & numberFormat(totalLinesHit));
 		arrayAppend(parts, "- **Overall Coverage:** " & overallCoverage & "%");
 		arrayAppend(parts, "- **Total Executions:** " & numberFormat(totalExecutions));
+		arrayAppend(parts, "- **Total Execution Time:** " & totalTimeDisplay);
 		arrayAppend(parts, "");
 
 		// Reports table
@@ -280,7 +292,7 @@ component {
 			var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit, false);
 
 			// Format child time (stored in source unit from .exl file, convert to microseconds)
-			var childTimeSourceUnit = structKeyExists(entry, "totalChildTime") ? entry.totalChildTime : 0;
+			var childTimeSourceUnit = entry.totalChildTime ?: 0;
 			var childTimeMicros = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
 			var childTimeDisplay = childTimeMicros > 0 ? timeFormatter.formatTime(childTimeMicros, variables.displayUnit, false) : "";
 

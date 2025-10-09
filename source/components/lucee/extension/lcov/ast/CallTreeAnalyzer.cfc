@@ -35,19 +35,19 @@ component {
 		// Extract all function calls from AST for all files
 		var callsMap = extractAllCalls( arguments.files, astCallAnalyzer );
 
-		variables.logger.trace( "CallTreeAnalyzer: extractAllCalls completed in " & ( getTickCount() - astStart ) & "ms, found " & structCount( callsMap ) & " call positions" );
+		variables.logger.debug( "CallTreeAnalyzer: extractAllCalls completed in " & ( getTickCount() - astStart ) & "ms, found " & structCount( callsMap ) & " call positions" );
 
 		// Mark blocks that represent child time (function calls)
 		var markStart = getTickCount();
 		var markedBlocks = markChildTimeBlocks( arguments.aggregated, callsMap );
 
-		variables.logger.trace( "CallTreeAnalyzer: markChildTimeBlocks completed in " & ( getTickCount() - markStart ) & "ms" );
+		variables.logger.debug( "CallTreeAnalyzer: markChildTimeBlocks completed in " & ( getTickCount() - markStart ) & "ms" );
 
 		var metricsStart = getTickCount();
 		var metrics = calculateChildTimeMetrics( markedBlocks );
 
 		variables.logger.trace( "CallTreeAnalyzer: calculateChildTimeMetrics completed in " & ( getTickCount() - metricsStart ) & "ms" );
-		variables.logger.trace( "CallTreeAnalyzer: Total analysis time: " & ( getTickCount() - startTime ) & "ms" );
+		variables.logger.debug( "CallTreeAnalyzer: Total analysis time: " & ( getTickCount() - startTime ) & "ms" );
 
 		return {
 			blocks: markedBlocks,
@@ -63,69 +63,64 @@ component {
 	 */
 	private struct function extractAllCalls(required struct files, required any astCallAnalyzer) localmode="modern" {
 		var callsMap = {};
-		var fileCount = 0;
 		var totalFiles = structCount( arguments.files );
 		var cacheHits = 0;
 		var cacheMisses = 0;
 
 		variables.logger.trace( "extractAllCalls: Processing " & totalFiles & " files" );
 
+		// Build array of file data for parallel processing: [fileIdx, file, filePath, cached, fileCallCache]
+		var fileArray = [];
 		for ( var fileIdx in arguments.files ) {
 			var file = arguments.files[ fileIdx ];
-			fileCount++;
 
-t		// Fail fast if no AST available
+			// Fail fast if no AST available
 			if ( !structKeyExists( file, "ast" ) || !isStruct( file.ast ) ) {
-				var filePath = structKeyExists( file, "path" ) ? file.path : "unknown file (fileIdx: " & fileIdx & ")";
+				var filePath = file.path ?: "unknown file (fileIdx: " & fileIdx & ")";
 				throw( type="MissingAST", message="No AST available for file: " & filePath );
 			}
 
-			var filePath = structKeyExists( file, "path" ) ? file.path : fileIdx;
-			var fileStart = getTickCount();
-			var fileCalls = [];
+			var filePath = file.path ?: fileIdx;
 
-			// Check cache first (only use cache if we have a real file path)
+			// Check cache
+			var cached = false;
+			var fileCalls = [];
 			if ( structKeyExists( file, "path" ) && structKeyExists( variables.fileCallCache, filePath ) ) {
 				fileCalls = variables.fileCallCache[ filePath ];
+				cached = true;
 				cacheHits++;
 			} else {
-				// Cache miss - extract calls from AST
 				cacheMisses++;
-
-				// Extract all functions to get their calls
-				var functions = arguments.astCallAnalyzer.extractFunctions(file.ast);
-
-				// Collect all calls from all functions (excluding built-in functions)
-				for (var func in functions) {
-					if (structKeyExists(func, "calls") && isArray(func.calls)) {
-						for (var call in func.calls) {
-							// Skip built-in functions - they're part of normal execution, not child time
-							var isBuiltIn = structKeyExists(call, "isBuiltIn") ? call.isBuiltIn : false;
-							if (!isBuiltIn && structKeyExists(call, "position") && call.position > 0) {
-								arrayAppend(fileCalls, {
-									position: call.position,
-									type: call.type,
-									name: call.name,
-									isBuiltIn: false
-								});
-							}
-						}
-					}
-				}
-
-				// Also extract CFML tags and top-level function calls directly from the AST body
-				extractCFMLTagsAndCalls(file.ast, fileCalls);
-
-				// Store in cache (only if we have a real file path)
-				if (structKeyExists(file, "path")) {
-					variables.fileCallCache[filePath] = fileCalls;
-				}
 			}
 
-			// Add file calls to callsMap with current fileIdx
-			for (var call in fileCalls) {
-				var key = arrayToList([fileIdx, call.position], chr(9));
-				callsMap[key] = {
+			arrayAppend( fileArray, [ fileIdx, file, filePath, cached, fileCalls, arguments.astCallAnalyzer ] );
+		}
+
+		var helper = new CallTreeParallelHelpers();
+
+		// Add helper to each file info array
+		for ( var fileInfo in fileArray ) {
+			arrayAppend( fileInfo, helper );
+		}
+
+		// Process files in parallel
+		var fileResults = arrayMap( fileArray, helper.processFileForCalls, true );  // parallel=true
+
+		// Merge results and update cache
+		for ( var fileResult in fileResults ) {
+			var fileIdx = fileResult.fileIdx;
+			var filePath = fileResult.filePath;
+			var fileCalls = fileResult.calls;
+
+			// Update cache if not already cached
+			if ( !fileResult.wasCached && fileResult.hasPath ) {
+				variables.fileCallCache[ filePath ] = fileCalls;
+			}
+
+			// Add file calls to callsMap
+			for ( var call in fileCalls ) {
+				var key = arrayToList( [ fileIdx, call.position ], chr(9) );
+				callsMap[ key ] = {
 					fileIdx: fileIdx,
 					position: call.position,
 					type: call.type,
@@ -135,115 +130,9 @@ t		// Fail fast if no AST available
 			}
 		}
 
+		variables.logger.trace( "extractAllCalls: Cache hits=" & cacheHits & ", misses=" & cacheMisses );
+
 		return callsMap;
-	}
-
-
-	/**
-	 * Extract CFML tags and function calls from AST nodes
-	 */
-	private void function extractCFMLTagsAndCalls(required any node, required array fileCalls) localmode="modern" {
-		if (isStruct(arguments.node)) {
-			// Check if this is a CFML tag
-			if (structKeyExists(arguments.node, "type")) {
-				var nodeType = arguments.node.type;
-
-				// Ensure nodeType is a string
-				if (!isSimpleValue(nodeType)) {
-					nodeType = "";
-				}
-
-				// Check for function calls (CallExpression) - only track user-defined functions
-				if (nodeType == "CallExpression") {
-					// Skip built-in functions - they're part of normal execution, not child time
-					var isBuiltIn = arguments.node.isBuiltIn ?: false;
-
-					var position = 0;
-					if (structKeyExists(arguments.node, "start")) {
-						if (isStruct(arguments.node.start) && structKeyExists(arguments.node.start, "offset")) {
-							position = arguments.node.start.offset;
-						} else if (isNumeric(arguments.node.start)) {
-							position = arguments.node.start;
-						}
-					}
-
-					var callName = "";
-					if (structKeyExists(arguments.node, "callee")) {
-						if (isStruct(arguments.node.callee) && structKeyExists(arguments.node.callee, "name")) {
-							callName = arguments.node.callee.name;
-						}
-					}
-
-					// Special case: _createcomponent is marked as built-in but it's instantiating user code
-					if (lCase(callName) == "_createcomponent") {
-						isBuiltIn = false;
-						// Try to get the component name from the first argument
-						if (structKeyExists(arguments.node, "arguments") &&
-						    isArray(arguments.node.arguments) &&
-						    arrayLen(arguments.node.arguments) > 0) {
-							var firstArg = arguments.node.arguments[1];
-							if (isStruct(firstArg) && structKeyExists(firstArg, "value")) {
-								callName = "new " & firstArg.value;
-							}
-						}
-					}
-
-					if (!isBuiltIn && position > 0) {
-						arrayAppend(arguments.fileCalls, {
-							position: position,
-							type: "CallExpression",
-							name: callName,
-							isBuiltIn: false
-						});
-					}
-				}
-				// Check for CFML tags
-				else if (nodeType == "CFMLTag") {
-					// should we fall back here to an empty string?
-					var fullName = arguments.node.fullname ?: (arguments.node.name ?: "");
-
-					// Check if this is a custom tag or a call-type tag
-					var isCustomTag = left(fullName, 3) == "cf_" || find(":", fullName) > 0;
-					var tagName = arguments.node.name ?: "";
-					// Support both cf-prefixed and script-style tags
-					var isCallTag = listFindNoCase("include,cfinclude,module,cfmodule,invoke,cfinvoke,import,cfimport", tagName) > 0;
-
-					if (isCustomTag || isCallTag) {
-						// Get position
-						var position = 0;
-						if (structKeyExists(arguments.node, "start")) {
-							if (isStruct(arguments.node.start) && structKeyExists(arguments.node.start, "offset")) {
-								position = arguments.node.start.offset;
-							} else if (isNumeric(arguments.node.start)) {
-								position = arguments.node.start;
-							}
-						}
-
-						if (position > 0) {
-							arrayAppend(arguments.fileCalls, {
-								position: position,
-								type: "CFMLTag",
-								name: fullName,
-								tagName: tagName,
-								isBuiltIn: arguments.node.isBuiltIn ?: false
-							});
-						}
-					}
-				}
-			}
-
-			// Recursively search children
-			for (var key in arguments.node) {
-				if (!listFindNoCase("type,name,fullname,start,end", key) && !isNull(arguments.node[key])) {
-					extractCFMLTagsAndCalls(arguments.node[key], arguments.fileCalls);
-				}
-			}
-		}
-		else if (isArray(arguments.node)) {
-			for (var item in arguments.node) {
-				extractCFMLTagsAndCalls(item, arguments.fileCalls);
-			}
-		}
 	}
 
 	/**
@@ -252,47 +141,40 @@ t		// Fail fast if no AST available
 	private struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) localmode="modern" {
 		var markedBlocks = {};
 
-		for (var blockKey in arguments.aggregated) {
-			// The aggregated value is an array: [fileIdx, startPos, endPos, count, totalTime]
-			var blockData = arguments.aggregated[blockKey];
-
-			// Validate array format: [fileIdx, startPos, endPos, count, totalTime]
-			if (!isArray(blockData) || arrayLen(blockData) != 5) {
-				throw "Aggregated block must be array with exactly 5 elements [fileIdx, startPos, endPos, count, totalTime], got: " & serializeJSON(blockData);
+		// Build index of calls by fileIdx to avoid O(n²) nested loop
+		var callsByFile = {};
+		for ( var callKey in arguments.callsMap ) {
+			var call = arguments.callsMap[ callKey ];
+			if ( !structKeyExists( callsByFile, call.fileIdx ) ) {
+				callsByFile[ call.fileIdx ] = [];
 			}
+			arrayAppend( callsByFile[ call.fileIdx ], call );
+		}
 
-			var fileIdx = blockData[1];
-			var startPos = blockData[2];
-			var endPos = blockData[3];
-			var count = blockData[4];
-			var executionTime = blockData[5];  // Total execution time is at index 5
+		// Convert aggregated struct to array for chunking
+		var blockArray = [];
+		for ( var blockKey in arguments.aggregated ) {
+			arrayAppend( blockArray, [ blockKey, arguments.aggregated[ blockKey ] ] );
+		}
 
-			// Check if this block matches a function call position
-			var isChildTime = false;
-			var isBuiltIn = false;
+		// Use fixed chunk size - arrayMap's thread pool handles optimal parallelism
+		var totalBlocks = arrayLen( blockArray );
+		var chunkSize = 500;  // Balance between thread overhead and parallelism
 
-			// Look for calls that overlap with this block
-			for (var callKey in arguments.callsMap) {
-				var call = arguments.callsMap[callKey];
-				if (call.fileIdx == fileIdx &&
-				    call.position >= startPos &&
-				    call.position <= endPos) {
-					isChildTime = true;
-					isBuiltIn = call.isBuiltIn ?: false;
-					break;
-				}
-			}
+		// Split into chunks using arraySlice
+		var chunks = [];
+		for ( var i = 1; i <= totalBlocks; i += chunkSize ) {
+			var length = min( chunkSize, totalBlocks - i + 1 );
+			var chunk = arraySlice( blockArray, i, length );
+			arrayAppend( chunks, [ chunk, callsByFile ] );
+		}
 
-			// Store marked block
-			markedBlocks[blockKey] = {
-				"fileIdx": fileIdx,
-				"startPos": startPos,
-				"endPos": endPos,
-				"count": count,
-				"executionTime": executionTime,
-				"isChildTime": isChildTime,
-				"isBuiltIn": isBuiltIn
-			};
+		// Process chunks in parallel
+		var chunkResults = arrayMap( chunks, new CallTreeParallelHelpers().processBlockChunk, true );  // parallel=true
+
+		// Merge results
+		for ( var chunkResult in chunkResults ) {
+			structAppend( markedBlocks, chunkResult, true );
 		}
 
 		return markedBlocks;

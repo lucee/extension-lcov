@@ -10,11 +10,11 @@ component {
 	public function init(struct options = {}) {
 		// Store options and extract logLevel
 		variables.options = arguments.options;
-		var logLevel = structKeyExists(variables.options, "logLevel") ? variables.options.logLevel : "none";
+		var logLevel = variables.options.logLevel ?: "none";
 		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
 		variables.componentFactory = new lucee.extension.lcov.CoverageComponentFactory();
 		// Optionally allow per-instance override
-		variables.useDevelop = structKeyExists(arguments.options, "useDevelop") ? arguments.options.useDevelop : variables.componentFactory.getUseDevelop();
+		variables.useDevelop = arguments.options.useDevelop ?: variables.componentFactory.getUseDevelop();
 		return this;
 	}
 
@@ -40,44 +40,83 @@ component {
 		variables.logger.debug("Processing execution logs from: " & arguments.executionLogDir);
 
 		var factory = new lucee.extension.lcov.CoverageComponentFactory();
-		var exlParser = factory.getComponent(name="ExecutionLogParser", initArgs={options: arguments.options});
-
+		// Create shared AST cache for all parsers to avoid re-parsing same files 179+ times
+		var sharedAstCache = {};
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
-		var jsonFilePaths = [];
 
 		variables.logger.debug("Found " & files.recordCount & " .exl files to process");
 
+		// Adaptive parallelization: group files by size
+		var smallFiles = [];  // < 10MB: process in parallel
+		var largeFiles = [];  // >= 10MB: process sequentially (already internally parallel)
+		var fileSizeThresholdMb = 10;
+
 		for (var file in files) {
 			var exlPath = file.directory & "/" & file.name;
-			var info = getFileInfo( exlPath );
-			variables.logger.debug("Processing " & file.name
-				& " (" & decimalFormat( info.size/1024/1024 ) & " Mb)");
-			var result = exlParser.parseExlFile(
-				exlPath,
-				arguments.options.allowList ?: [],
-				arguments.options.blocklist ?: [],
-				false  // writeJsonCache - we handle JSON writing after stats
-			);
-			result = factory.getComponent(name="CoverageStats").calculateCoverageStats(result);
-			// Set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
-			// Include unique identifier from .exl filename to avoid overlaps between multiple execution runs
-			var fileName = getFileFromPath(exlPath);
-			var fileNameWithoutExt = listFirst(fileName, ".");  // Remove .exl extension
-			var scriptName = result.getMetadataProperty("script-name");
-			scriptName = reReplace(scriptName, "[^a-zA-Z0-9_-]", "_", "all");
-			var outputFilename = "request-" & fileNameWithoutExt & "-" & scriptName;
-			result.setOutputFilename(outputFilename);
+			var info = getFileInfo(exlPath);
+			var fileSizeMb = info.size / 1024 / 1024;
 
-			// Write JSON cache after stats are calculated (includes complete stats)
-			// Write next to the .exl file for permanent caching
-			var jsonPath = reReplace(exlPath, "\.exl$", ".json");
-			fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
+			if (fileSizeMb < fileSizeThresholdMb) {
+				arrayAppend(smallFiles, {path: exlPath, name: file.name, sizeMb: fileSizeMb});
+			} else {
+				arrayAppend(largeFiles, {path: exlPath, name: file.name, sizeMb: fileSizeMb});
+			}
+		}
+
+		variables.logger.debug("Small files (parallel): " & arrayLen(smallFiles) & ", Large files (sequential): " & arrayLen(largeFiles));
+
+		var jsonFilePaths = [];
+		var options = arguments.options; // Cache for closure access
+
+		// Process small files in parallel
+		if (arrayLen(smallFiles) > 0) {
+			var smallFileResults = arrayMap(smallFiles, function(fileInfo) {
+				return processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, options, factory, sharedAstCache);
+			}, true);  // parallel=true
+
+			for (var result in smallFileResults) {
+				arrayAppend(jsonFilePaths, result);
+			}
+		}
+
+		// Process large files sequentially (they use internal parallelism)
+		for (var fileInfo in largeFiles) {
+			var jsonPath = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, factory, sharedAstCache);
 			arrayAppend(jsonFilePaths, jsonPath);
-
 		}
 
 		variables.logger.debug("Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files");
 		return jsonFilePaths;
+	}
+
+	private string function processExlFile(required string exlPath, required string fileName, required numeric sizeMb, required struct options, required any factory, required struct sharedAstCache) {
+		var exlParser = arguments.factory.getComponent(name="ExecutionLogParser", initArgs={options: arguments.options, sharedAstCache: arguments.sharedAstCache});
+
+		variables.logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
+
+		var result = exlParser.parseExlFile(
+			arguments.exlPath,
+			arguments.options.allowList ?: [],
+			arguments.options.blocklist ?: [],
+			false  // writeJsonCache - we handle JSON writing after stats
+		);
+
+		result = arguments.factory.getComponent(name="CoverageStats").calculateCoverageStats(result);
+
+		// Set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
+		// Include unique identifier from .exl filename to avoid overlaps between multiple execution runs
+		var fileNameWithoutExt = listFirst(arguments.fileName, ".");  // Remove .exl extension
+		var scriptName = result.getMetadataProperty("script-name");
+		scriptName = reReplace(scriptName, "[^a-zA-Z0-9_-]", "_", "all");
+		var outputFilename = "request-" & fileNameWithoutExt & "-" & scriptName;
+		result.setOutputFilename(outputFilename);
+
+		// Write JSON cache after stats are calculated (includes complete stats)
+		// Write next to the .exl file for permanent caching
+		var jsonPath = reReplace(arguments.exlPath, "\.exl$", ".json");
+		fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
+
+		return jsonPath;
 	}
 
 }

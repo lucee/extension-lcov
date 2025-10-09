@@ -70,7 +70,7 @@ component {
 			<title>' & variables.htmlEncoder.htmlEncode(tabTitle) & '</title>
 			<link rel="alternate" type="application/json" href="' & variables.htmlEncoder.htmlEncode(outputFilename) & '.json">
 			<link rel="alternate" type="text/markdown" href="' & variables.htmlEncoder.htmlEncode(outputFilename) & '.md">
-			<style>' & variables.htmlAssets.getCommonCss() & '</style>
+			' & variables.htmlAssets.getCommonCss() & '
 		</head>
 		<body>
 			<div class="container">
@@ -101,14 +101,20 @@ component {
 
 		html &= '</div>
 			<a href="index.html" class="back-link">Back to Index</a>
-			<p class="file-links">
-			<strong>Log Files:</strong> <a href="'
-				& variables.htmlEncoder.htmlAttributeEncode(result.getExeLog()) & '" target="_blank" class="file-link">'
-				& variables.htmlEncoder.htmlEncode(listLast(result.getExeLog(), "/\\"))
-				& '</a> &nbsp;|&nbsp;
-			<strong>Coverage JSON:</strong>'
-				& ' <a href="' & variables.htmlEncoder.htmlAttributeEncode(fileCoverageJson) & '" target="_blank" class="file-link">'
-					& variables.htmlEncoder.htmlEncode(listLast(fileCoverageJson, "/\\")) & '</a></p>';
+			<p class="file-links">';
+
+		// Only show log file link if exeLog exists (not in per-file mode)
+		var exeLog = result.getExeLog();
+		if (len(trim(exeLog)) > 0 && fileExists(exeLog)) {
+			var exeLogFilename = listLast(exeLog, "/\\");
+			html &= '<a href="' & variables.htmlEncoder.htmlAttributeEncode(exeLogFilename) & '" target="_blank" class="file-link">Log</a> &nbsp;|&nbsp; ';
+		}
+
+		// Add JSON and Markdown links
+		var fileCoverageMarkdown = result.getOutputFilename() & ".md";
+		html &= '<a href="' & variables.htmlEncoder.htmlAttributeEncode(fileCoverageJson) & '" target="_blank" class="file-link">JSON</a>';
+		html &= ' &nbsp;|&nbsp; <a href="' & variables.htmlEncoder.htmlAttributeEncode(fileCoverageMarkdown) & '" target="_blank" class="file-link">Markdown</a>';
+		html &= '</p>';
 
 		// Loop over canonical fileIndex keys in result.getFiles() - sorted numerically
 		var filesStruct = result.getFiles();

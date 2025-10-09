@@ -108,7 +108,7 @@ component accessors=false {
 		var fileUtils = new lucee.extension.lcov.reporter.FileUtils();
 		entry.setMetadata("metadata": {
 			"script-name": fileUtils.safeContractPath(arguments.sourceFilePath),
-			"execution-time": structKeyExists(metadataData, "execution-time") ? metadataData["execution-time"] : "0",
+			"execution-time": metadataData["execution-time"] ?: "0",
 			"unit": metadataData.unit ?: "μs"
 		});
 		entry.setExelog(arguments.sourceFilePath);

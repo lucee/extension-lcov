@@ -27,11 +27,12 @@ component {
 	 * @return String header text
 	 */
 	public string function getExecutionTimeHeader(string displayUnit) {
-		var unit = structKeyExists(arguments, "displayUnit") ? arguments.displayUnit : variables.displayUnit;
+		var unit = arguments.displayUnit ?: variables.displayUnit;
 		if (unit == "auto") {
 			return "Execution Time";
 		} else {
-			return "Execution Time (" & unit & ")";
+			var unitSymbol = getUnitInfo(unit).symbol;
+			return "Execution Time (" & unitSymbol & ")";
 		}
 	}
 
@@ -94,7 +95,12 @@ component {
 			formattedValue = numberFormat(value, _mask);
 		}
 
-		return arguments.includeUnits ? formattedValue & " " & unit : formattedValue;
+		// When including units, use the symbol (e.g., "ms") not the name (e.g., "milli")
+		if (arguments.includeUnits) {
+			var unitSymbol = getUnitInfo(unit).symbol;
+			return formattedValue & " " & unitSymbol;
+		}
+		return formattedValue;
 	}
 
 	

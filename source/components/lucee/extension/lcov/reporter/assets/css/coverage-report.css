@@ -79,41 +79,7 @@
 
 /* Manual light mode (overrides system preference) */
 body.light-mode {
-	/* Explicitly use light mode colors */
-	--bg-color: white;
-	--text-color: #333;
-	--border-color: #ddd;
-	--link-color: #0066cc;
-	--link-hover-color: #0052a3;
-	--file-header-bg: #0066cc;
-	--file-header-hover-bg: #0052a3;
-	--header-bg: #f8f9fa;
-	--header-border: #dee2e6;
-	--table-header-bg: #f8f9fa;
-	--table-header-text: #495057;
-	--table-row-even: #f8f9fa;
-	--table-border: #dee2e6;
-	--button-bg: #007bff;
-	--button-text: white;
-	--button-border: #007bff;
-	--button-hover-bg: #0056b3;
-	--button-hover-border: #004085;
-	
-	/* Coverage status colors - light mode */
-	--executed-bg: #c3e6c3;
-	--not-executed-bg: white;
-	--non-executable-bg: #d0d0d0;
-	--executed-text: #2d5a2d;
-	--not-executed-text: black;
-	--non-executable-text: #555;
-	
-	/* Heatmap color variables - light mode */
-	--heatmap-count-low: #ffcccc;
-	--heatmap-count-medium: #ff9999;
-	--heatmap-count-high: #cc0000;
-	--heatmap-time-low: #e6f3ff;
-	--heatmap-time-medium: #99d6ff;
-	--heatmap-time-high: #0066cc;
+	/* Light mode uses :root defaults - no need to redeclare */
 }
 
 /* Manual dark mode toggle */
@@ -433,7 +399,6 @@ tbody tr:nth-child(even) {
 	font-family: 'Courier New', Courier, monospace;
 	white-space: pre-wrap;
 	line-height: 1.2;
-	word-break: break-all;
 	overflow-wrap: break-word;
 }
 
@@ -508,9 +473,7 @@ tbody tr:nth-child(even) {
 	font-size: 0.9em;
 	color: var(--non-executable-text);
 	margin-bottom: 15px;
-	word-wrap: break-word;
 	overflow-wrap: break-word;
-	word-break: break-all;
 }
 
 .back-link {
@@ -548,6 +511,10 @@ tbody tr:nth-child(even) {
 .reports-table .own-time,
 .reports-table .child-time {
 	text-align: right;
+}
+
+.reports-table thead th {
+	white-space: nowrap;
 }
 
 .reports-table tbody tr {
@@ -601,8 +568,7 @@ tbody tr:nth-child(even) {
 }
 
 /* Dark mode styling for warning */
-body.dark-mode .min-time-warning,
-[data-theme="dark"] .min-time-warning {
+body.dark-mode .min-time-warning {
 	background-color: #3d3416;
 	border-color: #5a4b1a;
 	border-left-color: #f39c12;

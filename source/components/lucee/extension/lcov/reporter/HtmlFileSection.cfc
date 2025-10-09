@@ -302,9 +302,8 @@ component {
 		}
 
 		return '<div class="stats">'
-			& '<strong>Lines Executed:</strong> <span class="lines-executed">' & numberFormat(arguments.stats.totalExecutions) & '</span> | '
-			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span> | '
-			& '<strong>Lines Covered:</strong> <span class="lines-covered">' & arguments.stats.linesHit & ' of ' & arguments.stats.linesFound & '</span>'
+			& '<strong>Lines Covered:</strong> <span class="lines-covered">' & arguments.stats.linesHit & ' of ' & arguments.stats.linesFound & '</span> | '
+			& '<strong>Total Execution Time:</strong> <span class="total-execution-time">' & timeDisplay & '</span>'
 			& childTimeDisplay
 			& '</div>';
 	}

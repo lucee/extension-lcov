@@ -5,32 +5,59 @@
 component output="false" {
 
 	/**
-	 * Gets the common CSS styles for coverage reports by reading from external CSS file
-	 * @return string CSS styles
+	 * Gets the common CSS link tag for coverage reports
+	 * @return string HTML link tag
 	 */
 	public string function getCommonCss() {
-		var cssPath = getAssetPath("css/coverage-report.css");
-		return fileRead(cssPath);
+		return '<link rel="stylesheet" href="assets/css/coverage-report.css">';
 	}
 
 	/**
-	 * Gets the dark mode toggle JavaScript by reading from external JS file
-	 * @return string JavaScript code for dark mode toggle
+	 * Gets the dark mode toggle JavaScript script tag
+	 * @return string HTML script tag
 	 */
 	public string function getDarkModeScript() {
-		var jsPath = getAssetPath("js/dark-mode.js");
-		var jsContent = fileRead(jsPath);
-		return "<script>" & jsContent & "</script>";
+		return '<script src="assets/js/dark-mode.js"></script>';
 	}
 
 	/**
-	 * Gets the table sorting JavaScript by reading from external JS file
-	 * @return string JavaScript code for table sorting functionality
+	 * Gets the table sorting JavaScript script tag
+	 * @return string HTML script tag
 	 */
 	public string function getTableSortScript() {
-		var jsPath = getAssetPath("js/table-sort.js");
-		var jsContent = fileRead(jsPath);
-		return "<script>" & jsContent & "</script>";
+		return '<script src="assets/js/table-sort.js"></script>';
+	}
+
+	/**
+	 * Copies CSS and JS assets to the output directory
+	 * @param outputDir The directory where HTML reports are written
+	 */
+	public void function copyAssets(required string outputDir) {
+		var assetsOutputDir = arguments.outputDir & "/assets";
+
+		// Create assets directory structure
+		if (!directoryExists(assetsOutputDir)) {
+			directoryCreate(assetsOutputDir);
+		}
+		if (!directoryExists(assetsOutputDir & "/css")) {
+			directoryCreate(assetsOutputDir & "/css");
+		}
+		if (!directoryExists(assetsOutputDir & "/js")) {
+			directoryCreate(assetsOutputDir & "/js");
+		}
+
+		// Copy CSS file
+		var cssSource = getAssetPath("css/coverage-report.css");
+		var cssTarget = assetsOutputDir & "/css/coverage-report.css";
+		fileCopy(cssSource, cssTarget);
+
+		// Copy JS files
+		var jsFiles = ["dark-mode.js", "table-sort.js"];
+		for (var jsFile in jsFiles) {
+			var jsSource = getAssetPath("js/" & jsFile);
+			var jsTarget = assetsOutputDir & "/js/" & jsFile;
+			fileCopy(jsSource, jsTarget);
+		}
 	}
 
 	/**
@@ -42,10 +69,10 @@ component output="false" {
 		// Get the directory where this component is located
 		var componentPath = getCurrentTemplatePath();
 		var componentDir = getDirectoryFromPath(componentPath);
-		
+
 		// Assets are now in the same directory as this component
 		var assetsPath = componentDir & "assets" & server.separator.file & arguments.relativePath;
-		
+
 		return assetsPath;
 	}
 }
