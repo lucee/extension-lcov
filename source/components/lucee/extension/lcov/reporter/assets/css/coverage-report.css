@@ -400,6 +400,7 @@ tbody tr:nth-child(even) {
 	white-space: pre-wrap;
 	line-height: 1.2;
 	overflow-wrap: break-word;
+	word-break: break-word;
 }
 
 .code-table .executed {

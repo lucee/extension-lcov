@@ -56,6 +56,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				testHtmlUnitDisplay(unit="micro", minTime=10, testName="unit-micro-display-auto", displayUnit="auto");
 			});
 
+			it("displays units correctly when unit=micro and displayUnit=milli (name not symbol)", function() {
+				testHtmlUnitDisplay(unit="micro", minTime=10, testName="unit-micro-display-milli-name", displayUnit="milli");
+			});
+
 		});
 
 		// use for local testing, .exl files require the source files to be present

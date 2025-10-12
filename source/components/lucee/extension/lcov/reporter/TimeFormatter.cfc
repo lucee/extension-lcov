@@ -77,7 +77,9 @@ component {
 				value = convertTime(arguments.microseconds, "μs", "ns");
 			}
 		} else {
-			value = convertTime(arguments.microseconds, "μs", arguments.targetUnit);
+			// Normalize unit names to symbols (e.g., "milli" -> "ms") before converting
+			unit = getUnitInfo(arguments.targetUnit).symbol;
+			value = convertTime(arguments.microseconds, "μs", unit);
 		}
 
 		// OPTIMIZATION: Skip numberFormat for small integers (0-999)

@@ -103,9 +103,29 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					validateTimeFormat(result, "ns", 1); // 0.0005 * 1000 = 0.5, rounds to 1
 				});
 
-				it("formats with specific unit", function() {
+				it("formats with specific unit using symbol", function() {
 					var result = variables.timeFormatter.formatTime(1500, "ms");
 					validateTimeFormat(result, "ms", 1.5);
+				});
+
+				it("formats with specific unit using name (milli)", function() {
+					var result = variables.timeFormatter.formatTime(1500, "milli");
+					validateTimeFormat(result, "ms", 1.5);
+				});
+
+				it("formats with specific unit using name (micro)", function() {
+					var result = variables.timeFormatter.formatTime(1500, "micro");
+					validateTimeFormat(result, "μs", 1500);
+				});
+
+				it("formats with specific unit using name (nano)", function() {
+					var result = variables.timeFormatter.formatTime(1500, "nano");
+					validateTimeFormat(result, "ns", 1500000);
+				});
+
+				it("formats with specific unit using name (second)", function() {
+					var result = variables.timeFormatter.formatTime(2500000, "second");
+					validateTimeFormat(result, "s", 2.5);
 				});
 
 				it("handles zero values", function() {

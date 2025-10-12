@@ -102,9 +102,10 @@ component {
 						<th data-sort-type="text">Script Name</th>
 						<th data-sort-type="numeric">Coverage</th>
 						<th data-sort-type="numeric" style="font-style: italic;" data-dir="asc">Percentage (%)</th>
-						<th data-sort-type="numeric" data-execution-time-header>' & timeFormatter.getExecutionTimeHeader() & '</th>
+						<th data-sort-type="numeric" title="Number of times this file was executed">Executions</th>
+					<th data-sort-type="numeric" data-execution-time-header title="Total execution time (Own + Child)">' & timeFormatter.getExecutionTimeHeader() & '</th>
 						<th data-sort-type="numeric" title="Time spent in called functions">Child Time' & unitSuffix & '</th>
-						<th data-sort-type="numeric" title="Time spent in own code (Execution - Child)">Own Time' & unitSuffix & '</th>
+						<th data-sort-type="numeric" title="Time spent in own code">Own Time' & unitSuffix & '</th>
 					</tr>
 				</thead>
 				<tbody>';
@@ -124,9 +125,16 @@ component {
 				var totalLinesFound = result["totalLinesFound"];
 				var percentCovered = (isNumeric(totalLinesHit) && isNumeric(totalLinesFound) && totalLinesFound > 0) ? numberFormat(100.0 * totalLinesHit / totalLinesFound, "0.0") : '-';
 				var formattedTime = "";
-				// Use totalExecutionTime from stats (in source unit from .exl file)
+				// totalExecutionTime is actually ownTime (child time counted in function bodies where it executes)
 				var sourceUnit = timeFormatter.getUnitInfo(result.unit).symbol;
-				var timeValue = timeFormatter.convertTime(result.totalExecutionTime, sourceUnit, "μs");
+				var ownTimeMicros = timeFormatter.convertTime(result.totalExecutionTime, sourceUnit, "μs");
+
+				// Extract child time
+				var childTimeSourceUnit = result.totalChildTime ?: 0;
+				var childTimeMicros = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
+
+				// Calculate TOTAL time = Own + Child
+				var timeValue = ownTimeMicros + childTimeMicros;
 				var formattedTime = timeFormatter.format(timeValue);
 				var timestamp = result.timestamp;
 
@@ -153,39 +161,31 @@ component {
 					executionClass = " execution-heatmap-level-" & level;
 				}
 
-				// Extract call tree metrics from file stats
-				var childTimeSourceUnit = result.totalChildTime;
-				// Convert to microseconds for sorting
-				var childTimeSort = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
-				// Convert to display unit for formatting
-				var childTimeDisplayUnit = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, arguments.displayUnit);
-				var childTime = childTimeDisplayUnit > 0 ? timeFormatter.format(childTimeDisplayUnit) : "";
-
-				// Calculate own time (execution time minus child time, both in microseconds)
-				var ownTimeValue = timeValue - childTimeSort;
-				if (ownTimeValue < 0) ownTimeValue = 0; // Ensure non-negative
-				var ownTime = ownTimeValue > 0 ? timeFormatter.format(ownTimeValue) : "";
+				// Format display values
+				var childTime = childTimeMicros > 0 ? timeFormatter.format(childTimeMicros) : "";
+				var ownTime = ownTimeMicros > 0 ? timeFormatter.format(ownTimeMicros) : "";
 
 				// Calculate heatmap classes for child and own time (use source unit values)
 				var childTimeClass = "";
 				var ownTimeClass = "";
 				if (arrayLen(heatmapData.executionRanges) > 0) {
-					// Convert own time back to source unit for heatmap calculation
-					var ownTimeSourceUnit = timeFormatter.convertTime(ownTimeValue, "μs", sourceUnit);
-					var childLevel = heatmapData.bucketCalculator.getValueLevel(childTimeSourceUnit, heatmapData.executionRanges, "desc");
+					// Convert to source unit for heatmap calculation
+					var ownTimeSourceUnit = timeFormatter.convertTime(ownTimeMicros, "μs", sourceUnit);
+					var childTimeSourceUnitForHeatmap = timeFormatter.convertTime(childTimeMicros, "μs", sourceUnit);
+					var childLevel = heatmapData.bucketCalculator.getValueLevel(childTimeSourceUnitForHeatmap, heatmapData.executionRanges, "desc");
 					childTimeClass = " execution-heatmap-level-" & childLevel;
 					var ownLevel = heatmapData.bucketCalculator.getValueLevel(ownTimeSourceUnit, heatmapData.executionRanges, "desc");
 					ownTimeClass = " execution-heatmap-level-" & ownLevel;
 				}
-
 				html &= '<tr data-file-row data-html-file="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '" data-script-name="' & arguments.htmlEncoder.htmlAttributeEncode(scriptName) & '">';
 				html &= '<td class="script-name"><a href="' & arguments.htmlEncoder.htmlAttributeEncode(htmlFile) & '">' & arguments.htmlEncoder.htmlEncode(scriptName) & '</a></td>';
 				html &= '<td class="coverage">' & totalLinesHit & ' / ' & totalLinesFound & '</td>';
 				html &= '<td class="percentage' & coverageClass & '">' & percentCovered & '</td>';
+				html &= '<td class="executions">' & numberFormat(result.totalExecutions ?: 0) & '</td>';
 				// Add data-value with raw microsecond value for proper numeric sorting
 				html &= '<td class="execution-time' & executionClass & '" data-execution-time-cell data-value="' & timeValue & '">' & formattedTime & '</td>';
-				html &= '<td class="child-time' & childTimeClass & '" data-sort-value="' & childTimeSort & '">' & childTime & '</td>';
-				html &= '<td class="own-time' & ownTimeClass & '" data-sort-value="' & ownTimeValue & '">' & ownTime & '</td>';
+				html &= '<td class="child-time' & childTimeClass & '" data-sort-value="' & childTimeMicros & '">' & childTime & '</td>';
+				html &= '<td class="own-time' & ownTimeClass & '" data-sort-value="' & ownTimeMicros & '">' & ownTime & '</td>';
 				html &= '</tr>' & chr(10);
 			}
 

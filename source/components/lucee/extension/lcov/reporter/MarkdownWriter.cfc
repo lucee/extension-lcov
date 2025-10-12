@@ -277,7 +277,15 @@ component {
 		// Reports table
 		arrayAppend(parts, repeatString("##", 4) & " Reports");
 		arrayAppend(parts, "");
-		arrayAppend(parts, "| Script | Coverage | Lines Hit | Lines Found | Executions | Total Time | Child Time | Own Time |");
+
+		// Add unit suffix to time column headers (unless displayUnit is "auto")
+		var unitSuffix = "";
+		if (variables.displayUnit != "auto") {
+			var unitSymbol = timeFormatter.getUnitInfo(variables.displayUnit).symbol;
+			unitSuffix = " (" & unitSymbol & ")";
+		}
+
+		arrayAppend(parts, "| Script | Coverage | Lines Hit | Lines Found | Executions | Total Time" & unitSuffix & " | Child Time" & unitSuffix & " | Own Time" & unitSuffix & " |");
 		arrayAppend(parts, "|--------|----------|-----------|-------------|------------|------------|------------|----------|");
 
 		for (var entry in arguments.indexData) {
@@ -286,19 +294,18 @@ component {
 			var mdFile = replace(entry.htmlFile, ".html", ".md");
 			var scriptLink = "[" & scriptName & "](" & mdFile & ")";
 
-			// Format execution time (totalExecutionTime is in source unit from .exl file)
+			// totalExecutionTime is actually ownTime (child time counted in function bodies where it executes)
 			var sourceUnit = timeFormatter.getUnitInfo(entry.unit).symbol;
-			var timeMicros = timeFormatter.convertTime(entry.totalExecutionTime, sourceUnit, "μs");
-			var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit, false);
+			var ownTimeMicros = timeFormatter.convertTime(entry.totalExecutionTime, sourceUnit, "μs");
 
 			// Format child time (stored in source unit from .exl file, convert to microseconds)
 			var childTimeSourceUnit = entry.totalChildTime ?: 0;
 			var childTimeMicros = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
-			var childTimeDisplay = childTimeMicros > 0 ? timeFormatter.formatTime(childTimeMicros, variables.displayUnit, false) : "";
 
-			// Calculate own time
-			var ownTimeMicros = timeMicros - childTimeMicros;
-			if (ownTimeMicros < 0) ownTimeMicros = 0;
+			// Calculate TOTAL time = Own + Child
+			var timeMicros = ownTimeMicros + childTimeMicros;
+			var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit, false);
+			var childTimeDisplay = childTimeMicros > 0 ? timeFormatter.formatTime(childTimeMicros, variables.displayUnit, false) : "";
 			var ownTimeDisplay = ownTimeMicros > 0 ? timeFormatter.formatTime(ownTimeMicros, variables.displayUnit, false) : "";
 
 			arrayAppend(parts, "| " & scriptLink & " | " & coverage & "% | " & numberFormat(entry.totalLinesHit) & " | " & numberFormat(entry.totalLinesFound) & " | " & numberFormat(entry.totalExecutions) & " | " & timeDisplay & " | " & childTimeDisplay & " | " & ownTimeDisplay & " |");

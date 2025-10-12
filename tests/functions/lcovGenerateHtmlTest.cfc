@@ -160,6 +160,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					if (find("%", nodeText)) foundPercent = true;
 				}
 				expect(foundPercent).toBeTrue("Should show percentage coverage in summary");
+
+				// And - validate HTML reports against JSON source data (includes time validation)
+				var validator = new testAdditional.reporters.ValidateHtmlReports();
+				// Add validator methods as mixins so expect() works
+				var validatorMeta = getMetaData(validator);
+				for (var method in validatorMeta.functions) {
+					variables[method.name] = validator[method.name];
+				}
+				validateHtmlReports(
+					outputDir=outputDir & "/",
+					sourceUnit="micro",
+					expectedDisplayUnit="ms"
+				);
 			});
 		});
 

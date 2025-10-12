@@ -153,10 +153,10 @@ component accessors="true" {
 					}
 
 					totalStats.totalExecutions += lineData[1];
-					// totalExecutionTime = ownTime + childTime
-					totalStats.totalExecutionTime += lineData[2] + lineData[3];
+					// totalExecutionTime = ownTime only (childTime is counted in the function body where it executes)
+					totalStats.totalExecutionTime += lineData[2];
 					fileInfo.totalExecutions += lineData[1];
-					fileInfo.totalExecutionTime += lineData[2] + lineData[3];
+					fileInfo.totalExecutionTime += lineData[2];
 
 					// Track childTime separately for reporting
 					totalStats.totalChildTime += lineData[3];

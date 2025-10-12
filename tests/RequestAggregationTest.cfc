@@ -18,27 +18,31 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
 		variables.logLevel = "info";
 		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
+		var executionLogOptions = { unit: "nano" }
 
 		// Generate test data for basic tests
 		variables.testDataGenerator1 = new GenerateTestData( testName="RequestAggregationTest-1x" );
 		variables.testData1 = variables.testDataGenerator1.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/basic.cfm",
-			iterations = 1
+			iterations = 1,
+			executionLogOptions = executionLogOptions
 		);
 
 		variables.testDataGenerator2 = new GenerateTestData( testName="RequestAggregationTest-2x" );
 		variables.testData2 = variables.testDataGenerator2.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/basic.cfm",
-			iterations = 2
+			iterations = 2,
+			executionLogOptions = executionLogOptions
 		);
 
 		variables.testDataGenerator5 = new GenerateTestData( testName="RequestAggregationTest-5x" );
 		variables.testData5 = variables.testDataGenerator5.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/basic-5x.cfm",
-			iterations = 1
+			iterations = 1,
+			executionLogOptions = executionLogOptions
 		);
 
 		// Generate test data for kitchen-sink tests
@@ -46,21 +50,24 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testData1KS = variables.testDataGenerator1KS.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "kitchen-sink-example.cfm",
-			iterations = 1
+			iterations = 1,
+			executionLogOptions = executionLogOptions
 		);
 
 		variables.testDataGenerator2KS = new GenerateTestData( testName="RequestAggregationTest-KS-2x" );
 		variables.testData2KS = variables.testDataGenerator2KS.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "kitchen-sink-example.cfm",
-			iterations = 2
+			iterations = 2,
+			executionLogOptions = executionLogOptions
 		);
 
 		variables.testDataGenerator5KS = new GenerateTestData( testName="RequestAggregationTest-KS-5x" );
 		variables.testData5KS = variables.testDataGenerator5KS.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
 			fileFilter = "multiple/kitchen-sink-5x.cfm",
-			iterations = 1
+			iterations = 1,
+			executionLogOptions = executionLogOptions
 		);
 	}
 

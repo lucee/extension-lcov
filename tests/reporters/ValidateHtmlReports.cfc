@@ -89,6 +89,13 @@ component {
 				// Validate data-value attribute
 				expect(execDataValue).toBe(toString(executionTimeMicros),
 					"Execution time data-value mismatch for #scriptName#");
+
+				// CRITICAL: totalExecutionTime should never exceed request execution-time (metadata)
+				if (structKeyExists(jsonReport, "metadata") && structKeyExists(jsonReport.metadata, "execution-time") && isNumeric(jsonReport.metadata["execution-time"])) {
+					var requestExecutionTimeMicros = timeFormatter.convertTime(jsonReport.metadata["execution-time"], sourceUnit, "μs");
+					expect(executionTimeMicros).toBeLTE(requestExecutionTimeMicros,
+						"Total Execution Time (#executionTimeMicros# μs = #numberFormat(executionTimeMicros/1000, '0.000')# ms) should not exceed Request Execution Time from metadata (#requestExecutionTimeMicros# μs = #numberFormat(requestExecutionTimeMicros/1000, '0.000')# ms) for #scriptName#");
+				}
 			}
 
 			// Validate child time cell
@@ -100,9 +107,8 @@ component {
 				var childTimeSourceUnit = jsonReport.totalChildTime;
 				// Convert from source unit to microseconds for comparison (same as production code)
 				var childTimeMicros = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, "μs");
-				// Convert from source unit to display unit for formatting
-				var childTimeDisplayUnit = timeFormatter.convertTime(childTimeSourceUnit, sourceUnit, arguments.expectedDisplayUnit);
-				var expectedChildFormatted = timeFormatter.format(childTimeDisplayUnit);
+				// Format using same logic as production (format expects microseconds)
+				var expectedChildFormatted = timeFormatter.format(childTimeMicros);
 
 				if (childHtmlText != "" && childSortValue != "0") {
 					hasNonZeroChildTime = true;
@@ -121,18 +127,22 @@ component {
 			var ownSortValue = htmlParser.getAttr(ownCell, "data-sort-value");
 
 			if (isNumeric(execDataValue) && isNumeric(childSortValue)) {
-				// CRITICAL: childTime should never exceed executionTime
 				var execTime = parseNumber(execDataValue);
 				var childTime = parseNumber(childSortValue);
 
+				// CRITICAL: childTime should NEVER exceed totalExecutionTime
+				// If it does, the math breaks: Own = Total - Child would be negative
 				expect(childTime).toBeLTE(execTime,
-					"Child time (#childTime#) should not exceed execution time (#execTime#) for #scriptName#");
+					"Child time (#childTime# μs) should not exceed total execution time (#execTime# μs) for #scriptName#. This breaks the calculation: Own = Total - Child!");
 
-				var expectedOwnTime = execTime - childTime;
-				if (expectedOwnTime < 0) expectedOwnTime = 0;
+				// Calculate expected own time
+				var expectedOwnTime = max(execTime - childTime, 0);
 
-				expect(ownSortValue).toBe(toString(expectedOwnTime),
-					"Own time should equal execution time minus child time for #scriptName# - Exec: #execDataValue#, Child: #childSortValue#, Own: #ownSortValue#, Expected: #expectedOwnTime#");
+				// Validate own time data attribute (with tolerance for floating point precision)
+				var actualOwnTime = parseNumber(ownSortValue);
+				var tolerance = 0.01; // Allow 0.01 microsecond difference for floating point precision
+				expect(abs(actualOwnTime - expectedOwnTime)).toBeLTE(tolerance,
+					"Own time should be (Exec - Child) = (#execTime# - #childTime#) = #expectedOwnTime# for #scriptName#, but got #ownSortValue# (diff: #abs(actualOwnTime - expectedOwnTime)#)");
 
 				if (ownHtmlText != "" && ownSortValue != "0") {
 					hasNonZeroOwnTime = true;
@@ -346,7 +356,10 @@ component {
 		if (arguments.expectedDisplayUnit == "auto") {
 			expect(headerText).toBe("Execution Time", "Auto mode header should not include unit in [#arguments.indexPath#]");
 		} else {
-			expect(headerText).toInclude(arguments.expectedDisplayUnit, "Header should include unit in [#arguments.indexPath#]");
+			// Normalize unit name to symbol (e.g., "milli" -> "ms") for validation
+			var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+			var expectedSymbol = timeFormatter.getUnitInfo(arguments.expectedDisplayUnit).symbol;
+			expect(headerText).toInclude(expectedSymbol, "Header should include unit symbol '#expectedSymbol#' in [#arguments.indexPath#]");
 		}
 
 		// Child time and own time headers should exist
@@ -377,7 +390,10 @@ component {
 
 		var headerText = trim(htmlParser.getText(executionTimeHeaders[1]));
 		if (arguments.expectedDisplayUnit != "auto") {
-			expect(headerText).toInclude(arguments.expectedDisplayUnit, "Header should include unit in [#arguments.reportPath#]");
+			// Normalize unit name to symbol (e.g., "milli" -> "ms") for validation
+			var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter();
+			var expectedSymbol = timeFormatter.getUnitInfo(arguments.expectedDisplayUnit).symbol;
+			expect(headerText).toInclude(expectedSymbol, "Header should include unit symbol '#expectedSymbol#' in [#arguments.reportPath#]");
 		}
 
 		// Total execution time in stats
