@@ -19,7 +19,7 @@ component {
 	 */
 	public string function lcovStartLogging(required string adminPassword, required string executionLogDir = "", struct options = {}) {
 		try {
-			var generator = new ReportGenerator();
+			var generator = new generator.ReportGenerator();
 
 			var defaultOptions = {
 				unit: "micro",
@@ -80,7 +80,7 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateAllReports(required string executionLogDir, required string outputDir, struct options = {}) {
-		var generator = new ReportGenerator();
+		var generator = new generator.ReportGenerator();
 
 		generator.validateExecutionLogDir( arguments.executionLogDir );
 		generator.validateOutputDir( arguments.outputDir );
@@ -150,12 +150,10 @@ component {
 	 * @return String containing LCOV file content
 	 */
 	public string function lcovGenerateLcov(required string executionLogDir, string outputFile = "", struct options = {}) {
-		var generator = new ReportGenerator();
+		var generator = new generator.LcovReportGenerator();
 
-		// Validate required directories exist
 		generator.validateExecutionLogDir( arguments.executionLogDir );
 
-		// Set default options
 		var defaultOptions = {
 			logLevel: "none",
 			allowList: [],
@@ -164,13 +162,10 @@ component {
 		};
 		var _options = generator.prepareOptions( arguments.options, defaultOptions );
 
-		// Parse .exl files
 		var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
 
-		// Generate LCOV content
-		var lcovContent = buildLcovContent( jsonFilePaths, _options );
+		var lcovContent = generator.buildLcovContent( jsonFilePaths, _options );
 
-		// Write to file if outputFile provided
 		if ( len( arguments.outputFile ) ) {
 			generator.writeOutputFile( arguments.outputFile, lcovContent );
 		}
@@ -186,7 +181,7 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateHtml(required string executionLogDir, required string outputDir, struct options = {}) {
-		var generator = new HtmlReportGenerator();
+		var generator = new generator.HtmlReportGenerator();
 
 		generator.validateExecutionLogDir( arguments.executionLogDir );
 		generator.validateOutputDir( arguments.outputDir );
@@ -253,7 +248,7 @@ component {
 	 */
 	public struct function lcovGenerateJson(required string executionLogDir, required string outputDir, struct options = {}) {
 		try {
-			var generator = new JsonReportGenerator();
+			var generator = new generator.JsonReportGenerator();
 
 			generator.validateExecutionLogDir( arguments.executionLogDir );
 			generator.validateOutputDir( arguments.outputDir );
@@ -307,7 +302,7 @@ component {
 	 */
 	public struct function lcovGenerateSummary(required string executionLogDir, struct options = {}) {
 		try {
-			var generator = new ReportGenerator();
+			var generator = new generator.ReportGenerator();
 
 			generator.validateExecutionLogDir( arguments.executionLogDir );
 
@@ -330,44 +325,6 @@ component {
 		} catch (any e) {
 			throw(message="Failed to generate coverage summary: " & e.message, detail=e.detail, cause=e);
 		}
-	}
-
-	// ========== Private Helper Methods ==========
-
-	private string function buildLcovContent(required array jsonFilePaths, required struct options) {
-		var logger = new lucee.extension.lcov.Logger( level=arguments.options.logLevel ?: "none" );
-
-		// Process JSON files progressively without loading all into memory
-		var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
-		var merged = merger.mergeResultsByFile( arguments.jsonFilePaths );
-
-		// NEW: Aggregate blocks to line coverage using BlockAggregator
-		var blockAggregator = new lucee.extension.lcov.BlockAggregator();
-		var lineCoverage = {};
-
-		// Check if blocks exist in merged data
-		if ( structKeyExists( merged.mergedCoverage, "blocks" ) && structCount( merged.mergedCoverage.blocks ) > 0 ) {
-			// Use new block-based pipeline
-			logger.debug( "Using block-based aggregation for LCOV generation" );
-			lineCoverage = blockAggregator.aggregateMergedBlocksToLines(
-				merged.mergedCoverage.blocks,
-				merged.mergedCoverage.files
-			);
-		} else {
-			// Fallback to old coverage data if no blocks
-			logger.debug( "No blocks found, using existing line coverage" );
-			lineCoverage = merged.mergedCoverage.coverage;
-		}
-
-		// Replace old coverage with new aggregated coverage
-		var mergedForLcov = {
-			"files": merged.mergedCoverage.files,
-			"coverage": lineCoverage
-		};
-
-		// Create LCOV writer with logger and build LCOV format
-		var lcovWriter = new reporter.LcovWriter( logger=logger, options=arguments.options );
-		return lcovWriter.buildLCOV( mergedForLcov, arguments.options.useRelativePath ?: false );
 	}
 
 }

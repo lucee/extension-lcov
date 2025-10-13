@@ -56,7 +56,7 @@ component {
 	 * @return Array of JSON file paths
 	 */
 	public array function parseExecutionLogs( required string executionLogDir, required struct options ) {
-		var logProcessor = new ExecutionLogProcessor( arguments.options );
+		var logProcessor = new lucee.extension.lcov.ExecutionLogProcessor( arguments.options );
 		return logProcessor.parseExecutionLogs( arguments.executionLogDir, arguments.options );
 	}
 
@@ -111,7 +111,7 @@ component {
 	 * @return HtmlReporter instance
 	 */
 	public any function createHtmlReporter( required any logger, required string displayUnit ) {
-		return new reporter.HtmlReporter( logger=arguments.logger, displayUnit=arguments.displayUnit );
+		return new lucee.extension.lcov.reporter.HtmlReporter( logger=arguments.logger, displayUnit=arguments.displayUnit );
 	}
 
 	/**
