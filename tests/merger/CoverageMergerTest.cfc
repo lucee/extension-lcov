@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.logger = new lucee.extension.lcov.Logger( level="info" );
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
 		variables.utils = new lucee.extension.lcov.CoverageMergerUtils();
 		variables.testDataGenerator = new "../GenerateTestData"( testName="SeparateFilesStepsTest" );
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
@@ -13,7 +13,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Parse all .exl files in COVERAGEDIR using ExecutionLogParser
 		variables.parsedResults = {};
-		var parser = variables.factory.getComponent(name="ExecutionLogParser");
+		var parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
 		for (var exlFile in variables.testData.COVERAGEFILES) {
 			var exlPath = variables.testData.COVERAGEDIR & exlFile;
 			variables.parsedResults[exlPath] = parser.parseExlFile(exlPath);
@@ -27,7 +27,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		describe("mergeResults BDD steps", function() {
 
 			it("filters valid results", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				// Use parsedResults as the input for all steps
 				var results = duplicate(variables.parsedResults);
 				// systemOutput("parsedResults struct: " & serializeJSON(allResults), true);
@@ -37,7 +37,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("builds file index mappings", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var validResults = variables.utils.filterValidResults(results);
 				var mappings = variables.utils.buildFileIndexMappings(validResults);
@@ -48,7 +48,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("initializes merged results", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var validResults = variables.utils.filterValidResults(results);
 				var mappings = variables.utils.buildFileIndexMappings(validResults);
@@ -58,7 +58,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("merges results and synchronizes stats", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var outputDir = getTempDirectory(true);
 				var jsonFilePaths = writeResultsToJsonFiles(results, outputDir);
@@ -68,7 +68,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("merges line coverage data correctly (unit, synthetic result)", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				// Create a synthetic result object as in HtmlReporterSyntheticTest
 				var targetResult = new lucee.extension.lcov.model.result();
 				targetResult.setExeLog("/tmp/synthetic.exl");
@@ -122,7 +122,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("merges childTime correctly (NEW FORMAT: [hitCount, ownTime, childTime])", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var targetResult = new lucee.extension.lcov.model.result();
 				targetResult.setExeLog("/tmp/synthetic.exl");
 				targetResult.setStats({
@@ -190,7 +190,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("merges all coverage data from synthetic results (mergeAllCoverageDataFromResults)", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				// Create two synthetic result objects, each with coverage for the same file but different lines
 				var filePath = "/tmp/Synthetic.cfm";
 				var exlPath1 = "/tmp/synthetic1.exl";
@@ -226,7 +226,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 
 			xit("remaps fileCoverage lines to canonical index (mergeFileCoverageArray, synthetic) - SKIPPED: fileCoverage removed", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				// Create synthetic source and target result objects
 				var targetResult = new lucee.extension.lcov.model.result();
 				targetResult.setFileCoverage([]);
@@ -254,7 +254,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("calculates stats for merged results", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var validResults = variables.utils.filterValidResults(results);
 				var mappings = variables.utils.buildFileIndexMappings(validResults);
@@ -275,7 +275,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("writes merged results to files with proper filtering", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var validResults = variables.utils.filterValidResults(results);
 				var mappings = variables.utils.buildFileIndexMappings(validResults);
@@ -317,7 +317,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	   describe("CoverageMerger mergeResultsByFile refactor", function() {
 
 			it("builds file mappings and initializes merged struct", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var mappingResult = merger.buildFileMappingsAndInitMerged(results);
 				expect(mappingResult).toHaveKey("merged");
@@ -328,7 +328,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("merges results by file (integration)", function() {
-				var merger = variables.factory.getComponent(name="CoverageMerger");
+				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var results = duplicate(variables.parsedResults);
 				var outputDir = getTempDirectory(true);
 				var jsonFilePaths = writeResultsToJsonFiles(results, outputDir);

@@ -1,7 +1,7 @@
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
 		variables.adminPassword = request.SERVERADMINPASSWORD;
 		variables.logLevel = "info";
 
@@ -37,7 +37,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				fileWrite(testExlPath, arrayToList(content, chr(10)));
 
 				// This should NOT throw an error about arraySlice
-				var parser = variables.factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false);
+				var parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
 
 				// This should NOT throw an error about arraySlice after fix
 				var result = {};
@@ -81,7 +81,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				fileWrite(testExlPath, arrayToList(content, chr(10)));
 
-				var parser = variables.factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false);
+				var parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
 
 				// After fix, this should parse successfully
 				var errorThrown = false;
@@ -116,7 +116,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				fileWrite(testExlPath, arrayToList(content, chr(10)));
 
-				var parser = variables.factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false);
+				var parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
 
 				// This should throw an ExecutionLogParser.SourceFileNotFound error
 				var errorThrown = false;

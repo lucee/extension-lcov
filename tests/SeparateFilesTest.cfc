@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
 		variables.logLevel = "info";
 		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new GenerateTestData(testName="SeparateFilesTest");
 

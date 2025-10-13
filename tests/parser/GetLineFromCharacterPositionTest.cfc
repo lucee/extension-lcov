@@ -3,27 +3,20 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function run() {
 
-		describe( "compare getLineFromCharacterPosition implementation", () => {
-			it( "should match stable and develop implementations", () => {
-				var factory = new lucee.extension.lcov.CoverageComponentFactory();
-				var developBlockProcessor = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=true);
-				var stableBlockProcessor = factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=false);
+		describe( "test getLineFromCharacterPosition implementation", () => {
+			it( "should correctly map character positions to lines", () => {
+				var logger = new lucee.extension.lcov.Logger( level="none" );
+				var blockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=logger );
 				var files = directoryList( "../artifacts", false, "path", "*.cfm" );
 				var testCases = [];
 
 				for( var file in files ){
-					var develop = {
-						lineMapping: developBlockProcessor.buildCharacterToLineMapping(fileRead(file))
+					var mapping = {
+						lineMapping: blockProcessor.buildCharacterToLineMapping( fileRead( file ) )
 					};
-					develop.mappingLen = arrayLen(develop.lineMapping);
+					mapping.mappingLen = arrayLen( mapping.lineMapping );
 
-					var stable = {
-						lineMapping: stableBlockProcessor.buildCharacterToLineMapping(fileRead(file))
-					};
-					stable.mappingLen = arrayLen(stable.lineMapping);
-
-					expect( develop.mappingLen ).toBe( stable.mappingLen, "Mapping length should match for file " & file );
-					expect( develop.mappingLen ).toBeGT( 0, "Mapping length should be > 0 for file " & file );
+					expect( mapping.mappingLen ).toBeGT( 0, "Mapping length should be > 0 for file " & file );
 
 					// calculate some test positions (every 10th char up to length of file)
 					var fileContent = fileRead(file);
@@ -39,26 +32,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					arrayAppend( testCases, {
 						filePath: file,
 						positions: positions,
-						develop: develop,
-						stable: stable
+						mapping: mapping
 					} );
 
 				}
 
-				arrayEach( testcases, function(testCase){
+				arrayEach( testcases, function( testCase ) {
 					for( var pos in testCase.positions ){
-						var develop = testCase.develop;
-						var stable = testCase.stable;
+						var mapping = testCase.mapping;
 						// getLineFromCharacterPosition(charPos, filePath, lineMapping, mappingLen, minLine = 1)
-						develop.line = developBlockProcessor.getLineFromCharacterPosition(pos, 
-							testCase.filePath, develop.lineMapping, develop.mappingLen);
-						stable.line = stableBlockProcessor.getLineFromCharacterPosition(pos, 
-							testCase.filePath, stable.lineMapping, stable.mappingLen);
+						var line = blockProcessor.getLineFromCharacterPosition( pos,
+							testCase.filePath, mapping.lineMapping, mapping.mappingLen );
 
-						expect( develop.line ).toBe( stable.line,
-							"Mismatch at position " & pos & " in file " & testCase.filePath &
-							": develop=" & develop.line & ", stable=" & stable.line
-						);
+						expect( line ).toBeGT( 0, "Should return valid line number for position " & pos & " in file " & testCase.filePath );
 					}
 				});
 

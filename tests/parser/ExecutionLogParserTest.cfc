@@ -2,8 +2,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
 		variables.logLevel = "info";
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
-		variables.parser = variables.factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false);
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
+		variables.parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
 	variables.testDataGenerator = new "../GenerateTestData"(testName="ExecutionLogParserTest");
 		// Generate test data if needed
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
@@ -21,7 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var file in files) {
 			var result = variables.parser.parseExlFile(file);
 			// Manually calculate canonical stats for test parity with processor
-			var statsComponent = new lucee.extension.lcov.CoverageComponentFactory().getComponent(name="CoverageStats");
+			var statsComponent = new lucee.extension.lcov.CoverageStats( logger=new lucee.extension.lcov.Logger( level="none" ) );
 			result = statsComponent.calculateCoverageStats(result);
 			
 			//expect(result.validate(throw=false)).toBeEmpty();

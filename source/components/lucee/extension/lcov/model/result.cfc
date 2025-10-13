@@ -45,12 +45,18 @@ component accessors=true {
 
 	/**
 	 * Returns the array of source lines for a specific file index.
+	 * If lines[] is not present (e.g., not loaded during parsing), returns empty array.
+	 * Callers should check if empty and hydrate from disk if needed.
 	 */
 	public array function getFileLines(required numeric fileIndex) {
 		if (!isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
 			throw(message="No files struct present or missing file index: " & arguments.fileIndex & " exeLog: " & variables.exeLog);
 		}
-		return variables.files[arguments.fileIndex].lines;
+		var fileData = variables.files[arguments.fileIndex];
+		if (!structKeyExists(fileData, "lines") || !isArray(fileData.lines)) {
+			return [];
+		}
+		return fileData.lines;
 	}
 
 	/**
@@ -272,22 +278,6 @@ component accessors=true {
 		variables.blocks[arguments.fileIndex][blockKey] = arguments.blockData;
 	}
 
-
-	/**
-	 * Gets a file entry from the result's files struct, throws if missing.
-	 * @fileIndex The file index (numeric)
-	 */
-	public any function getFileItem(required numeric fileIndex, string property) {
-		if (!structKeyExists(variables, "files") || !isStruct(variables.files) || !structKeyExists(variables.files, arguments.fileIndex)) {
-			throw "File entry not found for index: " & arguments.fileIndex & " exeLog: " & variables.exeLog;
-		}
-		var fileItem = variables.files[arguments.fileIndex];
-		if (structKeyExists(arguments, "property")) {
-			return fileItem[arguments.property];
-		}
-		return fileItem;
-	}
-
 	/**
 	 * Serializes the result model to JSON.
 	 * @pretty Whether to format the JSON with indentation
@@ -341,150 +331,13 @@ component accessors=true {
 
 	/**
 	 * Validates the result model for required canonical fields and structure.
-	 * Collects all problems and throws a single error at the end if any are found.
+	 * Delegates to ResultValidator component.
+	 * @throw Whether to throw on validation failure (default true)
+	 * @return Array of problem messages
 	 */
 	public array function validate(boolean throw=true) {
-		var problems = [];
-
-		// Example: check for required top-level properties
-		if (!structKeyExists(variables, "metadata") || !isStruct(variables.metadata)) {
-			arrayAppend(problems, "Missing or invalid 'metadata' struct");
-		}
-		if (!structKeyExists(variables, "stats") || !isStruct(variables.stats)) {
-			arrayAppend(problems, "Missing or invalid 'stats' struct");
-		}
-		if (!structKeyExists(variables, "files") || !isStruct(variables.files)) {
-			arrayAppend(problems, "Missing or invalid 'files' struct");
-		}
-		if (!structKeyExists(variables, "coverage") || !isStruct(variables.coverage)) {
-			arrayAppend(problems, "Missing or invalid 'coverage' struct");
-		}
-
-		// Example: check for canonical stats fields
-		var requiredStats = ["totalLinesFound", "totalLinesHit", "totalLinesSource", "totalExecutions", "totalExecutionTime"];
-		for (var s in requiredStats) {
-			if (!structKeyExists(variables.stats, s)) {
-				arrayAppend(problems, "Missing stats field: " & s);
-			}
-		}
-
-		// TODO Validate stats keys are only from allowed set, not lines
-
-
-		// Validate isFile business rule: if isFile=true, files must have only one entry with key "0"
-		if (variables.isFile) {
-			var fileKeys = structKeyArray(variables.files);
-			if (arrayLen(fileKeys) != 1 || fileKeys[1] != "0") {
-				arrayAppend(problems, "When isFile=true, files struct must have exactly one entry with key '0', found: " & arrayToList(fileKeys));
-			}
-		}
-
-		// Example: validate each file entry
-		var filePaths = structKeyArray(variables.files);
-		for (var filePath in filePaths) {
-			// file path should be numeric
-			if (!isNumeric(filePath)) {
-				arrayAppend(problems, "File path is not numeric: " & filePath);
-				continue;
-			}
-			var fileData = variables.files[filePath];
-			if (!isStruct(fileData)) {
-				arrayAppend(problems, "File entry for " & filePath & " is not a struct");
-				continue;
-			}
-			var requiredFileFields = ["linesFound", "linesHit", "linesSource", "path"];
-			for (var f in requiredFileFields) {
-				if (!structKeyExists(fileData, f)) {
-					arrayAppend(problems, "Missing file field '" & f & "' for file: " & filePath);
-				} else if (f == "path" && isEmpty(fileData[f])) {
-					arrayAppend(problems, "Invalid value for file field 'path' in file: " & filePath & " (should be string file path)");
-				} else if (f != "path" && (!isNumeric(fileData[f]) || fileData[f] < 0)) {
-					arrayAppend(problems, "Invalid value for file field '" & f & "' in file: " & filePath);
-				}
-			}
-			// Check linesHit does not exceed linesFound
-			if (structKeyExists(fileData, "linesHit") && structKeyExists(fileData, "linesFound")) {
-				if (fileData.linesHit > fileData.linesFound) {
-					arrayAppend(problems, "linesHit [" & fileData.linesHit
-						& "] exceeds linesFound [" & fileData.linesFound & "] for file: " & filePath);
-				}
-			}
-		}
-
-		// Validate execution time consistency
-		var executionTimeProblems = validateExecutionTime();
-		for (var problem in executionTimeProblems) {
-			arrayAppend(problems, problem);
-		}
-
-		if (arrayLen(problems) > 0) {
-			arrayPrepend(problems, "src/exeLog: " & variables.exeLog);
-		}
-
-		if (arguments.throw && arrayLen(problems) > 0) {
-
-			throw "Result validation failed: " & arrayToList(problems, "; ");
-		}
-		return problems;
-	}
-
-	/**
-	 * Validates execution time consistency in coverage data.
-	 * @return array of problem messages
-	 */
-	private array function validateExecutionTime() {
-		var problems = [];
-
-		if (structKeyExists(variables, "coverage") && isStruct(variables.coverage)) {
-			var calculatedTotalTime = 0;
-			var calculatedTotalExecutions = 0;
-
-			for (var fileIdx in variables.coverage) {
-				var fileCoverage = variables.coverage[fileIdx];
-				if (!isStruct(fileCoverage)) continue;
-
-				for (var lineNum in fileCoverage) {
-					var lineData = fileCoverage[lineNum];
-					if (isArray(lineData) && arrayLen(lineData) >= 2) {
-						var hitCount = lineData[1];
-						var execTime = lineData[2];
-
-						// Check for negative values
-						if (hitCount < 0) {
-							arrayAppend(problems, "Negative hit count [" & hitCount & "] for file " & fileIdx & ", line " & lineNum);
-						}
-						if (execTime < 0) {
-							arrayAppend(problems, "Negative execution time [" & execTime & "] for file " & fileIdx & ", line " & lineNum);
-						}
-
-						// Check that lines with hits have execution time (unless it's genuinely 0)
-						if (hitCount > 0 && execTime == 0) {
-							// This is a warning, not necessarily an error - some lines might execute in < 1 microsecond
-							// But if ALL lines have 0 time, that's suspicious
-						}
-
-						// Sum up for total validation
-						calculatedTotalTime += execTime;
-						calculatedTotalExecutions += hitCount;
-					}
-				}
-			}
-
-			// NOTE: We no longer validate totalExecutionTime match because:
-			// - CoverageStats now calculates totalExecutionTime as ownTime + childTime from coverage arrays
-			// - This is the correct total time and may differ from .exl metadata which only tracks ownTime
-			// - The coverage data is the source of truth for execution times
-
-			if (structKeyExists(variables.stats, "totalExecutions")) {
-				var reportedTotalExecutions = variables.stats.totalExecutions;
-				if (calculatedTotalExecutions != reportedTotalExecutions) {
-					arrayAppend(problems, "Total executions mismatch: calculated [" & calculatedTotalExecutions
-						& "] vs reported [" & reportedTotalExecutions & "]");
-				}
-			}
-		}
-
-		return problems;
+		var validator = new lucee.extension.lcov.model.ResultValidator();
+		return validator.validate(this, arguments.throw);
 	}
 
 	/**

@@ -3,28 +3,16 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 	function run() {
 		describe("check codeCoverage stats", function() {
 			it("test CoverageStatsTest", function() {
-				var factory = new lucee.extension.lcov.CoverageComponentFactory();
-				var parser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=false);
-				var statsComponent = factory.getComponent(name="CoverageStats", overrideUseDevelop=false);
-				var testDataGenerator = new "../GenerateTestData"(testName="CoverageStatsTest-stable");
-				var testData = testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
+				var logger = new lucee.extension.lcov.Logger( level="none" );
+				var parser = new lucee.extension.lcov.ExecutionLogParser( options={ logLevel: "none" } );
+				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=logger );
+				var testDataGenerator = new "../GenerateTestData"( testName="CoverageStatsTest" );
+				var testData = testDataGenerator.generateExlFilesForArtifacts( request.SERVERADMINPASSWORD );
 
-				testParseFiles(parser, statsComponent, testData, "CoverageStatsTest-stable");
-			});
-
-			it("test CoverageStatsTest-develop", function() {
-				var factory = new lucee.extension.lcov.CoverageComponentFactory();
-				var parser = factory.getComponent(name="ExecutionLogParser", overrideUseDevelop=true);
-				var statsComponent = factory.getComponent(name="CoverageStats", overrideUseDevelop=true);
-				var testDataGenerator = new "../GenerateTestData"(testName="CoverageStatsTest-develop");
-				var testData = testDataGenerator.generateExlFilesForArtifacts(request.SERVERADMINPASSWORD);
-
-				testParseFiles(parser, statsComponent, testData, "CoverageStatsTest-develop");
+				testParseFiles( parser, statsComponent, testData, "CoverageStatsTest" );
 			});
 
 			it("throws error if linesHit exceeds linesFound (fail-fast policy)", function() {
-				var factory = new lucee.extension.lcov.CoverageComponentFactory();
-				var merger = factory.getComponent( name="CoverageMerger" );
 				var logger = new lucee.extension.lcov.Logger( level="none" );
 				var statsComponent = new lucee.extension.lcov.CoverageStats( logger=logger );
 				// Create a synthetic mergedResults struct with invalid stats

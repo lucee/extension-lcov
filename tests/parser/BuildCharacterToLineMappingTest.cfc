@@ -4,7 +4,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		describe( "buildCharacterToLineMapping - verify correct format", function() {
 
 			it( "should return array of line start positions", function() {
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 
 				// Simple 3-line file
 				var content = "line 1" & chr(10) & "line 2" & chr(10) & "line 3";
@@ -21,7 +21,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should handle empty file", function() {
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 				var lineMapping = processor.buildCharacterToLineMapping( "" );
 
 				expect( arrayLen( lineMapping ) ).toBe( 1, "Empty file has 1 line start at position 1" );
@@ -29,7 +29,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should handle file with no newlines", function() {
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 				var lineMapping = processor.buildCharacterToLineMapping( "single line" );
 
 				expect( arrayLen( lineMapping ) ).toBe( 1, "Single line file has 1 line start" );
@@ -37,7 +37,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should handle file with multiple newlines", function() {
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 
 				// 5 lines
 				var lines = [ "first", "second", "third", "fourth", "fifth" ];

@@ -3,7 +3,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
 		variables.logLevel = "info";
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="HtmlReporterValidationTest");

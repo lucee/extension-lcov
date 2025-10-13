@@ -48,25 +48,6 @@ Never silently skip or ignore missing source files as they are required to calcu
 - Subdirectories within output directories (e.g., `/html`, `/json`) can be created as needed
 - When using `expandPath()` on directories, always check they exist first to avoid Lucee path resolution issues
 
-### The /develop Folder and Component Swapping Pattern
-
-The `/develop` folder contains experimental or optimized versions of core components (such as `CoverageBlockProcessor`, `CoverageStats`, etc). To support seamless switching between the stable and develop implementations, the codebase uses a **factory pattern**:
-
-- The `CoverageComponentFactory` component provides methods to obtain either the stable or develop version of a component.
-- The factory supports both a global flag (`useDevelop`) and a per-call override (e.g., `getCoverageBlockProcessor(useDevelop=true)`).
-- All core logic and tests must use the factory to instantiate these components, never directly with `new`.
-- This ensures that tests can compare stable and develop implementations side-by-side, and that the main code can be switched globally or per-call for experiments or rollouts.
-
-Example usage of factory with develop folder:
-
-```cfml
-var factory = new lucee.extension.lcov.CoverageComponentFactory();
-var stableBlockProcessor = factory.getCoverageBlockProcessor(useDevelop=false);
-var developBlockProcessor = factory.getCoverageBlockProcessor(useDevelop=true);
-```
-
-See [develop/README.md](source/components/lucee/extension/lcov/develop/README.md) for more details on the develop branch and its usage.
-
 ### Assets
 
 - Assets are included inline, but read from normal `js` and `css` files.

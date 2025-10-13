@@ -4,9 +4,8 @@ component {
 		if (len(arguments.adminPassword)) {
 			variables.exeLogger = new exeLogger(arguments.adminPassword);
 		}
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
-		var useDev = arguments.useDevelop ?: false;
-		variables.CoverageBlockProcessor = variables.factory.getComponent(name="CoverageBlockProcessor", overrideUseDevelop=useDev);
+		var logger = new lucee.extension.lcov.Logger( level="none" );
+		variables.CoverageBlockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=logger );
 		return this;
 	}
 

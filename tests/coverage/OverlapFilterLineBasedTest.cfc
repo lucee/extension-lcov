@@ -2,41 +2,33 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.logLevel = "info";
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
 	}
 
 	function run() {
 		describe("OverlapFilter - Line-Based Tests", function() {
 			it("should exclude large blocks that encompass smaller, more specific blocks", function() {
-				var develop = excludeLargeBlocks(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=true));
-				var stable = excludeLargeBlocks(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=false));
-				compareResults(develop, stable, "exclude-large-blocks");
-				testExcludeLargeBlocks(develop, "develop");
-				testExcludeLargeBlocks(stable, "stable");
+				var processor = new lucee.extension.lcov.coverage.OverlapFilterLine( logger=variables.logger );
+				var result = excludeLargeBlocks( processor );
+				testExcludeLargeBlocks( result );
 			});
 
 			it("should not exclude when no whole-file block exists", function() {
-				var develop = noWholeFileBlock(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=true));
-				var stable = noWholeFileBlock(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=false));
-				compareResults(develop, stable, "no-whole-file-block");
-				testNoWholeFileBlock(develop, "develop");
-				testNoWholeFileBlock(stable, "stable");
+				var processor = new lucee.extension.lcov.coverage.OverlapFilterLine( logger=variables.logger );
+				var result = noWholeFileBlock( processor );
+				testNoWholeFileBlock( result );
 			});
 
 			it("should handle single block", function() {
-				var develop = singleBlock(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=true));
-				var stable = singleBlock(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=false));
-				compareResults(develop, stable, "single-block");
-				testSingleBlock(develop, "develop");
-				testSingleBlock(stable, "stable");
+				var processor = new lucee.extension.lcov.coverage.OverlapFilterLine( logger=variables.logger );
+				var result = singleBlock( processor );
+				testSingleBlock( result );
 			});
 
 			it("should not exclude all blocks (at least one block is always kept)", function() {
-				var develop = allBlocksOverlap(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=true));
-				var stable = allBlocksOverlap(variables.factory.getComponent(name="OverlapFilterLine", overrideUseDevelop=false));
-				compareResults(develop, stable, "all-blocks-overlap");
-				testAllBlocksOverlap(develop, "develop");
-				testAllBlocksOverlap(stable, "stable");
+				var processor = new lucee.extension.lcov.coverage.OverlapFilterLine( logger=variables.logger );
+				var result = allBlocksOverlap( processor );
+				testAllBlocksOverlap( result );
 			});
 		});
 	}
@@ -60,13 +52,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		return processor.filter(blocksByFile, files, lineMappingsCache);
 	}
 
-	private function testExcludeLargeBlocks(result, label) {
+	private function testExcludeLargeBlocks( result ) {
 		// Should only have the smaller, more specific blocks
-		assertCoveredLines(result, 1, ["2", "3", "5"]);
+		assertCoveredLines( result, 1, ["2", "3", "5"] );
 	}
 
 	// Test: No whole-file block
-	private struct function noWholeFileBlock(any processor) {
+	private struct function noWholeFileBlock( any processor ) {
 		var blocks = [
 			[1, 2, 3, 50],
 			[1, 5, 5, 20]
@@ -78,15 +70,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var l = 1; l <= 10; l++) execLines[l] = true;
 		var files = { "#fileIdx#": { "path": "test.cfm", "executableLines": execLines } };
 		var lineMappingsCache = { "test.cfm": lineMapping };
-		return processor.filter(blocksByFile, files, lineMappingsCache);
+		return processor.filter( blocksByFile, files, lineMappingsCache );
 	}
 
-	private function testNoWholeFileBlock(result, label) {
-		assertCoveredLines(result, 1, ["2", "3", "5"]);
+	private function testNoWholeFileBlock( result ) {
+		assertCoveredLines( result, 1, ["2", "3", "5"] );
 	}
 
 	// Test: Single block
-	private struct function singleBlock(any processor) {
+	private struct function singleBlock( any processor ) {
 		var blocks = [[1, 1, 10, 100]];
 		var lineMapping = [1, 11];
 		var fileIdx = 1;
@@ -95,15 +87,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var l = 1; l <= 10; l++) execLines[l] = true;
 		var files = { "#fileIdx#": { "path": "test.cfm", "executableLines": execLines } };
 		var lineMappingsCache = { "test.cfm": lineMapping };
-		return processor.filter(blocksByFile, files, lineMappingsCache);
+		return processor.filter( blocksByFile, files, lineMappingsCache );
 	}
 
-	private function testSingleBlock(result, label) {
-		assertCoveredLines(result, 1, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+	private function testSingleBlock( result ) {
+		assertCoveredLines( result, 1, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] );
 	}
 
 	// Test: All blocks overlap
-	private struct function allBlocksOverlap(any processor) {
+	private struct function allBlocksOverlap( any processor ) {
 		// All blocks overlap, but at least one should be kept
 		var blocks = [
 			[1, 1, 10, 100],   // Large block (whole file)
@@ -117,21 +109,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		for (var l = 1; l <= 10; l++) execLines[l] = true;
 		var files = { "#fileIdx#": { "path": "test.cfm", "executableLines": execLines } };
 		var lineMappingsCache = { "test.cfm": lineMapping };
-		return processor.filter(blocksByFile, files, lineMappingsCache);
+		return processor.filter( blocksByFile, files, lineMappingsCache );
 	}
 
-	private function testAllBlocksOverlap(result, label) {
+	private function testAllBlocksOverlap( result ) {
 		// At least one block should be kept (all lines covered)
-		assertCoveredLines(result, 1, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
-	}
-
-	// Helper: Compare two result structs for equality
-	private void function compareResults(any develop, any stable, string label) {
-		var keys = structKeyArray(develop);
-		for (var key in keys) {
-			expect(stable).toHaveKey(key, "Key missing in stable: #key# for test: #label#");
-			expect(develop[key]).toBe(stable[key], "Mismatch for key #key# in test: #label#");
-		}
+		assertCoveredLines( result, 1, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"] );
 	}
 
 	// Helper: Assert that the result[fileIdx] contains exactly the expected lines

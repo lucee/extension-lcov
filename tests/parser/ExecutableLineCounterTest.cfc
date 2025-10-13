@@ -50,26 +50,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				}).toThrow();
 			});
 
-			describe("linesFound never exceeds linesSource (simple)", function() {
-				it("base/simple", function() {
-					var counter = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
-					checkLinesFoundNeverExceedsLinesSource_Simple( counter );
-				});
-				it("develop/simple", function() {
-					var counter = new lucee.extension.lcov.develop.ast.ExecutableLineCounter( logger=variables.logger );
-					checkLinesFoundNeverExceedsLinesSource_Simple( counter );
-				});
+			it("linesFound never exceeds linesSource (simple)", function() {
+				var counter = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
+				checkLinesFoundNeverExceedsLinesSource_Simple( counter );
 			});
 
-			xdescribe("linesFound never exceeds linesSource (AST)", function() {
-				it("base/AST", function() {
-					var counter = new lucee.extension.lcov.ExecutableLineCounter();
-					checkLinesFoundNeverExceedsLinesSource_AST(counter);
-				});
-				it("develop/AST", function() {
-					var counter = new lucee.extension.lcov.develop.ExecutableLineCounter();
-					checkLinesFoundNeverExceedsLinesSource_AST(counter, false);
-				});
+			xit("linesFound never exceeds linesSource (AST)", function() {
+				var counter = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
+				checkLinesFoundNeverExceedsLinesSource_AST( counter );
 			});
 		});
 

@@ -4,7 +4,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		describe( "BlockAggregator - Block format conversion and aggregation", function() {
 
 			it( "should convert aggregated blocks to storage format", function() {
-				var aggregator = new lucee.extension.lcov.BlockAggregator();
+				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 
 				// Create aggregated blocks in tab-delimited format (as returned by CoverageAggregator)
 				// Format: key = "fileIdx\tstartPos\tendPos", value = [fileIdx, startPos, endPos, hitCount, execTime]
@@ -48,7 +48,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should handle missing call tree data gracefully", function() {
-				var aggregator = new lucee.extension.lcov.BlockAggregator();
+				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 
 				// Aggregated blocks
 				var aggregatedBlocks = {};
@@ -78,7 +78,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				result.addBlock( 0, 190, 199, { hitCount: 1, execTime: 50, isChild: false } );  // Line 2 (pos 190 is in range 101-200)
 
 				// Use BlockAggregator to aggregate blocks to lines
-				var aggregator = new lucee.extension.lcov.BlockAggregator();
+				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 				var lineCoverage = aggregator.aggregateBlocksToLines( result, 0, lineMapping );
 
 				expect( lineCoverage ).toBeStruct();
@@ -118,7 +118,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				};
 
 				// Aggregate all blocks
-				var aggregator = new lucee.extension.lcov.BlockAggregator();
+				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 				var coverage = aggregator.aggregateAllBlocksToLines( result, files );
 
 				expect( coverage ).toBeStruct();
@@ -136,7 +136,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should aggregate merged blocks to line coverage", function() {
-				var aggregator = new lucee.extension.lcov.BlockAggregator();
+				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 
 				// Create merged blocks (keyed by file path, not index)
 				// Character positions need to map correctly to line numbers

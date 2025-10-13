@@ -12,9 +12,6 @@ component {
 		variables.options = arguments.options;
 		var logLevel = variables.options.logLevel ?: "none";
 		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
-		variables.componentFactory = new lucee.extension.lcov.CoverageComponentFactory();
-		// Optionally allow per-instance override
-		variables.useDevelop = arguments.options.useDevelop ?: variables.componentFactory.getUseDevelop();
 		return this;
 	}
 
@@ -39,7 +36,6 @@ component {
 
 		variables.logger.debug("Processing execution logs from: " & arguments.executionLogDir);
 
-		var factory = new lucee.extension.lcov.CoverageComponentFactory();
 		// Create shared AST cache for all parsers to avoid re-parsing same files 179+ times
 		var sharedAstCache = {};
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
@@ -71,7 +67,7 @@ component {
 		// Process small files in parallel
 		if (arrayLen(smallFiles) > 0) {
 			var smallFileResults = arrayMap(smallFiles, function(fileInfo) {
-				return processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, options, factory, sharedAstCache);
+				return processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, options, sharedAstCache);
 			}, true);  // parallel=true
 
 			for (var result in smallFileResults) {
@@ -81,7 +77,7 @@ component {
 
 		// Process large files sequentially (they use internal parallelism)
 		for (var fileInfo in largeFiles) {
-			var jsonPath = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, factory, sharedAstCache);
+			var jsonPath = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, sharedAstCache);
 			arrayAppend(jsonFilePaths, jsonPath);
 		}
 
@@ -89,8 +85,9 @@ component {
 		return jsonFilePaths;
 	}
 
-	private string function processExlFile(required string exlPath, required string fileName, required numeric sizeMb, required struct options, required any factory, required struct sharedAstCache) {
-		var exlParser = arguments.factory.getComponent(name="ExecutionLogParser", initArgs={options: arguments.options, sharedAstCache: arguments.sharedAstCache});
+	private string function processExlFile(required string exlPath, required string fileName, required numeric sizeMb, required struct options, required struct sharedAstCache) {
+		var logger = new lucee.extension.lcov.Logger( level=arguments.options.logLevel ?: "none" );
+		var exlParser = new lucee.extension.lcov.ExecutionLogParser( options=arguments.options, sharedAstCache=arguments.sharedAstCache );
 
 		variables.logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
 
@@ -101,7 +98,8 @@ component {
 			false  // writeJsonCache - we handle JSON writing after stats
 		);
 
-		result = arguments.factory.getComponent(name="CoverageStats").calculateCoverageStats(result);
+		var statsComponent = new lucee.extension.lcov.CoverageStats( logger=logger );
+		result = statsComponent.calculateCoverageStats( result );
 
 		// Set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
 		// Include unique identifier from .exl filename to avoid overlaps between multiple execution runs

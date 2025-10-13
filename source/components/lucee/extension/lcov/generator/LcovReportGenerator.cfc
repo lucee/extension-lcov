@@ -18,7 +18,7 @@ component extends="ReportGenerator" {
 		var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
 		var merged = merger.mergeResultsByFile( arguments.jsonFilePaths );
 
-		var blockAggregator = new lucee.extension.lcov.BlockAggregator();
+		var blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		var lineCoverage = {};
 
 		if ( structKeyExists( merged.mergedCoverage, "blocks" ) && structCount( merged.mergedCoverage.blocks ) > 0 ) {

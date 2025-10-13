@@ -11,7 +11,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			it( "should aggregate blocks using real lineMapping from buildCharacterToLineMapping", function() {
 				var result = new lucee.extension.lcov.model.result();
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 
 				// Use real file content to get real lineMapping
 				var artifactPath = variables.testGen.getSourceArtifactsDir() & "/kitchen-sink-example.cfm";
@@ -32,7 +32,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				result.addBlock( 0, 500, 550, { hitCount: 3, execTime: 200, isChild: true } );
 
 				// Use BlockAggregator to aggregate blocks
-				var aggregator = new lucee.extension.lcov.BlockAggregator();
+				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 				var lineCoverage = aggregator.aggregateBlocksToLines( result, 0, lineMapping );
 
 				// Verify we got SOME line coverage (not empty)

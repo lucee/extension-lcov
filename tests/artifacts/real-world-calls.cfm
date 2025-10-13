@@ -10,12 +10,12 @@
 	// Line 10: Constructor with arguments
 	obj3 = new MathUtils( 5 );
 
-	// Line 13: Method call on factory
-	factory = new lucee.extension.lcov.CoverageComponentFactory();
-	component = factory.getComponent( name="CoverageBlockProcessor" );
+	// Line 13: Method call on processor
+	logger = new lucee.extension.lcov.Logger( level="none" );
+	component = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=logger );
 
 	// Line 17: Simple method call (not chained - too complex)
-	stats = factory.getComponent( name="CoverageStats" );
+	stats = new lucee.extension.lcov.CoverageStats( logger=logger );
 
 	echo("Done");
 </cfscript>

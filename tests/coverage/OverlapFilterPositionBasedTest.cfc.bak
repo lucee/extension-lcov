@@ -2,7 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 	function beforeAll() {
 		variables.logLevel = "info";
-		variables.logger = new lucee.extension.lcov.Logger( level="none" );
+		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
 	}
 
 	function run() {
@@ -12,64 +12,64 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it("should exclude large blocks that encompass smaller, more specific blocks", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = excludeLargeBlocks( processor );
-				// removed duplicate stable call
-				
-				testExcludeLargeBlocks( result );
-				
+				var develop = excludeLargeBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = excludeLargeBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "exclude-large-blocks");
+				testExcludeLargeBlocks(develop, "develop");
+				testExcludeLargeBlocks(stable, "stable");
 			});
 
 			it("should handle real-world exception.cfm blocks", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = exceptionCfmRealWorldBlocks( processor );
-				// removed duplicate stable call
-				
+				var develop = exceptionCfmRealWorldBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = exceptionCfmRealWorldBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "exception-cfm-real-world");
 			});
 
 			it("should handle loops.cfm pattern with overlapping for-loop block", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = loopsCfmPattern( processor );
-				// removed duplicate stable call
-				
-				testLoopsCfmPattern( result );
-				
+				var develop = loopsCfmPattern(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = loopsCfmPattern(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "loops-cfm-pattern");
+				testLoopsCfmPattern(develop, "develop");
+				testLoopsCfmPattern(stable, "stable");
 			});
 
 			it("should handle multi-line blocks without double counting", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = multiLineBlocks( processor );
-				// removed duplicate stable call
-				
-				testMultiLineBlocks( result );
-				
+				var develop = multiLineBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = multiLineBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "multi-line-blocks");
+				testMultiLineBlocks(develop, "develop");
+				testMultiLineBlocks(stable, "stable");
 			});
 
 			it("should handle adjacent non-overlapping blocks", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = adjacentBlocks( processor );
-				// removed duplicate stable call
-				
-				testAdjacentBlocks( result );
-				
+				var develop = adjacentBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = adjacentBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "adjacent-blocks");
+				testAdjacentBlocks(develop, "develop");
+				testAdjacentBlocks(stable, "stable");
 			});
 
 			it("should handle deeply nested blocks", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = nestedBlocks( processor );
-				// removed duplicate stable call
-				
-				testNestedBlocks( result );
-				
+				var develop = nestedBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = nestedBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "nested-blocks");
+				testNestedBlocks(develop, "develop");
+				testNestedBlocks(stable, "stable");
 			});
 
 			it("should handle dense code with multiple blocks per line", function() {
-				var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger ); var result = denseCodeBlocks( processor );
-				// removed duplicate stable call
-				
-				testDenseCodeBlocks( result );
-				
+				var develop = denseCodeBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=true));
+				var stable = denseCodeBlocks(variables.factory.getComponent(name="OverlapFilterPosition", overrideUseDevelop=false));
+				compareResults(develop, stable, "dense-code-blocks");
+				testDenseCodeBlocks(develop, "develop");
+				testDenseCodeBlocks(stable, "stable");
 			});
 		});
 	}
 
 	// Test: Aggregated format with execution counts preservation
 	private void function testAggregatedFormat() {
-		var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger );
+		var processor = variables.factory.getComponent(name="OverlapFilterPosition");
 
 		// Simulate aggregated data format: key -> [fileIdx, startPos, endPos, count, totalTime]
 		var aggregated = {
@@ -377,5 +377,30 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Should keep the specific inner blocks
 		expect(arrayLen(filteredBlocks)).toBeGT(5, "Should have multiple specific blocks remaining");
+	}
+
+	// Helper: Compare two result structs for equality
+	private void function compareResults(any develop, any stable, string label) {
+		var keys = structKeyArray(develop);
+		for (var key in keys) {
+			expect(stable).toHaveKey(key, "Key missing in stable: #key# for test: #label#");
+
+			// Compare arrays of blocks
+			var devBlocks = develop[key];
+			var stabBlocks = stable[key];
+			expect(arrayLen(devBlocks)).toBe(arrayLen(stabBlocks), "Different number of blocks for key #key# in test: #label#");
+
+			// Check each block exists in both (order may differ)
+			for (var block in devBlocks) {
+				var found = false;
+				for (var sBlock in stabBlocks) {
+					if (sBlock[2] == block[2] && sBlock[3] == block[3] && sBlock[4] == block[4]) {
+						found = true;
+						break;
+					}
+				}
+				expect(found).toBeTrue("Block [#block[2]#-#block[3]#] not found in stable for test: #label#");
+			}
+		}
 	}
 }

@@ -2,8 +2,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	
 	function beforeAll() {
 		variables.logLevel = "info";
-		var factory = new lucee.extension.lcov.CoverageComponentFactory();
-		variables.utils = factory.getComponent(name="ExecutionLogParser");
+		variables.utils = new lucee.extension.lcov.ExecutionLogParser( options={ logLevel: "info" } );
 	}
 	
 	function testParseMetadata() {

@@ -3,8 +3,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
 		variables.logLevel = "info";
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
-		variables.parser = variables.factory.getComponent(name="ExecutionLogParser");
+		variables.logger = new lucee.extension.lcov.Logger( level="none" );
+		variables.parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
 
 		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="MinTimeTest");

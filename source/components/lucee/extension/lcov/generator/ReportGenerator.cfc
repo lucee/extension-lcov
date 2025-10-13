@@ -7,7 +7,9 @@
 component {
 
 	public function init() {
-		variables.factory = new lucee.extension.lcov.CoverageComponentFactory();
+		var logger = new lucee.extension.lcov.Logger( level="none" );
+		variables.blockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=logger );
+		variables.coverageStats = new lucee.extension.lcov.CoverageStats( logger=logger );
 		return this;
 	}
 
@@ -66,7 +68,7 @@ component {
 	 * @content Content to write
 	 */
 	public void function writeOutputFile( required string outputFile, required string content ) {
-		variables.factory.getComponent( name="CoverageBlockProcessor" ).ensureDirectoryExists( getDirectoryFromPath( arguments.outputFile ) );
+		variables.blockProcessor.ensureDirectoryExists( getDirectoryFromPath( arguments.outputFile ) );
 		fileWrite( arguments.outputFile, arguments.content );
 	}
 
@@ -84,7 +86,7 @@ component {
 	 * @outputDir Directory to ensure exists
 	 */
 	public void function ensureDirectoryExists( required string outputDir ) {
-		variables.factory.getComponent( name="CoverageBlockProcessor" ).ensureDirectoryExists( arguments.outputDir );
+		variables.blockProcessor.ensureDirectoryExists( arguments.outputDir );
 	}
 
 	/**
@@ -121,8 +123,7 @@ component {
 	 * @return Stats struct
 	 */
 	public struct function aggregateCoverageStats( required array jsonFilePaths, required numeric processingTimeMs ) {
-		var statsComponent = variables.factory.getComponent( name="CoverageStats" );
-		return statsComponent.aggregateCoverageStats( arguments.jsonFilePaths, arguments.processingTimeMs );
+		return variables.coverageStats.aggregateCoverageStats( arguments.jsonFilePaths, arguments.processingTimeMs );
 	}
 
 	/**

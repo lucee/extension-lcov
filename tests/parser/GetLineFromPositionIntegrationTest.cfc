@@ -10,7 +10,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		describe( "getLineFromCharacterPosition - integration with real lineMapping", function() {
 
 			it( "should correctly map character positions to line numbers", function() {
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 
 				// Create realistic file content
 				var lines = [ "line 1", "line 2", "line 3", "line 4" ];
@@ -42,7 +42,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should work with real CFML file content", function() {
-				var processor = new lucee.extension.lcov.CoverageBlockProcessor();
+				var processor = new lucee.extension.lcov.coverage.CoverageBlockProcessor();
 
 				// Get artifact path from GenerateTestData
 				var artifactPath = variables.testGen.getSourceArtifactsDir() & "/kitchen-sink-example.cfm";
