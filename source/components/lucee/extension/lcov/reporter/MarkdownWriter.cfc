@@ -278,12 +278,11 @@ component {
 		arrayAppend(parts, repeatString("##", 4) & " Reports");
 		arrayAppend(parts, "");
 
-		// Add unit suffix to time column headers (unless displayUnit is "auto")
-		var unitSuffix = "";
-		if (variables.displayUnit != "auto") {
-			var unitSymbol = timeFormatter.getUnitInfo(variables.displayUnit).symbol;
-			unitSuffix = " (" & unitSymbol & ")";
-		}
+		// For index table, use nanoseconds for consistency (avoids rounding and mixed units)
+		// This is easier for LLMs to parse since all times are in the same unit
+		var tableDisplayUnit = variables.displayUnit == "auto" ? "nano" : variables.displayUnit;
+		var unitSymbol = timeFormatter.getUnitInfo(tableDisplayUnit).symbol;
+		var unitSuffix = " (" & unitSymbol & ")";
 
 		arrayAppend(parts, "| Script | Coverage | Lines Hit | Lines Found | Executions | Total Time" & unitSuffix & " | Child Time" & unitSuffix & " | Own Time" & unitSuffix & " |");
 		arrayAppend(parts, "|--------|----------|-----------|-------------|------------|------------|------------|----------|");
@@ -304,9 +303,9 @@ component {
 
 			// Calculate TOTAL time = Own + Child
 			var timeMicros = ownTimeMicros + childTimeMicros;
-			var timeDisplay = timeFormatter.formatTime(timeMicros, variables.displayUnit, false);
-			var childTimeDisplay = childTimeMicros > 0 ? timeFormatter.formatTime(childTimeMicros, variables.displayUnit, false) : "";
-			var ownTimeDisplay = ownTimeMicros > 0 ? timeFormatter.formatTime(ownTimeMicros, variables.displayUnit, false) : "";
+			var timeDisplay = timeFormatter.formatTime(timeMicros, tableDisplayUnit, false);
+			var childTimeDisplay = childTimeMicros > 0 ? timeFormatter.formatTime(childTimeMicros, tableDisplayUnit, false) : "";
+			var ownTimeDisplay = ownTimeMicros > 0 ? timeFormatter.formatTime(ownTimeMicros, tableDisplayUnit, false) : "";
 
 			arrayAppend(parts, "| " & scriptLink & " | " & coverage & "% | " & numberFormat(entry.totalLinesHit) & " | " & numberFormat(entry.totalLinesFound) & " | " & numberFormat(entry.totalExecutions) & " | " & timeDisplay & " | " & childTimeDisplay & " | " & ownTimeDisplay & " |");
 		}

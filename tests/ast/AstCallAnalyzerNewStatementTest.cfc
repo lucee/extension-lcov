@@ -12,8 +12,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var artifactsDir = variables.testDataGenerator.getSourceArtifactsDir();
 				var filePath = artifactsDir & "/ast/simple-new-statements.cfc";
 					// WORKAROUND: astFromString() treats .cfc files as StringLiteral (Lucee bug)
-			var ast = astFromPath( filePath );
-					fileWrite( "d:/work/lucee-extensions/extension-lcov/test-output/simple-new-statements-ast.json", serializeJSON( ast, true ) );
+				var ast = astFromPath( filePath );
 				var logger = new lucee.extension.lcov.Logger( level="trace" );
 				var analyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=logger );
 

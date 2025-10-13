@@ -27,6 +27,16 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					options = { separateFiles: false, logLevel: variables.logLevel }
 				);
 
+				// Generate HTML report for visual inspection
+				var htmlOutputDir = variables.testDataGenerator.getOutputDir() & "/html";
+				directoryCreate( htmlOutputDir );
+				lcovGenerateHtml(
+					executionLogDir = variables.testData.coverageDir,
+					outputDir = htmlOutputDir,
+					options = { logLevel: variables.logLevel, displayUnit: "auto" }
+				);
+				systemOutput( "HTML report: file:///" & replace( htmlOutputDir, "\", "/", "all" ) & "/index.html", true );
+
 				// Find and validate the request JSON file in the coverage dir
 				var jsonFiles = directoryList( variables.testData.coverageDir, false, "array", "*.json" );
 				expect( arrayLen( jsonFiles ) ).toBeGT( 0, "Should have at least one JSON file in coverage dir" );
