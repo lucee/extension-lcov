@@ -4,7 +4,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.adminPassword = request.SERVERADMINPASSWORD;
 		variables.logLevel = "info";
 
-		// Use GenerateTestData with test name - it handles directory creation and cleanup
 		variables.testDataGenerator = new "../GenerateTestData"(testName="lcovGenerateAllReportsTest");
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword=variables.adminPassword
@@ -13,155 +12,137 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.outputDir = variables.testDataGenerator.getOutputDir( "output" );
 	}
 
-	
+	function run() {
 
+		describe("lcovGenerateAllReports with minimal parameters", function() {
+			it("should generate all report types", function() {
+				var executionLogDir = variables.testLogDir;
+				var outputDir = variables.testDataGenerator.getOutputDir( "minimal" );
 
-	/**
-	 * @displayName "Given I have execution logs and call lcovGenerateAllReports with minimal parameters, When the function executes, Then it should generate all report types"
-	 */
-	function testGenerateAllReportsMinimal() {
-		// Given
-		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.testDataGenerator.getOutputDir( "minimal" );
-		
-		// When
-		var result = lcovGenerateAllReports(
-			executionLogDir=executionLogDir,
-			outputDir=outputDir
-		);
-		
-		// Then
-		expect(result).toBeStruct();
-		expect(result).toHaveKey("lcovFile");
-		expect(result).toHaveKey("htmlIndex");
-		expect(result).toHaveKey("jsonFiles");
-		expect(result).toHaveKey("stats");
-		
-		// Verify files were created
-		expect(fileExists(result.lcovFile)).toBeTrue("LCOV file should be created");
-		expect(fileExists(result.htmlIndex)).toBeTrue("HTML index should be created");
+				var result = lcovGenerateAllReports(
+					executionLogDir=executionLogDir,
+					outputDir=outputDir
+				);
+
+				assertValidAllReportsResult( result );
+				expect(fileExists(result.lcovFile)).toBeTrue("LCOV file should be created");
+				expect(fileExists(result.htmlIndex)).toBeTrue("HTML index should be created");
+			});
+		});
+
+		describe("lcovGenerateAllReports with options", function() {
+			it("should respect the options", function() {
+				var executionLogDir = variables.testLogDir;
+				var outputDir = variables.testDataGenerator.getOutputDir( "with-options" );
+				var options = {
+					displayUnit: "milli",
+					chunkSize: 25000
+				};
+
+				var result = lcovGenerateAllReports(
+					executionLogDir=executionLogDir,
+					outputDir=outputDir,
+					options=options
+				);
+
+				assertValidAllReportsResult( result );
+				expect(result.stats.processingTimeMs).toBeGT(0);
+			});
+		});
+
+		describe("lcovGenerateAllReports with filtering", function() {
+			it("should apply filters", function() {
+				var executionLogDir = variables.testLogDir;
+				var outputDir = variables.testDataGenerator.getOutputDir( "filtered" );
+				var options = {
+					allowList: ["/test"],
+					blocklist: ["/vendor", "/testbox"]
+				};
+
+				var result = lcovGenerateAllReports(
+					executionLogDir=executionLogDir,
+					outputDir=outputDir,
+					options=options
+				);
+
+				assertValidAllReportsResult( result );
+				expect(result.stats.totalFiles).toBeGTE(0);
+			});
+		});
+
+		describe("lcovGenerateAllReports with invalid log directory", function() {
+			it("should throw an exception", function() {
+				var invalidLogDir = "/non/existent/directory";
+				var outputDir = variables.outputDir & "/invalid";
+
+				expect(function() {
+					lcovGenerateAllReports(
+						executionLogDir=invalidLogDir,
+						outputDir=outputDir
+					);
+				}).toThrow();
+			});
+		});
+
+		describe("lcovGenerateAllReports with empty log directory", function() {
+			it("should handle gracefully", function() {
+				var emptyLogDir = variables.testDataGenerator.getOutputDir( "empty-logs" );
+				var outputDir = variables.testDataGenerator.getOutputDir( "empty" );
+
+				var result = lcovGenerateAllReports(
+					executionLogDir=emptyLogDir,
+					outputDir=outputDir
+				);
+
+				assertValidAllReportsResult( result );
+				expect(result.stats.totalFiles).toBe(0, "Should report zero files for empty directory");
+			});
+		});
+
+		describe("lcovGenerateAllReports return structure", function() {
+			it("should return complete structure", function() {
+				var executionLogDir = variables.testLogDir;
+				var outputDir = variables.testDataGenerator.getOutputDir( "structure-test" );
+
+				var result = lcovGenerateAllReports(
+					executionLogDir=executionLogDir,
+					outputDir=outputDir
+				);
+
+				assertValidAllReportsResult( result );
+				assertValidJsonFiles( result.jsonFiles );
+				assertValidStats( result.stats );
+			});
+		});
 	}
 
-	/**
-	 * @displayName "Given I have execution logs and call lcovGenerateAllReports with options, When the function executes, Then it should respect the options"
-	 */
-	function testGenerateAllReportsWithOptions() {
-		// Given
-		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.testDataGenerator.getOutputDir( "with-options" );
-		var options = {
-			displayUnit: "milli",
-			chunkSize: 25000
-		};
-		
-		// When
-		var result = lcovGenerateAllReports(
-			executionLogDir=executionLogDir,
-			outputDir=outputDir,
-			options=options
-		);
-		
-		// Then
-		expect(result).toBeStruct();
-		expect(result).toHaveKey("stats");
-		expect(result.stats).toHaveKey("processingTimeMs");
-		expect(result.stats.processingTimeMs).toBeGT(0);
+	// Helper functions
+	private string function normalizePath( required string path ) {
+		return replace( arguments.path, "\", "/", "all" );
 	}
 
-	/**
-	 * @displayName "Given I have execution logs and call lcovGenerateAllReports with filtering, When the function executes, Then it should apply filters"
-	 */
-	function testGenerateAllReportsWithFiltering() {
-		// Given
-		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.testDataGenerator.getOutputDir( "filtered" );
-		var options = {
-			allowList: ["/test"],
-			blocklist: ["/vendor", "/testbox"]
-		};
-		
-		// When
-		var result = lcovGenerateAllReports(
-			executionLogDir=executionLogDir,
-			outputDir=outputDir,
-			options=options
-		);
-		
-		// Then
-		expect(result).toBeStruct();
-		expect(result).toHaveKey("stats");
-		// Should have processed files since our test file matches allowList
-		expect(result.stats.totalFiles).toBeGTE(0);
+	private void function assertValidAllReportsResult( required struct result ) {
+		expect( arguments.result ).toBeStruct();
+		expect( arguments.result ).toHaveKey( "lcovFile" );
+		expect( arguments.result ).toHaveKey( "htmlIndex" );
+		expect( arguments.result ).toHaveKey( "htmlFiles" );
+		expect( arguments.result ).toHaveKey( "jsonFiles" );
+		expect( arguments.result ).toHaveKey( "stats" );
 	}
 
-	/**
-	 * @displayName "Given I call lcovGenerateAllReports with non-existent log directory, When the function executes, Then it should throw an exception"
-	 */
-	function testGenerateAllReportsWithInvalidLogDir() {
-		// Given
-		var invalidLogDir = "/non/existent/directory";
-		var outputDir = variables.outputDir & "/invalid";
-		
-		// When/Then
-		expect(function() {
-			lcovGenerateAllReports(
-				executionLogDir=invalidLogDir,
-				outputDir=outputDir
-			);
-		}).toThrow();
+	private void function assertValidJsonFiles( required struct jsonFiles ) {
+		expect( arguments.jsonFiles ).toHaveKey( "results" );
+		expect( arguments.jsonFiles ).toHaveKey( "merged" );
+		expect( arguments.jsonFiles ).toHaveKey( "stats" );
 	}
 
-	/**
-	 * @displayName "Given I have empty execution log directory and call lcovGenerateAllReports, When the function executes, Then it should handle gracefully"
-	 */
-	function testGenerateAllReportsWithEmptyLogDir() {
-		// Given
-		var emptyLogDir = variables.testDataGenerator.getOutputDir( "empty-logs" );
-		var outputDir = variables.testDataGenerator.getOutputDir( "empty" );
-		
-		// When
-		var result = lcovGenerateAllReports(
-			executionLogDir=emptyLogDir,
-			outputDir=outputDir
-		);
-		
-		// Then
-		expect(result).toBeStruct();
-		expect(result.stats.totalFiles).toBe(0, "Should report zero files for empty directory");
+	private void function assertValidStats( required struct stats ) {
+		expect( arguments.stats ).toHaveKey( "totalLinesFound" );
+		expect( arguments.stats ).toHaveKey( "totalLinesHit" );
+		expect( arguments.stats ).toHaveKey( "totalLinesSource" );
+		expect( arguments.stats ).toHaveKey( "coveragePercentage" );
+		expect( arguments.stats ).toHaveKey( "totalFiles" );
+		expect( arguments.stats ).toHaveKey( "processingTimeMs" );
 	}
 
-	/**
-	 * @displayName "Given I call lcovGenerateAllReports and verify return structure, When the function executes, Then it should return complete structure"
-	 */
-	function testGenerateAllReportsReturnStructure() {
-		// Given
-		var executionLogDir = variables.testLogDir;
-		var outputDir = variables.testDataGenerator.getOutputDir( "structure-test" );
-		
-		// When
-		var result = lcovGenerateAllReports(
-			executionLogDir=executionLogDir,
-			outputDir=outputDir
-		);
-		
-		// Then - Verify complete return structure matches API design
-		expect(result).toHaveKey("lcovFile");
-		expect(result).toHaveKey("htmlIndex");
-		expect(result).toHaveKey("htmlFiles");
-		expect(result).toHaveKey("jsonFiles");
-		expect(result).toHaveKey("stats");
-		
-		// Verify jsonFiles structure
-		expect(result.jsonFiles).toHaveKey("results");
-		expect(result.jsonFiles).toHaveKey("merged");
-		expect(result.jsonFiles).toHaveKey("stats");
-		
-		// Verify stats structure
-		expect(result.stats).toHaveKey("totalLinesFound");
-		expect(result.stats).toHaveKey("totalLinesHit");
-		expect(result.stats).toHaveKey("totalLinesSource");
-		expect(result.stats).toHaveKey("coveragePercentage");
-		expect(result.stats).toHaveKey("totalFiles");
-		expect(result.stats).toHaveKey("processingTimeMs");
-	}
 }

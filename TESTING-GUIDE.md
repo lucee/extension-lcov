@@ -5,7 +5,7 @@ This guide covers all testing practices, tools, and workflows for the Lucee LCOV
 ## Test Organization
 
 - Tests go in the `/tests` folder
-- Use TestBox framework, prefer BDD style
+- Use TestBox framework, only use BDD style
 - All tests must extend `org.lucee.cfml.test.LuceeTestCase`
 - All tests must include `labels="lcov"` on the component declaration
 - When running tests, always pass the filter `-DtestLabels="lcov"`
@@ -25,6 +25,8 @@ Leave artifacts in place for review. Use `GenerateTestData` component in `before
 - When writing `expect()` statements, pass in the object, i.e. let the matcher do the work, no `arrayLen()`, `structKeyExists()`, or `isNumeric()` in the argument for `expect()`
 - Only check for the existence of public methods (public API), not private methods
 - Admin password is stored in `request.SERVERADMINPASSWORD`, but only when using script-runner and the lucee bootstrap-tests.cfm runner
+- private helper methods go at the end of the files
+
 
 ### Logging
 
