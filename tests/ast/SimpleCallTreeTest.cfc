@@ -31,15 +31,33 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					var exlPath = exlFiles[1];
 					variables.logger.debug("Parsing: " & exlPath);
 
-					// Parse it
-					var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
-					var result = parser.parseExlFile(
-						exlPath: exlPath,
-						allowList: [],
-						blocklist: []
-					);
+					// Phase 1: Parse .exl file
+					var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: variables.logLevel} );
+					var jsonFilePaths = processor.parseExecutionLogs( variables.testDir );
 
-					// Save AST for debugging BEFORE calling getCallTree() which triggers analysis
+					// Phase 2: Extract AST metadata
+					var astMetadataPath = processor.extractAstMetadata( variables.testDir, jsonFilePaths );
+
+					// Phase 3: Build line coverage
+					var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+					lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
+
+					// Phase 4: Annotate CallTree
+					var callTreeAnnotator = new lucee.extension.lcov.coverage.CallTreeAnnotator( logger=variables.logger );
+					callTreeAnnotator.annotate( jsonFilePaths, astMetadataPath );
+
+					// Load enriched result from JSON
+					var jsonContent = fileRead( jsonFilePaths[1] );
+					var result = new lucee.extension.lcov.model.result();
+					var data = deserializeJSON( jsonContent );
+					for (var key in data) {
+						var setter = "set" & key;
+						if ( structKeyExists( result, setter ) ) {
+							result[setter]( data[key] );
+						}
+					}
+
+					// Save AST for debugging
 					var files = result.getFiles();
 					for (var fileId in files) {
 						if (structKeyExists(files[fileId], "ast")) {

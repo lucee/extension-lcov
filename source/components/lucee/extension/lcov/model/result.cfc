@@ -16,6 +16,8 @@ component accessors=true {
 	property name="callTree" type="struct" default="#{}#"; // call tree analysis data
 	property name="callTreeMetrics" type="struct" default="#{}#"; // call tree summary metrics
 	property name="isFile" type="boolean" default="false"; // true if this is a file-level result (merged), false if request-level
+	property name="aggregated" type="struct" default="#{}#"; // raw aggregated coverage data: {"fileIdx\tstartPos\tendPos": [fileIdx, startPos, endPos, hitCount, execTime]}
+	property name="flags" type="struct" default="#{}#"; // processing flags: {hasCallTree: false, hasBlocks: false, hasCoverage: false}
 
 
 	/**

@@ -16,19 +16,41 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function testParseFiles(){
 		expect(directoryExists(variables.testData.coverageDir)).toBeTrue("Coverage directory should exist");
 
-		var files = directoryList(variables.testData.coverageDir, false, "path", "*.exl");
-		expect(arrayLen(files)).toBeGT(0, "Should find some .exl files");
-		for (var file in files) {
-			var result = variables.parser.parseExlFile(file);
-			// Manually calculate canonical stats for test parity with processor
-			var statsComponent = new lucee.extension.lcov.CoverageStats( logger=new lucee.extension.lcov.Logger( level="none" ) );
-			result = statsComponent.calculateCoverageStats(result);
-			
+		// Phase 1: Parse .exl files
+		var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: variables.logLevel} );
+		var jsonFilePaths = processor.parseExecutionLogs( variables.testData.coverageDir );
+		expect(arrayLen(jsonFilePaths)).toBeGT(0, "Should find some .exl files");
+
+		// Phase 2: Extract AST metadata
+		var astMetadataPath = processor.extractAstMetadata( variables.testData.coverageDir, jsonFilePaths );
+
+		// Phase 3: Build line coverage
+		var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+		lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
+
+		// Test each result
+		for (var jsonPath in jsonFilePaths) {
+			// Skip ast-metadata.json
+			if ( findNoCase( "ast-metadata", jsonPath ) ) {
+				continue;
+			}
+
+			// Load enriched result
+			var jsonContent = fileRead( jsonPath );
+			var result = new lucee.extension.lcov.model.result();
+			var data = deserializeJSON( jsonContent );
+			for (var key in data) {
+				var setter = "set" & key;
+				if ( structKeyExists( result, setter ) ) {
+					result[setter]( data[key] );
+				}
+			}
+
 			//expect(result.validate(throw=false)).toBeEmpty();
-			expect(result.getFiles()).notToBeEmpty("Files should not be empty for " & file);
-			expect(result.getCoverage()).notToBeEmpty("Coverage should not be empty for " & file);
-			expect(result.getExeLog()).notToBeEmpty("ExeLog should not be empty for " & file);
-			expect(result.getMetadata()).notToBeEmpty("Metadata	 should not be empty for " & file);
+			expect(result.getFiles()).notToBeEmpty("Files should not be empty for " & jsonPath);
+			expect(result.getCoverage()).notToBeEmpty("Coverage should not be empty for " & jsonPath);
+			expect(result.getExeLog()).notToBeEmpty("ExeLog should not be empty for " & jsonPath);
+			expect(result.getMetadata()).notToBeEmpty("Metadata should not be empty for " & jsonPath);
 
 			var keys = {
 				"metadata": "struct",
@@ -41,15 +63,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			var json = result.getData();
 
 			for (var key in keys) {
-				expect(json).toHaveKey(key, "Parsed struct should have [" & key & "] for " & file);
-				expect(json[key]).toBeTypeOf(keys[key], "Parsed struct should have correct type for [" & key & "] in " & file);
+				expect(json).toHaveKey(key, "Parsed struct should have [" & key & "] for " & jsonPath);
+				expect(json[key]).toBeTypeOf(keys[key], "Parsed struct should have correct type for [" & key & "] in " & jsonPath);
 			}
 
 			var requiredStatsKeys = [
 				"totalLinesFound", "totalLinesHit", "totalLinesSource", "totalExecutions", "totalExecutionTime"
 			];
 			for (var statKey in requiredStatsKeys) {
-				expect(json.stats).toHaveKey(statKey, "[stats] should have key [" & statKey & "] for " & file);
+				expect(json.stats).toHaveKey(statKey, "[stats] should have key [" & statKey & "] for " & jsonPath);
 			}
 
 			var requiredFileStatsKeys = [
@@ -57,11 +79,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			];
 
 			// There should be at least one file entry
-			expect(structCount(json.files)).toBeGT(0, "[files] should not be empty for " & file);
+			expect(structCount(json.files)).toBeGT(0, "[files] should not be empty for " & jsonPath);
 			for (var fileKey in json.files) {
 				var fileStats = json.files[fileKey];
 				for (var statKey in requiredFileStatsKeys) {
-					expect(fileStats).toHaveKey(statKey, "[files][" & fileKey & "] should have key [" & statKey & "] for " & file);
+					expect(fileStats).toHaveKey(statKey, "[files][" & fileKey & "] should have key [" & statKey & "] for " & jsonPath);
 				}
 			}
 

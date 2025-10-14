@@ -30,9 +30,27 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Build full path to the log file
 				var logPath = variables.testData.coverageDir & variables.testData.coverageFiles[1];
 
-				// Parse the execution log
-				var parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
-				var parsedData = parser.parseExlFile(logPath);
+				// Phase 1: Parse execution log
+				var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: variables.logLevel} );
+				var jsonFilePaths = processor.parseExecutionLogs( variables.testData.coverageDir );
+
+				// Phase 2: Extract AST metadata
+				var astMetadataPath = processor.extractAstMetadata( variables.testData.coverageDir, jsonFilePaths );
+
+				// Phase 3: Build line coverage (converts aggregated → blocks → coverage)
+				var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+				lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
+
+				// Load enriched result from JSON
+				var jsonContent = fileRead( jsonFilePaths[1] );
+				var parsedData = new lucee.extension.lcov.model.result();
+				var data = deserializeJSON( jsonContent );
+				for (var key in data) {
+					var setter = "set" & key;
+					if ( structKeyExists( parsedData, setter ) ) {
+						parsedData[setter]( data[key] );
+					}
+				}
 
 				// Get position-based overlap filter
 				var overlapFilter = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger );

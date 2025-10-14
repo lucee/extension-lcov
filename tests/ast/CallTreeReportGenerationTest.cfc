@@ -35,36 +35,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					throw("No .exl files found in " & variables.testDir);
 				}
 
-				var exlPath = exlFiles[1];
-
-				// Parse the execution log
-				var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
-				var result = parser.parseExlFile(
-					exlPath: exlPath,
-					allowList: [],
-					blocklist: [],
-					includeCallTree: true
-				);
-
-				// Verify call tree data was generated
-				var callTree = result.getCallTree();
-
-				// Debug: Write the full result to see what we got
-				var debugPath = variables.outputDir & "/debug-result.json";
-				fileWrite(debugPath, serializeJSON(result));
-				variables.logger.debug("Debug result written to: " & debugPath);
-				variables.logger.debug("CallTree has " & structCount(callTree) & " entries");
-
-				expect(structCount(callTree)).toBeGT(0, "Result should have call tree data");
-
-				var metrics = result.getCallTreeMetrics();
-				expect(structCount(metrics)).toBeGT(0, "Result should have call tree metrics");
-
-				// Check call tree metrics
-				expect(structKeyExists(metrics, "totalBlocks")).toBeTrue("Should have totalBlocks");
-				expect(structKeyExists(metrics, "childTimeBlocks")).toBeTrue("Should have childTimeBlocks");
-				expect(structKeyExists(metrics, "builtInBlocks")).toBeTrue("Should have builtInBlocks");
-
+				// Generate HTML report (runs full pipeline including CallTree annotation)
 				var htmlOutputDir = variables.testDataGenerator.getOutputDir( "html" );
 				variables.logger.debug( "Creating HTML output directory: " & htmlOutputDir );
 
@@ -83,18 +54,28 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				// Check for Child Time column header
 				expect(indexHtml).toInclude("Child Time", "HTML should have Child Time column");
 
-				// Generate JSON report
-				var jsonPath = variables.outputDir & "/result.json";
-				fileWrite(jsonPath, serializeJSON(result));
-				expect(fileExists(jsonPath)).toBeTrue("JSON file should be created");
+				// Load the enriched result from the JSON files created by the pipeline
+				var jsonFiles = directoryList(variables.testDir, false, "array", "*.json");
+				var resultJson = "";
+				for (var jsonFile in jsonFiles) {
+					if (!findNoCase("ast-metadata", jsonFile)) {
+						resultJson = jsonFile;
+						break;
+					}
+				}
 
-				// Read and verify JSON structure
-				var jsonContent = deserializeJSON(fileRead(jsonPath));
+				expect(resultJson != "").toBeTrue("Should find result JSON file");
+
+				// Read and verify JSON structure has CallTree data
+				var jsonContent = deserializeJSON(fileRead(resultJson));
 				expect(structKeyExists(jsonContent, "callTree")).toBeTrue("JSON should contain callTree");
 				expect(structKeyExists(jsonContent, "callTreeMetrics")).toBeTrue("JSON should contain callTreeMetrics");
 
-				// Skip CallTreeReporter tests for now - focus on JSON validation
-				// The CallTreeReporter is a separate component that can be tested independently
+				// Verify call tree metrics structure
+				var metrics = jsonContent.callTreeMetrics;
+				expect(structKeyExists(metrics, "totalBlocks")).toBeTrue("Should have totalBlocks");
+				expect(structKeyExists(metrics, "childTimeBlocks")).toBeTrue("Should have childTimeBlocks");
+				expect(structKeyExists(metrics, "builtInBlocks")).toBeTrue("Should have builtInBlocks");
 			});
 
 			it("should generate separate HTML files when separateFiles is true", function() {
@@ -105,17 +86,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				if (arrayLen(exlFiles) == 0) {
 					return; // Skip if no files
 				}
-
-				var exlPath = exlFiles[1];
-
-				// Parse the execution log
-				var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
-				var result = parser.parseExlFile(
-					exlPath: exlPath,
-					allowList: [],
-					blocklist: [],
-					includeCallTree: true
-				);
 
 				// Create output directory for separate HTML files
 				var htmlOutputDir = variables.testDataGenerator.getOutputDir( "html-separate" );
@@ -174,23 +144,30 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					return; // Skip if no files
 				}
 
-				var exlPath = exlFiles[1];
+				// Run full pipeline to generate CallTree
+				var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: variables.logLevel} );
+				var jsonFilePaths = processor.parseExecutionLogs( variables.testDir );
+				var astMetadataPath = processor.extractAstMetadata( variables.testDir, jsonFilePaths );
+				var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+				lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
+				var callTreeAnnotator = new lucee.extension.lcov.coverage.CallTreeAnnotator( logger=variables.logger );
+				callTreeAnnotator.annotate( jsonFilePaths, astMetadataPath );
 
-				var parser = new lucee.extension.lcov.ExecutionLogParser(logLevel: "info");
-				var result = parser.parseExlFile(
-					exlPath: exlPath,
-					allowList: [],
-					blocklist: [],
-					includeCallTree: true
-				);
+				// Load enriched result from JSON
+				var jsonFile = jsonFilePaths[1]; // Get first non-ast-metadata JSON
+				for (var path in jsonFilePaths) {
+					if (!findNoCase("ast-metadata", path)) {
+						jsonFile = path;
+						break;
+					}
+				}
 
-				// Write result to JSON for inspection
-				var jsonPath = variables.outputDir & "/child-time-test.json";
-				fileWrite(jsonPath, serializeJSON(result));
+				var jsonData = deserializeJSON(fileRead(jsonFile));
 
 				// Verify call tree calculations
-				var metrics = result.getCallTreeMetrics();
-				expect(structCount(metrics)).toBeGT(0, "Result should have call tree metrics");
+				expect(structKeyExists(jsonData, "callTreeMetrics")).toBeTrue("Result should have call tree metrics");
+				var metrics = jsonData.callTreeMetrics;
+				expect(structCount(metrics)).toBeGT(0, "Metrics should not be empty");
 
 				// Check the metrics structure
 				expect(structKeyExists(metrics, "totalBlocks")).toBeTrue("Should have totalBlocks");
@@ -201,7 +178,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				expect(metrics.totalBlocks).toBeGT(0, "Should have tracked blocks");
 
 				// Verify call tree structure
-				var callTree = result.getCallTree();
+				expect(structKeyExists(jsonData, "callTree")).toBeTrue("Should have callTree");
+				var callTree = jsonData.callTree;
 				expect(structCount(callTree)).toBeGT(0, "Call tree should have entries");
 			});
 

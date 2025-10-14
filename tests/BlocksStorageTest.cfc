@@ -47,11 +47,18 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			});
 
 			it( "should parse .exl file and populate blocks", function() {
-				// Use generated test data and process it with ExecutionLogProcessor
+				// Phase 1: Parse .exl files → minimal JSON with aggregated blocks
 				var processor = new lucee.extension.lcov.ExecutionLogProcessor();
 				var jsonFilePaths = processor.parseExecutionLogs( variables.testData.coverageDir );
 
 				expect( arrayLen( jsonFilePaths ) ).toBeGT( 0, "Should have generated at least one JSON file" );
+
+				// Phase 2: Extract AST metadata (optional - not needed for blocks)
+				var astMetadataPath = processor.extractAstMetadata( variables.testData.coverageDir, jsonFilePaths );
+
+				// Phase 3: Build line coverage (converts aggregated → blocks → coverage)
+				var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=new lucee.extension.lcov.Logger( logLevel="none" ) );
+				lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
 
 				// Read the JSON file to get the result model
 				var jsonFile = jsonFilePaths[ 1 ];

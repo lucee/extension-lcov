@@ -117,4 +117,80 @@ component {
 		return jsonPath;
 	}
 
+	/**
+	 * Phase 2: Extract AST metadata (CallTree + executable lines) from unique source files.
+	 * Deduplicates files across all minimal JSONs and extracts metadata once per unique file.
+	 *
+	 * @executionLogDir Directory containing .exl files and minimal JSONs
+	 * @jsonFilePaths Array of minimal JSON file paths from Phase 1
+	 * @options Processing options
+	 * @return Path to ast-metadata.json file
+	 */
+	public string function extractAstMetadata(required string executionLogDir, required array jsonFilePaths, struct options = {}) {
+		var startTime = getTickCount();
+		variables.logger.debug( "Phase 2: Extracting AST metadata from unique source files" );
+
+		// 1. Load all minimal JSONs and find unique source files
+		var uniqueFiles = {};
+		for (var jsonPath in arguments.jsonFilePaths) {
+			if ( !fileExists( jsonPath ) ) {
+				variables.logger.warn( "Skipping missing JSON file: #jsonPath#" );
+				continue;
+			}
+
+			var jsonContent = fileRead( jsonPath );
+			var data = deserializeJSON( jsonContent );
+
+			// Extract file paths from files section
+			if ( structKeyExists( data, "files" ) && isStruct( data.files ) ) {
+				for (var fileIdx in data.files) {
+					var fileInfo = data.files[fileIdx];
+					if ( structKeyExists( fileInfo, "path" ) ) {
+						uniqueFiles[fileInfo.path] = true;
+					}
+				}
+			}
+		}
+
+		var uniqueFileCount = structCount( uniqueFiles );
+		variables.logger.debug( "Found #uniqueFileCount# unique source files across #arrayLen(arguments.jsonFilePaths)# minimal JSONs" );
+
+		// 2. Extract metadata for each unique file
+		var metadataExtractor = new lucee.extension.lcov.ast.AstMetadataExtractor( logger=variables.logger );
+		var metadata = metadataExtractor.extractMetadataForFiles( structKeyArray( uniqueFiles ) );
+
+		// 3. Build ast-metadata.json structure with checksums and timestamps
+		var metadataData = {
+			"cacheVersion": 1,
+			"files": {}
+		};
+
+		for (var filePath in metadata) {
+			if ( !fileExists( filePath ) ) {
+				variables.logger.warn( "Skipping metadata for missing file: #filePath#" );
+				continue;
+			}
+
+			var fileInfo = getFileInfo( filePath );
+			var fileContent = fileRead( filePath );
+
+			metadataData.files[filePath] = {
+				"checksum": hash( fileContent, "MD5" ),
+				"lastModified": fileInfo.lastModified,
+				"callTree": metadata[filePath].callTree,
+				"executableLineCount": metadata[filePath].executableLineCount,
+				"executableLines": metadata[filePath].executableLines
+			};
+		}
+
+		// 4. Write ast-metadata.json
+		var metadataJsonPath = arguments.executionLogDir & "/ast-metadata.json";
+		fileWrite( metadataJsonPath, serializeJSON( metadataData, false ) );
+
+		var elapsedTime = getTickCount() - startTime;
+		variables.logger.debug( "Phase 2: Wrote ast-metadata.json with #structCount(metadataData.files)# files in #elapsedTime#ms" );
+
+		return metadataJsonPath;
+	}
+
 }

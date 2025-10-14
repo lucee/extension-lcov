@@ -160,56 +160,34 @@ component accessors="true" {
 			lineMappingsCache
 		);
 
-		// STAGE 1.6, 1.7, 1.8: Process call tree and convert to blocks
-		var callTreeResult = variables.callTreeProcessor.processCallTree(
-			aggregationResult.aggregated,
-			files,
-			arguments.callTreeAnalyzer
-		);
+		// Store aggregated format (Phase 1 - minimal JSON)
+		arguments.coverageData.setAggregated( aggregationResult.aggregated );
 
-		// Store blocks in result
-		arguments.coverageData.setBlocks(callTreeResult.blocks);
-
-		// STAGE 2 & 2.5: Aggregate blocks to lines and add zero counts
-		var aggregatorStart = getTickCount();
-		var coverage = variables.blockToLineAggregator.aggregateBlocksToLines(
-			arguments.coverageData,
-			callTreeResult.blocks,
-			files,
-			lineMappingsCache
-		);
-		var processingTime = getTickCount() - aggregatorStart;
+		// Set flags to indicate no enrichment has been done yet
+		arguments.coverageData.setFlags({
+			"hasCallTree": false,
+			"hasBlocks": false,
+			"hasCoverage": false
+		});
 
 		// Calculate totals and store performance data
 		var totalTime = getTickCount() - start;
-		var timePerAggregatedEntry = aggregationResult.aggregatedEntries > 0
-			? numberFormat((processingTime / aggregationResult.aggregatedEntries), "0.00")
-			: "0";
 
 		arguments.coverageData.setParserPerformance({
 			"processingTime": totalTime,
-			"timePerEntry": timePerAggregatedEntry,
-			"optimizationsApplied": ["pre-aggregation", "array-storage", "reference-variables", "direct-chr9", "ast-call-tree", "streaming-aggregation"],
+			"optimizationsApplied": ["pre-aggregation", "array-storage", "streaming-aggregation"],
 			"preAggregation": {
 				"aggregatedEntries": aggregationResult.aggregatedEntries,
 				"duplicatesFound": aggregationResult.duplicateCount,
-				"aggregationTime": aggregationResult.aggregationTime,
-				"processingTime": processingTime,
-				"timePerAggregatedEntry": timePerAggregatedEntry
+				"aggregationTime": aggregationResult.aggregationTime
 			},
 			"memoryOptimizations": true,
 			"parallelProcessing": false
 		});
-		arguments.coverageData.setCoverage(coverage);
 
-		// Add call tree data if available
-		if (!structIsEmpty(callTreeResult.callTreeData)) {
-			if (arguments.includeCallTree) {
-				arguments.coverageData.setCallTree(callTreeResult.callTreeData.callTree);
-			}
-			arguments.coverageData.setCallTreeMetrics(callTreeResult.callTreeData.callTreeMetrics);
-		}
-
+		// Phase 1 complete - STOP HERE
+		// No CallTree, no blocks, no coverage yet
+		// Those happen later in Phase 3/4
 		return arguments.coverageData;
 	}
 

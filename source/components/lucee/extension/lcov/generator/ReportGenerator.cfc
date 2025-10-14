@@ -63,6 +63,44 @@ component {
 	}
 
 	/**
+	 * Phase 2: Extract AST metadata from unique source files
+	 * @executionLogDir Directory containing .exl files and minimal JSONs
+	 * @jsonFilePaths Array of JSON file paths from Phase 1
+	 * @options Processing options
+	 * @return Path to ast-metadata.json
+	 */
+	public string function extractAstMetadata( required string executionLogDir, required array jsonFilePaths, required struct options ) {
+		var logProcessor = new lucee.extension.lcov.ExecutionLogProcessor( arguments.options );
+		return logProcessor.extractAstMetadata( arguments.executionLogDir, arguments.jsonFilePaths, arguments.options );
+	}
+
+	/**
+	 * Phase 3: Build line coverage from aggregated blocks
+	 * @jsonFilePaths Array of JSON file paths
+	 * @astMetadataPath Path to ast-metadata.json (optional)
+	 * @options Processing options
+	 * @return Array of JSON file paths
+	 */
+	public array function buildLineCoverage( required array jsonFilePaths, string astMetadataPath, required struct options ) {
+		var logger = createLogger( arguments.options.logLevel ?: "none" );
+		var coverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger );
+		return coverageBuilder.buildCoverage( arguments.jsonFilePaths, arguments.astMetadataPath ?: "" );
+	}
+
+	/**
+	 * Phase 4: Annotate CallTree (mark blocks with isChildTime flags)
+	 * @jsonFilePaths Array of JSON file paths
+	 * @astMetadataPath Path to ast-metadata.json
+	 * @options Processing options
+	 * @return Array of JSON file paths
+	 */
+	public array function annotateCallTree( required array jsonFilePaths, required string astMetadataPath, required struct options ) {
+		var logger = createLogger( arguments.options.logLevel ?: "none" );
+		var callTreeAnnotator = new lucee.extension.lcov.coverage.CallTreeAnnotator( logger );
+		return callTreeAnnotator.annotate( arguments.jsonFilePaths, arguments.astMetadataPath );
+	}
+
+	/**
 	 * Write content to output file, ensuring directory exists
 	 * @outputFile Path to output file
 	 * @content Content to write

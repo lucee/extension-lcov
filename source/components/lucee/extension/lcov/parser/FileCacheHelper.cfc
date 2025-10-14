@@ -25,6 +25,13 @@ component {
 	 */
 	public void function ensureFileCached(required string path) {
 		if (!structKeyExists(variables.fileContentsCache, arguments.path)) {
+			if (!fileExists(arguments.path)) {
+				throw(
+					type="ExecutionLogParser.SourceFileNotFound",
+					message="Source file not found: " & arguments.path,
+					detail="The execution log references a source file that does not exist on disk."
+				);
+			}
 			variables.fileContentsCache[arguments.path] = fileRead(arguments.path);
 		}
 	}

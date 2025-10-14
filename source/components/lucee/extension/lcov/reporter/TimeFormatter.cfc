@@ -53,7 +53,7 @@ component {
 			if (arguments.targetUnit != "auto") {
 				var unitInfo = getUnitInfo(arguments.targetUnit);
 				var _mask = arguments.mask ?: unitInfo.mask;
-				return arguments.includeUnits ? "0 " & arguments.targetUnit : "0";
+				return arguments.includeUnits ? "0 " & unitInfo.symbol : "0";
 			}
 			return arguments.includeUnits ? "0 μs" : "0";
 		}

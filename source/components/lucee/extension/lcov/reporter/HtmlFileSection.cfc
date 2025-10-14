@@ -23,6 +23,15 @@ component {
 		var coverage = result.getCoverageForFile(arguments.fileIndex);
 		var fileLines = result.getFileLines(arguments.fileIndex);
 
+		// Sanity check: file with coverage should have source code
+		if ( arrayLen( fileLines ) == 0 ) {
+			throw(
+				type = "HtmlGenerationError",
+				message = "Cannot generate HTML: source code missing for file [" & filePath & "]",
+				detail = "File has coverage data but no source lines. Source code must be hydrated before HTML generation. File index: " & arguments.fileIndex & ", exeLog: " & arguments.result.getExeLog()
+			);
+		}
+
 		var tableClass = "file-table-" & left(hash(filePath, "md5"), 8);
 
 		// Generate heatmaps

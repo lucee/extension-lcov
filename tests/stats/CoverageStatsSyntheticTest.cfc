@@ -410,7 +410,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					coverage: {
 						"/tmp/SameFile.cfm": {
 							"20": [2, 400, 0], // extra line 20
-							"22": [1, 200]  // extra line 22
+							"22": [1, 200, 0]  // extra line 22
 						}
 					}
 				});

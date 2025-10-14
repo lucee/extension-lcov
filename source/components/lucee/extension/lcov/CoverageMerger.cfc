@@ -274,13 +274,14 @@ component {
 				}
 
 				if (containsFile) {
-					var callTree = sourceResult.getCallTree();
+					// Get blocks for this file - blocks have execTime and isChild properties
+					var blocks = sourceResult.getBlocksForFile(targetFileIdx);
 					// Sum up child times for blocks in this file
-					for (var blockKey in callTree) {
-						var block = callTree[blockKey];
-						// Check if this block belongs to the file we're processing
-						if (block.fileIdx == targetFileIdx && block.isChildTime) {
-							totalChildTime += block.executionTime;
+					for (var blockKey in blocks) {
+						var block = blocks[blockKey];
+						// Check if this block has isChild flag (only present after CallTree annotation)
+						if (structKeyExists(block, "isChild") && block.isChild) {
+							totalChildTime += block.execTime;
 						}
 					}
 				}
@@ -291,6 +292,11 @@ component {
 				totalChildTime: totalChildTime
 			};
 			mergedResult.setCallTreeMetrics(mergedMetrics);
+
+			// Also set totalChildTime in stats so HTML reporter can display it
+			var stats = mergedResult.getStats();
+			stats.totalChildTime = totalChildTime;
+			mergedResult.setStats(stats);
 		}
 	}
 

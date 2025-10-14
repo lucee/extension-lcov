@@ -28,10 +28,10 @@ component {
 	 * Convert aggregated blocks (tab-delimited format) to storage format with isChild flags.
 	 * This is a format conversion utility - takes blocks from CoverageAggregator and enriches them with call tree data.
 	 * @aggregatedBlocks Struct with tab-delimited keys: "fileIdx\tstartPos\tendPos", values: [fileIdx, startPos, endPos, hitCount, execTime]
-	 * @callTreeBlocks Struct with call tree analysis results (same tab-delimited keys), values: {isChildTime: boolean, ...}
+	 * @callTreeBlocks Struct with call tree analysis results (same tab-delimited keys), values: {isChildTime: boolean, ...}. OPTIONAL - if not provided, all blocks have isChild=false
 	 * @return Struct keyed by fileIdx, containing blocks keyed by "startPos-endPos": {hitCount, execTime, isChild}
 	 */
-	public struct function convertAggregatedToBlocks( required struct aggregatedBlocks, required struct callTreeBlocks ) {
+	public struct function convertAggregatedToBlocks( required struct aggregatedBlocks, struct callTreeBlocks = {} ) {
 		var blocks = {};
 
 		for ( var key in arguments.aggregatedBlocks ) {
@@ -46,18 +46,11 @@ component {
 				blocks[ fileIdx ] = {};
 			}
 
-			// Get isChild flag from call tree analysis
-			var isChild = false;
-			if ( structKeyExists( arguments.callTreeBlocks, key ) ) {
-				var callTreeBlock = arguments.callTreeBlocks[ key ];
-				isChild = callTreeBlock.isChildTime ?: false;
-			}
-
 			var blockKey = startPos & "-" & endPos;
 			blocks[ fileIdx ][ blockKey ] = {
 				"hitCount": blockData[ 4 ],
 				"execTime": blockData[ 5 ],
-				"isChild": isChild
+				"isChild": arguments.callTreeBlocks[ key ]?.isChildTime ?: false
 			};
 		}
 
@@ -172,8 +165,16 @@ component {
 			var lineMapping = [];
 			if ( structKeyExists( fileInfo, "content" ) ) {
 				lineMapping = buildCharacterToLineMapping( fileInfo.content );
+			} else if ( structKeyExists( fileInfo, "path" ) && fileExists( fileInfo.path ) ) {
+				// Load content from disk if not present (minimal cache mode)
+				var fileContent = fileRead( fileInfo.path );
+				lineMapping = buildCharacterToLineMapping( fileContent );
 			} else {
-				continue; // Skip files without content (can't map positions to lines)
+				throw(
+					type = "BlockAggregationError",
+					message = "Cannot aggregate blocks to lines: missing file content and path for file [" & filePath & "]",
+					detail = "File info must contain either 'content' or 'path' to build line mappings for block aggregation"
+				);
 			}
 
 			// Aggregate blocks to lines for this file

@@ -42,6 +42,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect( arrayLen( jsonFiles ) ).toBeGT( 0, "Should have at least one JSON file in coverage dir" );
 
 				for ( var jsonFile in jsonFiles ) {
+					// Skip ast-metadata.json (doesn't have coverage)
+					if ( findNoCase( "ast-metadata", jsonFile ) ) {
+						continue;
+					}
+
 					validateChildTimeInFile( jsonFile );
 					validateRequestTotalInJson( jsonFile );
 				}

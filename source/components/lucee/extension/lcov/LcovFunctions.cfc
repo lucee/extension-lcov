@@ -161,8 +161,18 @@ component {
 		};
 		var _options = generator.prepareOptions( arguments.options, defaultOptions );
 
+		// Phase 1: Parse .exl files → minimal JSON files
 		var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
 
+		// Phase 2: Extract AST metadata (CallTree + executable lines)
+		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+
+		// Phase 3: Build line coverage (lazy - skips if already done)
+		generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
+
+		// Phase 4: Skip CallTree annotation (LCOV doesn't need it!)
+
+		// Phase 5: Generate LCOV report
 		var lcovContent = generator.buildLcovContent( jsonFilePaths, _options );
 
 		if ( len( arguments.outputFile ) ) {
@@ -198,8 +208,19 @@ component {
 		var logger = generator.createLogger( _options.logLevel );
 		generator.ensureDirectoryExists( arguments.outputDir );
 
+		// Phase 1: Parse .exl files → minimal JSON files
 		var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
 
+		// Phase 2: Extract AST metadata (CallTree + executable lines)
+		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+
+		// Phase 3: Build line coverage (lazy - skips if already done)
+		generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
+
+		// Phase 4: Annotate CallTree (lazy - skips if already done)
+		generator.annotateCallTree( jsonFilePaths, astMetadataPath, _options );
+
+		// Phase 5: Generate HTML reports
 		var htmlReporter = generator.createHtmlReporter( logger, _options.displayUnit );
 		htmlReporter.setOutputDir( arguments.outputDir );
 		var htmlIndex = "";
@@ -266,7 +287,19 @@ component {
 			var logger = generator.createLogger( _options.logLevel );
 			generator.ensureDirectoryExists( arguments.outputDir );
 
+			// Phase 1: Parse .exl files → minimal JSON files
 			var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+
+			// Phase 2: Extract AST metadata (CallTree + executable lines)
+			var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+
+			// Phase 3: Build line coverage (lazy - skips if already done)
+			generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
+
+			// Phase 4: Annotate CallTree (adds childTime to coverage)
+		generator.annotateCallTree( jsonFilePaths, astMetadataPath, _options );
+
+			// Phase 5: Load results and generate JSON reports
 			var results = generator.loadResultsFromJsonFiles( jsonFilePaths, false );
 
 			var jsonFiles = generator.writeCoreJsonFiles( results, jsonFilePaths, arguments.outputDir, _options.compact, logger, getTickCount() - startTime );
@@ -315,8 +348,18 @@ component {
 
 			var startTime = getTickCount();
 
+			// Phase 1: Parse .exl files → minimal JSON files
 			var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
 
+			// Phase 2: Extract AST metadata (CallTree + executable lines)
+			var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+
+			// Phase 3: Build line coverage (lazy - skips if already done)
+			generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
+
+			// Phase 4: Skip CallTree annotation (Summary doesn't need it!)
+
+			// Phase 5: Aggregate stats
 			var stats = generator.aggregateCoverageStats( jsonFilePaths, getTickCount() - startTime );
 
 			return stats;

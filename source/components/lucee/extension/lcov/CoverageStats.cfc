@@ -273,7 +273,8 @@ component accessors="true" {
 						var fileCoverage = coverage[fKey];
 						for (var lineNum in fileCoverage) {
 							if (structKeyExists(allExecutableLines[filePath], lineNum)) {
-								var hitCount = int(fileCoverage[lineNum][1]);
+								var lineData = fileCoverage[lineNum];
+								var hitCount = int(lineData[1]);
 								if (!structKeyExists(fileStats[filePath].hitCounts, lineNum)) {
 									fileStats[filePath].hitCounts[lineNum] = 0;
 									// Only count as hit if this line has actual hits > 0
@@ -282,6 +283,12 @@ component accessors="true" {
 									}
 								}
 								fileStats[filePath].hitCounts[lineNum] += hitCount;
+
+								// Track childTime from coverage data (lineData[3])
+								if (!structKeyExists(fileStats[filePath], "totalChildTime")) {
+									fileStats[filePath].totalChildTime = 0;
+								}
+								fileStats[filePath].totalChildTime += lineData[3];
 							}
 						}
 						break; // Found the matching file, no need to continue loop
@@ -297,10 +304,12 @@ component accessors="true" {
 		var totalLinesFound = 0;
 		var totalLinesHit = 0;
 		var totalLinesSource = 0;
+		var totalChildTime = 0;
 		for (var filePath in fileStats) {
 			totalLinesFound += fileStats[filePath].linesFound;
 			totalLinesHit += fileStats[filePath].linesHit;
 			totalLinesSource += fileStats[filePath].linesSource;
+			totalChildTime += fileStats[filePath].totalChildTime ?: 0;
 
 			// Calculate coverage percentage for each file
 			var fileCoveragePercentage = fileStats[filePath].linesFound > 0
@@ -317,6 +326,7 @@ component accessors="true" {
 			"totalLinesFound": totalLinesFound,
 			"totalLinesHit": totalLinesHit,
 			"totalLinesSource": totalLinesSource,
+			"totalChildTime": totalChildTime,
 			"coveragePercentage": numberFormat(coveragePercentage, "0.0"),
 			"fileStats": fileStats,
 			"executedFiles": executedFiles,

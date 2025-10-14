@@ -138,7 +138,7 @@ component {
 	/**
 	 * Mark execution blocks that represent child time (function calls)
 	 */
-	private struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) localmode="modern" {
+	public struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) localmode="modern" {
 		var markedBlocks = {};
 
 		// Build index of calls by fileIdx to avoid O(n²) nested loop
@@ -183,7 +183,7 @@ component {
 	/**
 	 * Calculate metrics based on child time blocks
 	 */
-	private struct function calculateChildTimeMetrics(required struct markedBlocks) localmode="modern" {
+	public struct function calculateChildTimeMetrics(required struct markedBlocks) localmode="modern" {
 		var metrics = {
 			"totalBlocks": structCount(arguments.markedBlocks),
 			"childTimeBlocks": 0,

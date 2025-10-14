@@ -11,12 +11,30 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			fileFilter = "kitchen-sink-example.cfm"
 		);
 
-		// Parse all .exl files in COVERAGEDIR using ExecutionLogParser
+		// Parse all .exl files using full pipeline (Phase 1-3)
+		var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: "none"} );
+		var jsonFilePaths = processor.parseExecutionLogs( variables.testData.COVERAGEDIR );
+		var astMetadataPath = processor.extractAstMetadata( variables.testData.COVERAGEDIR, jsonFilePaths );
+		var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+		lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
+
+		// Load enriched results from JSON files
 		variables.parsedResults = {};
-		var parser = new lucee.extension.lcov.ExecutionLogParser( logger=variables.logger );
-		for (var exlFile in variables.testData.COVERAGEFILES) {
-			var exlPath = variables.testData.COVERAGEDIR & exlFile;
-			variables.parsedResults[exlPath] = parser.parseExlFile(exlPath);
+		for (var jsonPath in jsonFilePaths) {
+			if ( findNoCase( "ast-metadata", jsonPath ) ) {
+				continue; // Skip ast-metadata.json
+			}
+			var jsonContent = fileRead( jsonPath );
+			var data = deserializeJSON( jsonContent );
+			var result = new lucee.extension.lcov.model.result();
+			for (var key in data) {
+				var setter = "set" & key;
+				if ( structKeyExists( result, setter ) ) {
+					result[setter]( data[key] );
+				}
+			}
+			// Use exeLog as key (like old code did with exlPath)
+			variables.parsedResults[result.getExeLog()] = result;
 		}
 		variables.logLevel = "info";
 	}
