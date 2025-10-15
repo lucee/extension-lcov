@@ -248,7 +248,7 @@ component {
 		var totalExecutions = 0;
 		var totalExecutionTimeMicros = 0;
 
-		for (var entry in arguments.indexData) {
+		cfloop( array=arguments.indexData, item="local.entry" ) {
 			totalLinesFound += entry.totalLinesFound;
 			totalLinesHit += entry.totalLinesHit;
 			totalExecutions += entry.totalExecutions;
@@ -287,7 +287,7 @@ component {
 		arrayAppend(parts, "| Script | Coverage | Lines Hit | Lines Found | Executions | Total Time" & unitSuffix & " | Child Time" & unitSuffix & " | Own Time" & unitSuffix & " |");
 		arrayAppend(parts, "|--------|----------|-----------|-------------|------------|------------|------------|----------|");
 
-		for (var entry in arguments.indexData) {
+		cfloop( array=arguments.indexData, item="local.entry" ) {
 			var coverage = entry.totalLinesFound > 0 ? numberFormat((entry.totalLinesHit / entry.totalLinesFound) * 100, "0.00") : "0.00";
 			var scriptName = entry.scriptName ?: "unknown";
 			var mdFile = replace(entry.htmlFile, ".html", ".md");

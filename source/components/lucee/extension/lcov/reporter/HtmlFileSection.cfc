@@ -1,5 +1,12 @@
 
 component {
+
+	public function init() {
+		variables.legend = new HtmlLegend();
+		variables.fileUtils = new lucee.extension.lcov.reporter.FileUtils();
+		return this;
+	}
+
 	/**
 	 * Generates the HTML for a single file's coverage section.
 	 * @fileIndex The canonical file index (numeric)
@@ -7,12 +14,10 @@ component {
 	 */
 	public string function generateFileSection(required numeric fileIndex, required result result,
 				required any htmlEncoder, required any heatmapCalculator, required any displayUnit) localmode=true {
-		var legend = new HtmlLegend();
 		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.displayUnit);
-		var fileUtils = new lucee.extension.lcov.reporter.FileUtils();
 
 		var filePath = result.getFileItem(arguments.fileIndex, "path");
-		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder, fileUtils);
+		var html = generateFileHeader(arguments.fileIndex, filePath, arguments.result, arguments.htmlEncoder, variables.fileUtils);
 
 		var stats = result.getFileItem(arguments.fileIndex);
 		var totalExecutionTime = result.getStatsProperty("totalExecutionTime");
@@ -44,7 +49,7 @@ component {
 			htmlEncoder, timeFormatter, sourceUnit, displayUnit);
 
 		html &= '</tbody></table>';
-		html &= legend.generateLegendHtml();
+		html &= variables.legend.generateLegendHtml();
 		html &= '</div></div>';
 		return html;
 	}

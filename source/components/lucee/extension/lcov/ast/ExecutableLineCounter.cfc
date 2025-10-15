@@ -28,7 +28,7 @@ component accessors="true" {
 	* @nodes Array of AST nodes to traverse
 	* @executableLines Struct to populate with executable line numbers (passed by reference)
 	*/
-	private void function traverseNodes(nodes, executableLines) localmode="modern" {
+	private void function traverseNodes(nodes, executableLines) localmode=true {
 		cfloop( array=arguments.nodes, item="local.node" ) {
 			if (!isStruct(node)) continue;
 
@@ -41,7 +41,7 @@ component accessors="true" {
 
 			// Recursively traverse ALL properties in the node
 			// This ensures we find all executable lines regardless of AST structure
-			cfloop( collection=node, item="local.key" ) {
+			cfloop( collection=node, key="local.key" ) {
 				// Skip metadata properties that don't contain executable code
 				if (key == "start" || key == "end" || key == "type" || key == "sourceLines") {
 					continue;
@@ -88,7 +88,7 @@ component accessors="true" {
 	* @throwOnError If true, throw on out-of-range or excess lines; if false, clamp.
 	* @return Struct with count and executableLines map
 	*/
-	public struct function countExecutableLinesFromAst(required struct ast, boolean throwOnError = true) localmode="modern" {
+	public struct function countExecutableLinesFromAst(required struct ast, boolean throwOnError = true) localmode=true {
 		var event = variables.logger.beginEvent("ExecutableLineCounter");
 
 		var executableLines = structNew( "regular" );
@@ -108,7 +108,7 @@ component accessors="true" {
 		var maxLine = arrayLen(sourceLines);
 		var invalidLines = [];
 		var filteredLines = structNew( "regular" );
-		cfloop( collection=executableLines, item="local.n" ) {
+		cfloop( collection=executableLines, key="local.n" ) {
 			if (n > 0 && (maxLine == 0 || n <= maxLine)) {
 				filteredLines[n] = true;
 			} else {
@@ -146,37 +146,4 @@ component accessors="true" {
 		}
 	}
 
-	/**
-	* Count non-empty, non-comment lines directly from source lines array.
-	* @deprecated Use countExecutableLinesFromAst() instead. This method over-counts non-executable lines.
-	* @sourceLines Array of source code lines
-	* @return Struct with count and executableLines map
-	*/
-	public struct function countExecutableLinesSimple(required array sourceLines) {
-		var instrumentedLineCount = 0;
-		var executableLines = [=];
-
-		cfloop( array=arguments.sourceLines, index="local.i", item="local.sourceLine" ) {
-			var line = trim(sourceLine);
-
-			// Skip empty lines
-			if (len(line) == 0) {
-				continue;
-			}
-
-			// Skip pure comment lines (starting with // or /* or *)
-			if (reFind("^(//|/\*|\*)", line)) {
-				continue;
-			}
-
-			// Count this as an instrumentable line
-			instrumentedLineCount++;
-			executableLines[i] = true;
-		}
-
-		return {
-			"count": instrumentedLineCount,
-			"executableLines": executableLines
-		};
-	}
 }

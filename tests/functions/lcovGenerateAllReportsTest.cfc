@@ -25,8 +25,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				);
 
 				assertValidAllReportsResult( result );
-				expect(fileExists(result.lcovFile)).toBeTrue("LCOV file should be created");
-				expect(fileExists(result.htmlIndex)).toBeTrue("HTML index should be created");
+				expect(fileExists(result.lcovFile)).toBeTrue("LCOV file should be created at: " & result.lcovFile);
+				expect(fileExists(result.htmlIndex)).toBeTrue("HTML index should be created at: " & result.htmlIndex);
 			});
 		});
 

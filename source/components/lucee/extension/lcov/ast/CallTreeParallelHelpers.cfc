@@ -14,7 +14,7 @@ component {
 	 * Process a single file to extract calls - for parallel execution
 	 * fileInfo is: [fileIdx, file, filePath, cached, fileCalls, astCallAnalyzer, helper]
 	 */
-	public function processFileForCalls( required array fileInfo ) localmode="modern" {
+	public function processFileForCalls( required array fileInfo ) localmode=true {
 		var fileIdx = fileInfo[ 1 ];
 		var file = fileInfo[ 2 ];
 		var filePath = fileInfo[ 3 ];
@@ -72,7 +72,7 @@ component {
 	 * chunkInfo is: [blocks array, callsMap]
 	 * callsMap is nested: {fileIdx: {position: {isChildTime, isBuiltIn, functionName}}}
 	 */
-	public function processBlockChunk( required array chunkInfo ) localmode="modern" {
+	public function processBlockChunk( required array chunkInfo ) localmode=true {
 		var blocks = chunkInfo[ 1 ];
 		var callsMap = chunkInfo[ 2 ];
 		var result = structNew( "regular" );
@@ -98,7 +98,7 @@ component {
 
 			// Check calls from this file using nested struct lookup
 			var fileCalls = callsMap[ fileIdx ] ?: {};
-			cfloop( collection=fileCalls, item="local.position" ) {
+			cfloop( collection=fileCalls, key="local.position" ) {
 				if ( position >= startPos && position <= endPos ) {
 					var callInfo = fileCalls[ position ];
 					isChildTime = callInfo.isChildTime ?: true;
@@ -125,7 +125,7 @@ component {
 	/**
 	 * Extract CFML tags and function calls from AST nodes - for parallel execution
 	 */
-	public void function extractCFMLTagsAndCalls( required any node, required array fileCalls ) localmode="modern" {
+	public void function extractCFMLTagsAndCalls( required any node, required array fileCalls ) localmode=true {
 		var node = arguments.node;
 		var fileCalls = arguments.fileCalls;
 
@@ -220,7 +220,7 @@ component {
 			}
 
 			// Recursively search children
-			cfloop( collection=node, item="local.key" ) {
+			cfloop( collection=node, key="local.key" ) {
 				if ( !arrayContains( variables.SKIP_KEYS, key ) && !isNull( node[ key ] ) ) {
 					this.extractCFMLTagsAndCalls( node[ key ], fileCalls );
 				}

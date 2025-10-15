@@ -29,7 +29,7 @@ component {
 		required struct validFileIds,
 		required struct files,
 		required struct lineMappingsCache
-	) localmode="modern" {
+	) localmode=true {
 		// STAGE 1: Pre-aggregate identical coverage entries
 		var aggregator = new lucee.extension.lcov.coverage.CoverageAggregator( logger=variables.logger );
 		var aggregationResult = aggregator.aggregate( arguments.exlPath, arguments.validFileIds );

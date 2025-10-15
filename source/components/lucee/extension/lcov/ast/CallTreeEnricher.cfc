@@ -2,6 +2,7 @@ component {
 
 	public function init(required Logger logger) {
 		variables.logger = arguments.logger;
+		variables.callTreeAnalyzer = new CallTreeAnalyzer( logger=variables.logger );
 		return this;
 	}
 
@@ -9,8 +10,7 @@ component {
 	 * Enriches a result model with child time analysis data.
 	 * This marks blocks that represent child time (function calls).
 	 */
-	public void function enrich(required any result, struct options = {}) localmode="modern" {
-		var callTreeAnalyzer = new CallTreeAnalyzer( logger=variables.logger );
+	public void function enrich(required any result, struct options = {}) localmode=true {
 
 		// Build aggregated data from the result's coverage
 		var aggregated = buildAggregatedFromResult(arguments.result);
@@ -19,7 +19,7 @@ component {
 		var files = arguments.result.getFiles();
 
 		// Analyze blocks to identify child time
-		var analysisResult = callTreeAnalyzer.analyzeCallTree(aggregated, files);
+		var analysisResult = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
 
 		// Add child time data to the result model
 		arguments.result.setCallTree(analysisResult.blocks);
@@ -35,12 +35,12 @@ component {
 	 * Builds aggregated execution data from a result model's coverage data.
 	 * Converts from per-line coverage format to position-based aggregated format.
 	 */
-	private struct function buildAggregatedFromResult(required any result) localmode="modern" {
+	private struct function buildAggregatedFromResult(required any result) localmode=true {
 		var aggregated = structNew("regular");
 		var coverage = arguments.result.getCoverage();
 		var files = arguments.result.getFiles();
 
-		cfloop( collection=coverage, item="local.fileIdx" ) {
+		cfloop( collection=coverage, key="local.fileIdx" ) {
 			var fileCoverage = coverage[fileIdx];
 			var fileData = files[fileIdx];
 
@@ -53,10 +53,9 @@ component {
 			}
 
 			var lines = fileData.lines;
-			var currentPos = 0;
-
+			
 			// Process each line of coverage
-			cfloop( collection=fileCoverage, item="local.lineNum" ) {
+			cfloop( collection=fileCoverage, key="local.lineNum" ) {
 				var lineData = fileCoverage[lineNum];
 				var hitCount = lineData[1];
 				var execTime = lineData[2];
@@ -90,7 +89,7 @@ component {
 	 * Gets the character position for a given line number.
 	 * Line 1 starts at position 0.
 	 */
-	private numeric function getCharacterPositionForLine(required array lines, required numeric lineNum) localmode="modern" {
+	private numeric function getCharacterPositionForLine(required array lines, required numeric lineNum) localmode=true {
 		if (arguments.lineNum <= 0 || arguments.lineNum > arrayLen(arguments.lines) + 1) {
 			return -1;
 		}
@@ -105,7 +104,7 @@ component {
 	/**
 	 * Updates result stats with child time metrics.
 	 */
-	private void function updateStatsWithCallTree(required any result, required struct metrics) localmode="modern" {
+	private void function updateStatsWithCallTree(required any result, required struct metrics) localmode=true {
 		var stats = arguments.result.getStats();
 
 		// Add child time summary to stats

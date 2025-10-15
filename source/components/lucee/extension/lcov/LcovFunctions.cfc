@@ -4,6 +4,7 @@ component {
 		if (len(arguments.adminPassword)) {
 			variables.exeLogger = new exeLogger(arguments.adminPassword);
 		}
+		// TODO not used?
 		var logger = new lucee.extension.lcov.Logger( level="none" );
 		variables.CoverageBlockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=logger );
 		return this;
@@ -217,33 +218,58 @@ component {
 		var startTime = getTickCount();
 		generator.ensureDirectoryExists( arguments.outputDir );
 
-		// Phase parseExecutionLogs: Parse .exl files → minimal JSON files
+		// Phase parseExecutionLogs: Parse .exl files → Raw Coverage JSON files
 		var parseResult = generator.parseExecutionLogs( arguments.executionLogDir, _options );
 		var jsonFilePaths = parseResult.jsonFilePaths;
 
 		// Phase extractAstMetadata: Extract AST metadata (CallTree + executable lines)
+		// Must happen BEFORE buildLineCoverage so AST data is available
 		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, parseResult.allFiles, _options );
-
-		// Phase buildLineCoverage+annotateCallTree: Build line coverage WITH CallTree (combined)
-		generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options, true );
 
 		// Phase generateReports: Generate HTML reports
 		var htmlReporter = generator.createHtmlReporter( logger, _options.displayUnit );
 		htmlReporter.setOutputDir( arguments.outputDir );
 		var htmlIndex = "";
 
-		// Process results based on separateFiles option
 		if (_options.separateFiles) {
-			var mergeFileEvent = logger.beginEvent("Merge File Reports");
-			var sourceFileJsons = generator.generateSeparateFileMergedResults( jsonFilePaths, logger, arguments.outputDir, _options.logLevel, true );
-			logger.commitEvent(mergeFileEvent);
-			generator.renderSeparateFileHtmlReports( sourceFileJsons, htmlReporter, logger );
-		}
+			// separateFiles: true → Per-file HTML (one per source file, aggregated across all requests)
+			// Phase earlyMergeToSourceFiles: Stream merge Raw Coverage JSONs → per-file results (Stage 2)
+			var mergedResults = generator.earlyMergeToSourceFiles( jsonFilePaths, _options );
 
-		// For regular mode, generate HTML reports for each request-based result
-		if (!_options.separateFiles) {
-			var results = generator.loadResultsFromJsonFiles( jsonFilePaths, false );
-			generator.renderRequestHtmlReports( jsonFilePaths, results, htmlReporter, arguments.outputDir, logger );
+			// Phase buildLineCoverageFromResults: Build coverage on merged results
+			var resultsWithCoverage = generator.buildLineCoverageFromResults(
+				mergedResults,
+				astMetadataPath,
+				_options,
+				true  // buildWithCallTree=true for HTML reports
+			);
+
+			// Hydrate source code for HTML generation
+			generator.hydrateSourceCodeForMergedResults( resultsWithCoverage, logger );
+
+			// Write JSON files (file-*.json) alongside HTML files
+			generator.writeJsonFilesFromResults( resultsWithCoverage, arguments.outputDir, logger );
+
+			// Write index.json with summary data
+			generator.writeIndexJson( resultsWithCoverage, arguments.outputDir, logger );
+
+			// Generate per-file HTML reports (file-*.html)
+			generator.renderHtmlReportsFromResults( resultsWithCoverage, htmlReporter, logger );
+		} else {
+			// separateFiles: false → Per-request HTML (one per .exl request)
+			// Load Raw Coverage JSON files (immutable, only aggregated data)
+			var rawResults = generator.loadResultsFromJsonFiles( jsonFilePaths, false );
+
+			// Phase buildLineCoverageFromResults: Build coverage in memory (don't write to disk)
+			var resultsWithCoverage = generator.buildLineCoverageFromResults(
+				rawResults,
+				astMetadataPath,
+				_options,
+				true  // buildWithCallTree=true for HTML reports
+			);
+
+			// Generate per-request HTML reports (request-*.html)
+			generator.renderRequestHtmlReports( jsonFilePaths, resultsWithCoverage, htmlReporter, arguments.outputDir, logger );
 		}
 
 		htmlIndex = htmlReporter.generateIndexHtml(arguments.outputDir);

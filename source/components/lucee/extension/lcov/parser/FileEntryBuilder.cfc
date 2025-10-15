@@ -17,43 +17,36 @@ component {
 
 	/**
 	 * Builds a file entry struct for inclusion in result.files[].
-	 * IMPORTANT: includeSourceCode and includeAst parameters control cache file size.
-	 * Defaults (false/false) create minimal ~1KB JSONs. Set to true for full report generation (261KB+).
+	 * IMPORTANT: includeSourceCode parameter controls cache file size.
+	 * Default (false) creates minimal ~1KB JSONs. Set to true for full report generation (261KB+).
+	 *
+	 * OPTIMIZATION: AST processing removed from parseExlFile phase.
+	 * linesFound is now set to 0 here and populated later from AST metadata (extracted in batch).
 	 *
 	 * @fileIndex File index from .exl file
 	 * @path File path
-	 * @ast Parsed AST object
 	 * @lineMapping Line mapping array
 	 * @fileContent Full file content string
 	 * @sourceLines Array of source lines
 	 * @includeSourceCode Whether to include source code in the result (default false for minimal JSONs)
-	 * @includeAst Whether to include AST in the result (default false for minimal JSONs)
 	 * @return struct File entry struct
 	 */
 	public struct function buildFileEntry(
 		required string fileIndex,
 		required string path,
-		required any ast,
 		required array lineMapping,
 		required string fileContent,
 		required array sourceLines,
-		boolean includeSourceCode = false,
-		boolean includeAst = false
+		boolean includeSourceCode = false
 	) {
-		// Count executable lines using AST
-		var lineInfo = variables.executableLineCounter.countExecutableLinesFromAst(arguments.ast);
-
+		// OPTIMIZATION: Skip AST processing during parseExlFile phase
+		// linesFound will be populated later from AST metadata (extracted once in batch)
 		var fileEntry = {
 			"path": arguments.path,
 			"linesSource": arrayLen(arguments.lineMapping),
-			"linesFound": lineInfo.count,
-			"executableLines": lineInfo.executableLines  // Temporary - used for zero-count population then removed
+			"linesFound": 0,  // Will be populated later from AST metadata
+			"executableLines": {}  // Will be populated later from AST metadata (struct for backward compat!)
 		};
-
-		// Include AST if requested (needed for CallTree analysis)
-		if (arguments.includeAst) {
-			fileEntry.ast = arguments.ast;
-		}
 
 		// CRITICAL DECISION POINT: Include source code or not?
 		if (arguments.includeSourceCode) {

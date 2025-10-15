@@ -15,7 +15,7 @@ component accessors="true" {
 	* @fileCoverage Struct containing files and coverage data (merged format)
 	* @return Struct with stats keyed per file path
 	*/
-	public struct function calculateLcovStats(required struct fileCoverage) localmode="modern" {
+	public struct function calculateLcovStats(required struct fileCoverage) localmode=true {
 		var startTime = getTickCount();
 		var fileCount = structCount(arguments.fileCoverage.files);
 
@@ -24,8 +24,8 @@ component accessors="true" {
 		var stats = {};
 
 		// OPTIMIZATION: Process all files in batch with minimal function calls
-		for (var file in files) {
-			var filePath = files[file].path;
+		cfloop( collection=files, key="local.file", value="local.fileData" ) {
+			var filePath = fileData.path;
 			var data = coverage[file];
 			var lineNumbers = structKeyArray(data);
 
@@ -40,22 +40,22 @@ component accessors="true" {
 			// Aggregate duplicate file entries: use max linesFound, sum linesHit, keep linesSource from any (should be same)
 			if (!structKeyExists(stats, filePath)) {
 				stats[filePath] = {
-					"linesFound": files[file].linesFound,
+					"linesFound": fileData.linesFound,
 					"linesHit": linesHit,
-					"linesSource": files[file].linesSource
+					"linesSource": fileData.linesSource
 				};
 			} else {
 				// Use max linesFound
-				if (files[file].linesFound > stats[filePath].linesFound) {
-					stats[filePath].linesFound = files[file].linesFound;
+				if (fileData.linesFound > stats[filePath].linesFound) {
+					stats[filePath].linesFound = fileData.linesFound;
 				}
 				// Sum linesHit (union of covered lines)
 				stats[filePath].linesHit += linesHit;
 			}
 
 			// Fail fast if linesFound > linesSource
-			if (files[file].linesFound > files[file].linesSource) {
-				throw(message="linesFound (" & files[file].linesFound & ") exceeds linesSource (" & files[file].linesSource & ") for file " & filePath);
+			if (fileData.linesFound > fileData.linesSource) {
+				throw(message="linesFound (" & fileData.linesFound & ") exceeds linesSource (" & fileData.linesSource & ") for file " & filePath);
 			}
 
 			// Fail fast if linesHit > linesFound (after aggregation)
@@ -72,17 +72,17 @@ component accessors="true" {
 	* Calculate stats for all merged result objects
 	* @mergedResults Struct of result objects keyed by file index
 	*/
-	public static void function calculateStatsForMergedResults(required struct mergedResults) localmode="modern" {
+	public static void function calculateStatsForMergedResults(required struct mergedResults) localmode=true {
 		// Calculate stats for each file
-		for (var fileIndex in arguments.mergedResults) {
-			calculateCoverageStats( arguments.mergedResults[ fileIndex ] );
+		cfloop( collection=arguments.mergedResults, key="local.fileIndex", value="local.result" ) {
+			calculateCoverageStats( result );
 		}
 	}
 
 	/**
 	* Calculate overall coverage stats from a result struct
 	*/
-	public any function calculateCoverageStats(result result) localmode="modern" {
+	public any function calculateCoverageStats(result result) localmode=true {
 		var event = variables.logger.beginEvent("CoverageStats");
 		var totalStats = {
 			"totalLinesFound": 0,  // total executable lines
@@ -195,7 +195,7 @@ component accessors="true" {
 	 * @processingTimeMs Processing time in milliseconds for timing calculations
 	 * @return Detailed stats struct
 	 */
-	public struct function aggregateCoverageStats(required array jsonFilePaths, numeric processingTimeMs = 0) localmode="modern" {
+	public struct function aggregateCoverageStats(required array jsonFilePaths, numeric processingTimeMs = 0) localmode=true {
 		var startTime = getTickCount();
 		var executedFiles = 0;
 		var fileStats = {};
@@ -205,8 +205,8 @@ component accessors="true" {
 		// First pass: collect all executable lines for each file across all results
 		// Use coverage as source of truth (contains all executable lines with zero-counts)
 		// Fall back to executableLines field for backward compatibility with old cached JSON files
-		var allExecutableLines = {};
-		for (var jsonPath in arguments.jsonFilePaths) {
+		var allExecutableLines = structNew('regular');
+		cfloop( array=arguments.jsonFilePaths, item="local.jsonPath" ) {
 			if (!fileExists(jsonPath)) {
 				throw(message="JSON file [jsonPath] does not exist: [" & jsonPath & "]");
 			}
@@ -215,17 +215,16 @@ component accessors="true" {
 			var filesData = result.getFiles();
 			var coverageData = result.getCoverage();
 
-			for (var filePath in filesData) {
-				var fileInfo = filesData[filePath];
+			cfloop( collection=filesData, key="local.filePath", value="local.fileInfo" ) {
 
 				// Get executable lines from coverage first (preferred), fall back to executableLines field
-				var executableLinesForFile = {};
+				var executableLinesForFile = structNew('regular');
 				var fileIdx = fileInfo.fileIdx ?: "";
 
 				// Try to get from coverage (which should have all lines including zero-counts)
 				if (len(fileIdx) && structKeyExists(coverageData, fileIdx)) {
 					var fileCoverage = coverageData[fileIdx];
-					for (var lineNum in fileCoverage) {
+					cfloop( collection=fileCoverage, key="local.lineNum" ) {
 						executableLinesForFile[lineNum] = true;
 					}
 				}
@@ -240,7 +239,7 @@ component accessors="true" {
 					allExecutableLines[filePath] = executableLinesForFile;
 				} else {
 					// Merge executable lines (union of all executable lines across runs)
-					for (var lineNum in executableLinesForFile) {
+					cfloop( collection=executableLinesForFile, key="local.lineNum" ) {
 						allExecutableLines[filePath][lineNum] = true;
 					}
 				}
@@ -250,12 +249,12 @@ component accessors="true" {
 		}
 
 		// Second pass: calculate coverage stats using merged executable lines
-		for (var jsonPath in arguments.jsonFilePaths) {
+		cfloop( array=arguments.jsonFilePaths, item="local.jsonPath" ) {
 			var result = resultFactory.fromJson(fileRead(jsonPath), false);
 			var coverage = result.getCoverage();
 			var filesData = result.getFiles();
 
-			for (var filePath in filesData) {
+			cfloop( collection=filesData, key="local.filePath", value="local.fileData" ) {
 				if (!structKeyExists(fileStats, filePath)) {
 					fileStats[filePath] = {
 						"linesFound": structCount(allExecutableLines[filePath]),
@@ -267,11 +266,10 @@ component accessors="true" {
 				}
 
 				// Count coverage for this file using the proper file key mapping
-				for (var fKey in filesData) {
-					var fileInfo = filesData[fKey];
+				cfloop( collection=filesData, key="local.fKey", value="local.fileInfo" ) {
 					if (fileInfo.path == filePath && structKeyExists(coverage, fKey)) {
 						var fileCoverage = coverage[fKey];
-						for (var lineNum in fileCoverage) {
+						cfloop( collection=fileCoverage, key="local.lineNum", value="local.lineData" ) {
 							if (structKeyExists(allExecutableLines[filePath], lineNum)) {
 								var lineData = fileCoverage[lineNum];
 								var hitCount = int(lineData[1]);
@@ -305,17 +303,17 @@ component accessors="true" {
 		var totalLinesHit = 0;
 		var totalLinesSource = 0;
 		var totalChildTime = 0;
-		for (var filePath in fileStats) {
-			totalLinesFound += fileStats[filePath].linesFound;
-			totalLinesHit += fileStats[filePath].linesHit;
-			totalLinesSource += fileStats[filePath].linesSource;
-			totalChildTime += fileStats[filePath].totalChildTime ?: 0;
+		cfloop( collection=fileStats, key="local.filePath", value="local.stats" ) {
+			totalLinesFound += stats.linesFound;
+			totalLinesHit += stats.linesHit;
+			totalLinesSource += stats.linesSource;
+			totalChildTime += stats.totalChildTime ?: 0;
 
 			// Calculate coverage percentage for each file
-			var fileCoveragePercentage = fileStats[filePath].linesFound > 0
-				? (fileStats[filePath].linesHit / fileStats[filePath].linesFound) * 100
+			var fileCoveragePercentage = stats.linesFound > 0
+				? (stats.linesHit / stats.linesFound) * 100
 				: 0;
-			fileStats[filePath]["coveragePercentage"] = numberFormat(fileCoveragePercentage, "0.0");
+			stats["coveragePercentage"] = numberFormat(fileCoveragePercentage, "0.0");
 		}
 
 		var coveragePercentage = totalLinesFound > 0 ? (totalLinesHit / totalLinesFound) * 100 : 0;

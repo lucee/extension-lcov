@@ -58,7 +58,8 @@ component extends="ReportGenerator" {
 		var jsonFiles = {};
 		for ( var resultKey in arguments.results ) {
 			var result = arguments.results[ resultKey ];
-			if ( structKeyExists( result, "coverage" ) && !structIsEmpty( result.coverage ) ) {
+			var coverage = result.getCoverage();
+			if ( isStruct(coverage) && !structIsEmpty( coverage ) ) {
 				var jsonFileName = result.getOutputFilename() & ".json";
 				var jsonFilePath = arguments.outputDir & "/" & jsonFileName;
 				fileWrite( jsonFilePath, serializeJSON( var=result, compact=arguments.compact ) );

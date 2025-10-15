@@ -1,7 +1,7 @@
 
 component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	function beforeAll() {
-		variables.logLevel = "trace";
+		variables.logLevel = "info";
 		variables.logger = new lucee.extension.lcov.Logger(level=variables.logLevel);
 		// Use GenerateTestData with test name - handles directory creation and cleanup
 		variables.testDataGenerator = new GenerateTestData(testName="SeparateFilesTest");
@@ -94,7 +94,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		});
 
 		//systemOutput("separateFiles: true - Generated " & arrayLen(nonIndexFiles) & " HTML files", true);
-		expect(arrayLen(nonIndexFiles)).toBeGT(0, "Should have generated HTML report files");
+		expect(arrayLen(nonIndexFiles)).toBeGT(0, "Should have generated HTML report files in directory: " & outputDir & " (found files: " & arrayToList(htmlFiles) & ")");
 
 		// TODO: Once separateFiles is properly implemented, verify we get source-file-based names
 		// instead of execution-run-based names like "5-test_index_cfm.html"
@@ -139,7 +139,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Currently both approaches should generate the same files because separateFiles isn't implemented
 		// Once fixed, separateFiles: true should create source-file-based HTML files
-		expect(arrayLen(separateFiles)).toBeGTE(arrayLen(combinedFiles), "Should generate at least as many files");
+		expect(arrayLen(separateFiles)).toBeGTE(arrayLen(combinedFiles), "Should generate at least as many files (separateFiles:false=" & arrayLen(combinedFiles) & " files in " & combinedDir & ", separateFiles:true=" & arrayLen(separateFiles) & " files in " & separateDir & ")");
 	}
 
 	private function testIndexJsonContent() {
@@ -156,7 +156,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		);
 
 		var indexJsonPath = outputDir & "index.json";
-		expect(fileExists(indexJsonPath)).toBeTrue("Should have index.json file");
+		expect(fileExists(indexJsonPath)).toBeTrue("Should have index.json file at: " & indexJsonPath & " (output dir contents: " & arrayToList(directoryList(outputDir, false, "name")) & ")");
 
 		var indexJsonContent = fileRead(indexJsonPath);
 		var indexData = deserializeJSON(indexJsonContent);
@@ -194,7 +194,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		expect(hasNonZeroCoverage).toBeTrue("At least one report in " & outputDir & " should have non-zero coverage data: " & serializeJSON(indexData));
 
 		var jsonFiles = directoryList(outputDir, false, "name", "file-*.json");
-		expect(arrayLen(jsonFiles)).toBeGT(0, "Should have individual file JSON files");
+		expect(arrayLen(jsonFiles)).toBeGT(0, "Should have individual file JSON files in [" & outputDir & "]");
 
 		for (var jsonFile in jsonFiles) {
 			var jsonPath = outputDir & jsonFile;

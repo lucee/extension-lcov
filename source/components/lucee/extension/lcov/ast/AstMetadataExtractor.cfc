@@ -29,7 +29,7 @@ component {
 	 * @filePath The file path (for logging/debugging)
 	 * @return Struct with {callTree, executableLineCount, executableLines}
 	 */
-	public struct function extractMetadata(required any ast, required string filePath) localmode="modern" {
+	public struct function extractMetadata(required any ast, required string filePath) localmode=true {
 		var startTime = getTickCount();
 
 		// 1. Extract CallTree positions using AstCallAnalyzer
@@ -91,13 +91,13 @@ component {
 	 * @files Struct of {fileIdx: {path: "..."}} or array of file paths
 	 * @return Struct keyed by file path with metadata for each
 	 */
-	public struct function extractMetadataForFiles(required any files) localmode="modern" {
+	public struct function extractMetadataForFiles(required any files) localmode=true {
 		var metadata = structNew( "regular" );
 		var filePaths = [];
 
 		// Normalize input to array of paths
 		if ( isStruct( arguments.files ) ) {
-			cfloop( collection=arguments.files, item="local.idx" ) {
+			cfloop( collection=arguments.files, key="local.idx" ) {
 				arrayAppend( filePaths, arguments.files[idx].path );
 			}
 		} else if ( isArray( arguments.files ) ) {

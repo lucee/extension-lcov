@@ -42,7 +42,6 @@ component accessors="true" {
 
 		// Initialize coverage processing helpers
 		variables.coverageAggregationPipeline = new lucee.extension.lcov.coverage.CoverageAggregationPipeline( logger=variables.logger, blockProcessor=variables.CoverageBlockProcessor );
-		variables.callTreeProcessor = new lucee.extension.lcov.coverage.CallTreeProcessor( logger=variables.logger, blockProcessor=variables.CoverageBlockProcessor );
 		variables.blockToLineAggregator = new lucee.extension.lcov.coverage.BlockToLineAggregator( logger=variables.logger );
 
 		return this;
@@ -140,7 +139,7 @@ component accessors="true" {
 	/**
 	* Combine identical coverage entries before line processing
 	*/
-	private struct function parseCoverage( result coverageData, required any callTreeAnalyzer, boolean includeCallTree = false) localmode="modern" {
+	private struct function parseCoverage( result coverageData, required any callTreeAnalyzer, boolean includeCallTree = false) localmode=true {
 		var files = arguments.coverageData.getFiles();
 		var exlPath = arguments.coverageData.getExeLog();
 		var start = getTickCount();
@@ -195,7 +194,7 @@ component accessors="true" {
 	* File parsing with early validation
 	*/
 	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blocklist, boolean includeSourceCode = true) localmode="modern" {
+			array allowList, array blocklist, boolean includeSourceCode = true) localmode=true {
 
 		var files = {};
 		var skipped = {};
@@ -232,14 +231,14 @@ component accessors="true" {
 			var lineMapping = variables.fileCacheHelper.getLineMapping(path);
 			var sourceLines = variables.fileCacheHelper.readFileAsArrayByLines(path);
 
-			// Use AstParserHelper to parse AST with fallback logic
-			var ast = variables.astParserHelper.parseFileAst(path, fileContent);
+			// OPTIMIZATION: Skip AST parsing during parseExlFile phase
+			// AST metadata (including linesFound) is extracted later in batch via extractAstMetadata
+			// This eliminates duplicate AST parsing (5,307 .exl files × ~15 files = ~80k parses → 74 unique parses)
 
 			// Use FileEntryBuilder to create file entry struct
 			files[num] = variables.fileEntryBuilder.buildFileEntry(
 				fileIndex=num,
 				path=path,
-				ast=ast,
 				lineMapping=lineMapping,
 				fileContent=fileContent,
 				sourceLines=sourceLines,
@@ -262,7 +261,7 @@ component accessors="true" {
 	/**
 	 * Parse metadata lines from EXL file
 	 */
-	public struct function parseMetadata(array lines) localmode="modern" {
+	public struct function parseMetadata(array lines) localmode=true {
 		var metadata = {};
 		for (var metaLine in arguments.lines) {
 			var parts = listToArray(metaLine, ":", true, true);

@@ -45,43 +45,46 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				);
 
 				// Check that HTML files were created
-				expect(directoryExists(variables.outputDir & "/html")).toBeTrue("HTML output directory should exist");
-				expect(fileExists(variables.outputDir & "/html/index.html")).toBeTrue("index.html should exist");
+				var htmlDir = variables.outputDir & "/html";
+				var indexPath = htmlDir & "/index.html";
+
+				expect(directoryExists(htmlDir)).toBeTrue("HTML output directory should exist at: " & htmlDir);
+				expect(fileExists(indexPath)).toBeTrue("index.html should exist at: " & indexPath);
 
 				// Read the index.html to check for call tree columns
-				var indexHtml = fileRead(variables.outputDir & "/html/index.html");
+				var indexHtml = fileRead(indexPath);
 
 				// Check for Child Time column header
-				expect(indexHtml).toInclude("Child Time", "HTML should have Child Time column");
+				expect(indexHtml).toInclude("Child Time", "HTML should have Child Time column in file: " & indexPath);
 
-				// Load the enriched result from the JSON files created by the pipeline
-				var jsonFiles = directoryList(variables.testDir, false, "array", "*.json");
-				var resultJson = "";
+				// Load the enriched result from the JSON files written to OUTPUT directory
+				var jsonFiles = directoryList(htmlDir, false, "array", "*.json");
+				var resultJsonFile = "";
 				for (var jsonFile in jsonFiles) {
-					if (!findNoCase("ast-metadata", jsonFile)) {
-						resultJson = jsonFile;
+					if (!findNoCase("ast-metadata", jsonFile) && !findNoCase("index.json", jsonFile)) {
+						resultJsonFile = jsonFile;
 						break;
 					}
 				}
 
-				expect(resultJson != "").toBeTrue("Should find result JSON file");
+				expect(resultJsonFile != "").toBeTrue("Should find result JSON file in output directory: " & htmlDir & " (found: " & arrayToList(jsonFiles) & ")");
 
 				// Read and verify JSON structure has CallTree data
-				var jsonContent = deserializeJSON(fileRead(resultJson));
-				expect(structKeyExists(jsonContent, "callTree")).toBeTrue("JSON should contain callTree");
-				expect(structKeyExists(jsonContent, "callTreeMetrics")).toBeTrue("JSON should contain callTreeMetrics");
+				var jsonContent = deserializeJSON(fileRead(resultJsonFile));
+				expect(structKeyExists(jsonContent, "callTree")).toBeTrue("JSON should contain callTree in " & resultJsonFile);
+				expect(structKeyExists(jsonContent, "callTreeMetrics")).toBeTrue("JSON should contain callTreeMetrics" & resultJsonFile);
 
 				// Verify call tree metrics structure
 				var metrics = jsonContent.callTreeMetrics;
-				expect(structKeyExists(metrics, "totalBlocks")).toBeTrue("Should have totalBlocks");
-				expect(structKeyExists(metrics, "childTimeBlocks")).toBeTrue("Should have childTimeBlocks");
-				expect(structKeyExists(metrics, "builtInBlocks")).toBeTrue("Should have builtInBlocks");
+				expect(structKeyExists(metrics, "totalBlocks")).toBeTrue("Should have totalBlocks in " & resultJsonFile);
+				expect(structKeyExists(metrics, "childTimeBlocks")).toBeTrue("Should have childTimeBlocks in " & resultJsonFile);
+				expect(structKeyExists(metrics, "builtInBlocks")).toBeTrue("Should have builtInBlocks in " & resultJsonFile);
 			});
 
 			it("should generate separate HTML files when separateFiles is true", function() {
 				// Use the actual .exl file with real call tree data
 				var exlFiles = directoryList(variables.testDir, false, "path", "*.exl");
-				expect(arrayLen(exlFiles)).toBeGT(0, "Should have generated .exl file");
+				expect(arrayLen(exlFiles)).toBeGT(0, "Should have generated .exl file in: " & variables.testDir);
 
 				if (arrayLen(exlFiles) == 0) {
 					return; // Skip if no files
@@ -105,13 +108,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				);
 
 				// Check that HTML files were created
-				expect(fileExists(htmlOutputDir & "/index.html")).toBeTrue("index.html should exist");
+				expect(fileExists(htmlOutputDir & "/index.html")).toBeTrue("index.html should exist in [" & htmlOutputDir & "]");
 
 				// Check that we have separate HTML files for each source file
 				var htmlFiles = directoryList(htmlOutputDir, false, "path", "*.html");
 
 				// Should have at least 2 files: index.html plus one for call-tree-test.cfm
-				expect(arrayLen(htmlFiles)).toBeGT(1, "Should have multiple HTML files with separateFiles: true");
+				expect(arrayLen(htmlFiles)).toBeGT(1, "Should have multiple HTML files with separateFiles: true in [" & htmlOutputDir & "]");
 
 				// Count non-index HTML files
 				var sourceFileCount = 0;
@@ -121,7 +124,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 					}
 				}
 
-				expect(sourceFileCount).toBeGT(0, "Should have at least one source file HTML");
+				expect(sourceFileCount).toBeGT(0, "Should have at least one source file HTML in [" & htmlOutputDir & "]");
 
 				// Verify the separate files contain call tree data
 				for (var htmlFile in htmlFiles) {
@@ -129,7 +132,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 						var fileHtml = fileRead(htmlFile);
 						// Check for call tree columns in individual files
 						if (len(fileHtml) > 100) {
-							expect(fileHtml).toInclude("Child Time", "Separate file should have Child Time column");
+							expect(fileHtml).toInclude("Child Time", "Separate file should have Child Time column in [" & htmlFile & "]");
 						}
 					}
 				}
@@ -138,7 +141,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 			it("should track child time blocks correctly", function() {
 				// Use the actual .exl file with real call tree data
 				var exlFiles = directoryList(variables.testDir, false, "path", "*.exl");
-				expect(arrayLen(exlFiles)).toBeGT(0, "Should have generated .exl file");
+				expect(arrayLen(exlFiles)).toBeGT(0, "Should have generated .exl file in: " & variables.testDir);
 
 				if (arrayLen(exlFiles) == 0) {
 					return; // Skip if no files

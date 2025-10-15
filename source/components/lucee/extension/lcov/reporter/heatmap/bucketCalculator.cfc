@@ -68,14 +68,14 @@ component output="false" {
 	public struct function calculateOptimalBucketCounts(array countValues, array timeValues, numeric maxBuckets) {
 		// Calculate unique values for each data type
 		var uniqueCountValues = [];
-		for (var val in arguments.countValues) {
+		cfloop( array=arguments.countValues, item="local.val" ) {
 			if (arrayFind(uniqueCountValues, val) == 0) {
 				arrayAppend(uniqueCountValues, val);
 			}
 		}
-		
+
 		var uniqueTimeValues = [];
-		for (var val in arguments.timeValues) {
+		cfloop( array=arguments.timeValues, item="local.val" ) {
 			if (arrayFind(uniqueTimeValues, val) == 0) {
 				arrayAppend(uniqueTimeValues, val);
 			}
@@ -99,22 +99,22 @@ component output="false" {
 		
 		// Filter out zero values
 		var nonZeroTimes = [];
-		for (var time in arguments.times) {
+		cfloop( array=arguments.times, item="local.time" ) {
 			if (time > 0) {
 				arrayAppend(nonZeroTimes, time);
 			}
 		}
-		
+
 		// Handle empty data
 		if (arrayLen(nonZeroTimes) == 0) {
 			return result;
 		}
-		
+
 		// Calculate bucket ranges using existing method
 		var ranges = calculateRanges(nonZeroTimes, arguments.bucketCount);
-		
+
 		// Assign each time to a bucket (convert to 0-based for test compatibility)
-		for (var time in nonZeroTimes) {
+		cfloop( array=nonZeroTimes, item="local.time" ) {
 			var level = getValueLevel(time, ranges);
 			result[time] = level - 1; // Convert to 0-based indexing
 		}

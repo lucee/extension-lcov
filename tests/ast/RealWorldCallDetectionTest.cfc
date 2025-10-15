@@ -20,7 +20,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				lcovGenerateJson(
 					executionLogDir: testData.coverageDir,
 					outputDir: outputDir,
-					options: { separateFiles: true, logLevel: "trace" }
+					options: { separateFiles: true, logLevel: "info" }
 				);
 
 				// Read the JSON file

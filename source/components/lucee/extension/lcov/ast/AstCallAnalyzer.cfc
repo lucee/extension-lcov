@@ -27,7 +27,7 @@ component {
 	 * @ast The abstract syntax tree from Lucee
 	 * @return Array of function information structs
 	 */
-	public array function extractFunctions(required struct ast) localmode="modern" {
+	public array function extractFunctions(required struct ast) localmode=true {
 		var functions = [];
 
 		if (structKeyExists(arguments.ast, "body")) {
@@ -100,7 +100,7 @@ component {
 			}
 
 			// Recursively traverse all child nodes
-			cfloop( collection=arguments.node, item="local.key" ) {
+			cfloop( collection=arguments.node, key="local.key" ) {
 				if (!arrayContains(variables.SKIP_KEYS_TRAVERSE, key)) {
 					// Skip null values (e.g., ReturnStatement with no argument)
 					if (!isNull(arguments.node[key])) {
@@ -123,7 +123,7 @@ component {
 	/**
 	 * Extract detailed information from a function node
 	 */
-	private struct function extractFunctionInfo(required struct functionNode, required string parentScope) localmode="modern" {
+	private struct function extractFunctionInfo(required struct functionNode, required string parentScope) localmode=true {
 		var info = {
 			name: "",
 			fullName: "",
@@ -215,7 +215,7 @@ component {
 	/**
 	 * Recursively find call expressions
 	 */
-	private void function findCallsRecursive(required any node, required array calls) localmode="modern" {
+	private void function findCallsRecursive(required any node, required array calls) localmode=true {
 		var node = arguments.node;  // Cache for performance
 		var calls = arguments.calls;
 
@@ -349,7 +349,7 @@ component {
 			}
 
 			// Traverse children
-			cfloop( collection=node, item="local.key" ) {
+			cfloop( collection=node, key="local.key" ) {
 				if (!arrayContains(variables.SKIP_KEYS_EXTRACT, key) && !isNull(node[key])) {
 					findCallsRecursive(node[key], calls);
 				}
@@ -365,7 +365,7 @@ component {
 	/**
 	 * Extract the name of the function being called
 	 */
-	private string function extractCallName(required struct callNode) localmode="modern" {
+	private string function extractCallName(required struct callNode) localmode=true {
 		var callNode = arguments.callNode;  // Cache for performance
 
 		// Direct function call
@@ -415,7 +415,7 @@ component {
 	 * @functions Array of function info structs
 	 * @return Struct keyed by "startPos-endPos" with function info as values
 	 */
-	public struct function buildFunctionMap(required array functions) localmode="modern" {
+	public struct function buildFunctionMap(required array functions) localmode=true {
 		var map = structNew( "regular" );
 
 		cfloop( array=arguments.functions, item="local.func" ) {
@@ -432,7 +432,7 @@ component {
 	 * @functions Array of function info structs
 	 * @return Function info struct or empty struct if not found
 	 */
-	public struct function findContainingFunction(required numeric position, required array functions) localmode="modern" {
+	public struct function findContainingFunction(required numeric position, required array functions) localmode=true {
 		var bestMatch = structNew( "regular" );
 		var smallestRange = 999999999;
 

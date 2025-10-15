@@ -22,7 +22,7 @@ component {
 		var blocks = arguments.callTree.blocks;
 
 		// Process each block in the call tree
-		cfloop( collection=blocks, item="local.blockKey" ) {
+		cfloop( collection=blocks, key="local.blockKey" ) {
 			var block = blocks[blockKey];
 			var fileIdx = block.fileIdx;
 
@@ -100,10 +100,10 @@ component {
 	 * @lineCallTree The line-based call tree from mapCallTreeToLines
 	 * @return Struct keyed by fileIdx with nested struct keyed by lineNum
 	 */
-	public struct function createLineLookup(required struct lineCallTree) localmode="modern" {
+	public struct function createLineLookup(required struct lineCallTree) localmode=true {
 		var lookup = structNew( "regular" );
 
-		cfloop( collection=arguments.lineCallTree, item="local.lineKey" ) {
+		cfloop( collection=arguments.lineCallTree, key="local.lineKey" ) {
 			var lineData = arguments.lineCallTree[lineKey];
 			var fileIdx = lineData.fileIdx;
 			var lineNum = lineData.lineNum;
@@ -149,7 +149,7 @@ component {
 
 		// First, ensure ALL coverage arrays have 3 elements
 		// [count, executionTime, isChildTime]
-		cfloop( collection=arguments.coverage, item="local.fileIdx" ) {
+		cfloop( collection=arguments.coverage, key="local.fileIdx" ) {
 			var fileCoverage = arguments.coverage[fileIdx];
 			if (!isStruct(fileCoverage)) {
 				throw "Coverage data for file index " & fileIdx & " must be a struct, got: " & getMetadata(fileCoverage).getName();
@@ -158,7 +158,7 @@ component {
 		}
 
 		// Now mark lines that represent child time (function calls)
-		cfloop( collection=lookup, item="local.fileIdx" ) {
+		cfloop( collection=lookup, key="local.fileIdx" ) {
 			if (!structKeyExists(arguments.coverage, fileIdx)) {
 				arguments.coverage[fileIdx] = {};
 			}
@@ -166,7 +166,7 @@ component {
 			var fileCoverage = arguments.coverage[fileIdx];
 			var fileCallTree = lookup[fileIdx];
 
-			cfloop( collection=fileCallTree, item="local.lineNum" ) {
+			cfloop( collection=fileCallTree, key="local.lineNum" ) {
 				var callTreeData = fileCallTree[lineNum];
 
 				// If line already has coverage data, set the childTime value

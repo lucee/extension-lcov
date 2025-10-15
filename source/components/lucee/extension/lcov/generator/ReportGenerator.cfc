@@ -75,6 +75,22 @@ component {
 	}
 
 	/**
+	 * Phase earlyMergeToSourceFiles: Stream merge request-level JSONs to source-level results
+	 * This eliminates the need to load all JSONs into memory at once (7.8GB → 500MB)
+	 * @jsonFilePaths Array of JSON file paths to merge
+	 * @options Processing options
+	 * @return Struct of merged result objects keyed by canonical index
+	 */
+	public struct function earlyMergeToSourceFiles( required array jsonFilePaths, required struct options ) {
+		var streamingMerger = new lucee.extension.lcov.StreamingMerger( logger=variables.logger );
+		return streamingMerger.streamMergeToSourceFiles(
+			jsonFilePaths = arguments.jsonFilePaths,
+			parallel = true,
+			chunkSize = 100
+		);
+	}
+
+	/**
 	 * Phase buildLineCoverage: Build line coverage from aggregated blocks
 	 * @jsonFilePaths Array of JSON file paths
 	 * @astMetadataPath Path to ast-metadata.json (optional)
@@ -84,6 +100,25 @@ component {
 	public array function buildLineCoverage( required array jsonFilePaths, string astMetadataPath, required struct options, boolean buildWithCallTree = false ) {
 		var coverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
 		return coverageBuilder.buildCoverage( arguments.jsonFilePaths, arguments.astMetadataPath, arguments.buildWithCallTree );
+	}
+
+	/**
+	 * Phase buildLineCoverageFromResults: Build line coverage from in-memory results
+	 * NEW: Works with already-merged in-memory results (Stage 2 optimization)
+	 * @mergedResults Struct of merged result objects keyed by canonical index
+	 * @astMetadataPath Path to ast-metadata.json
+	 * @options Processing options
+	 * @buildWithCallTree Whether to mark blocks with isChild flags
+	 * @return Struct of results with coverage added
+	 */
+	public struct function buildLineCoverageFromResults(
+		required struct mergedResults,
+		string astMetadataPath,
+		required struct options,
+		boolean buildWithCallTree = false
+	) {
+		var coverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+		return coverageBuilder.buildCoverageFromResults( arguments.mergedResults, arguments.astMetadataPath, arguments.buildWithCallTree );
 	}
 
 	/**
@@ -251,7 +286,7 @@ component {
 	 * @mergedResults Struct of merged result objects (modified in place)
 	 * @logger Logger instance
 	 */
-	private void function hydrateSourceCodeForMergedResults( required struct mergedResults, required any logger ) {
+	public void function hydrateSourceCodeForMergedResults( required struct mergedResults, required any logger ) {
 		arguments.logger.debug( "Hydrating source code for #structCount(arguments.mergedResults)# merged results" );
 		var fileCacheHelper = new lucee.extension.lcov.parser.FileCacheHelper( logger=arguments.logger, blockProcessor=variables.blockProcessor );
 

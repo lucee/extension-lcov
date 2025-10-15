@@ -13,7 +13,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var filePath = artifactsDir & "/ast/simple-new-statements.cfc";
 					// WORKAROUND: astFromString() treats .cfc files as StringLiteral (Lucee bug)
 				var ast = astFromPath( filePath );
-				var logger = new lucee.extension.lcov.Logger( level="trace" );
+				var logger = new lucee.extension.lcov.Logger( level="info" );
 				var analyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=logger );
 
 				var functions = analyzer.extractFunctions( ast );

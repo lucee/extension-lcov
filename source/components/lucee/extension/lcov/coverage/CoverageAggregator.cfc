@@ -17,7 +17,7 @@ component {
 	 * Byte-aligned chunked parallel aggregation - splits file by bytes, no shared array
 	 * Each chunk reads directly from file using FileInputStream.skip() + BufferedReader
 	 */
-	public struct function aggregate(string exlFile, any validFileIds, numeric chunkSizeMb=5) localmode="modern" {
+	public struct function aggregate(string exlFile, any validFileIds, numeric chunkSizeMb=5) localmode=true {
 		var event = variables.logger.beginEvent("CoverageAggregation");
 
 		var aggregationStart = getTickCount();
@@ -28,27 +28,10 @@ component {
 		var fileSize = file.length();
 		event["fileSize"] = fileSize;
 
-		// Adaptive chunk sizing: smaller chunks for smaller files to enable parallelism
-		var fileSizeMb = fileSize / 1024 / 1024;
-		var effectiveChunkSize = arguments.chunkSizeMb;
-		if (fileSizeMb < 10) {
-			effectiveChunkSize = 1; // 1MB chunks for files under 10MB for better parallelism
-		}
-
-		// Calculate chunk count based on effective chunk size
-		var chunkByteSize = effectiveChunkSize * 1024 * 1024;
-		var actualNumChunks = max(1, int(fileSize / chunkByteSize));
-
-		// Ensure we have at least 2x processor cores for optimal work-stealing parallelism
-		var processorCount = createObject("java", "java.lang.Runtime").getRuntime().availableProcessors();
-		var minChunks = processorCount * 2;
-		if (actualNumChunks < minChunks && fileSize > 1024 * 1024) {
-			// File is large enough (>1MB) to benefit from more chunks
-			actualNumChunks = minChunks;
-		}
-
-		// Recalculate actual chunk byte size based on chunk count
-		chunkByteSize = int(fileSize / actualNumChunks);
+		// Calculate optimal chunk strategy
+		var chunkStrategy = calculateChunkStrategy( fileSize, arguments.chunkSizeMb );
+		var chunkByteSize = chunkStrategy.chunkByteSize;
+		var actualNumChunks = chunkStrategy.numChunks;
 		event["numChunks"] = actualNumChunks;
 		event["chunkByteSize"] = chunkByteSize;
 
@@ -168,7 +151,7 @@ component {
 	 * Process a single chunk of the exl file
 	 * chunk is: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks, logger]
 	 */
-	private function processChunk( chunk ) localmode="modern" {
+	private function processChunk( chunk ) localmode=true {
 		var chunkStart = getTickCount();
 
 		// chunk is: [exlFile, startByte, endByte, chunkIdx, validFileIds, numChunks, logger]
@@ -208,10 +191,45 @@ component {
 	}
 
 	/**
+	 * Calculate optimal chunk size and count based on file size and processor count
+	 * @fileSize File size in bytes
+	 * @chunkSizeMb Initial chunk size in MB
+	 * @return struct with {chunkByteSize: numeric, numChunks: numeric}
+	 */
+	private struct function calculateChunkStrategy( required numeric fileSize, required numeric chunkSizeMb ) localmode=true {
+		// Adaptive chunk sizing: smaller chunks for smaller files to enable parallelism
+		var fileSizeMb = arguments.fileSize / 1024 / 1024;
+		var effectiveChunkSize = arguments.chunkSizeMb;
+		if (fileSizeMb < 10) {
+			effectiveChunkSize = 1; // 1MB chunks for files under 10MB for better parallelism
+		}
+
+		// Calculate chunk count based on effective chunk size
+		var chunkByteSize = effectiveChunkSize * 1024 * 1024;
+		var actualNumChunks = max(1, int(arguments.fileSize / chunkByteSize));
+
+		// Ensure we have at least 2x processor cores for optimal work-stealing parallelism
+		var processorCount = createObject("java", "java.lang.Runtime").getRuntime().availableProcessors();
+		var minChunks = processorCount * 2;
+		if (actualNumChunks < minChunks && arguments.fileSize > 1024 * 1024) {
+			// File is large enough (>1MB) to benefit from more chunks
+			actualNumChunks = minChunks;
+		}
+
+		// Recalculate actual chunk byte size based on chunk count
+		chunkByteSize = int(arguments.fileSize / actualNumChunks);
+
+		return {
+			"chunkByteSize": chunkByteSize,
+			"numChunks": actualNumChunks
+		};
+	}
+
+	/**
 	 * Process lines from chunk and aggregate coverage data
 	 * Returns struct with aggregated data and lines processed count
 	 */
-	private function processLines( lines, validFileIds ) localmode="modern" {
+	private function processLines( lines, validFileIds ) localmode=true {
 		var lines = arguments.lines; // Cache for performance
 		var skipped = 0; // count skipped lines instead of incrementing processed count
 		var a = structNew('regular'); // Create local aggregated struct - avoids concurrent conversion

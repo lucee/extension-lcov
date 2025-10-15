@@ -27,23 +27,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					options = { separateFiles: false, logLevel: variables.logLevel }
 				);
 
-				// Generate HTML report for visual inspection
-				var htmlOutputDir = variables.testDataGenerator.getOutputDir() & "/html";
-				directoryCreate( htmlOutputDir );
-				lcovGenerateHtml(
-					executionLogDir = variables.testData.coverageDir,
-					outputDir = htmlOutputDir,
-					options = { logLevel: variables.logLevel, displayUnit: "auto" }
-				);
-				systemOutput( "HTML report: file:///" & replace( htmlOutputDir, "\", "/", "all" ) & "/index.html", true );
-
-				// Find and validate the request JSON file in the coverage dir
-				var jsonFiles = directoryList( variables.testData.coverageDir, false, "array", "*.json" );
-				expect( arrayLen( jsonFiles ) ).toBeGT( 0, "Should have at least one JSON file in coverage dir" );
+				// Find and validate the JSON files in the OUTPUT dir (where lcovGenerateJson wrote them)
+				var jsonFiles = directoryList( variables.outputDir, false, "array", "*.json" );
+				expect( arrayLen( jsonFiles ) ).toBeGT( 0, "Should have at least one JSON file in output dir: " & variables.outputDir );
 
 				for ( var jsonFile in jsonFiles ) {
+					var filename = getFileFromPath( jsonFile );
+
 					// Skip ast-metadata.json (doesn't have coverage)
-					if ( findNoCase( "ast-metadata", jsonFile ) ) {
+					if ( findNoCase( "ast-metadata", filename ) ) {
+						continue;
+					}
+
+					// Skip core JSON files (merged.json, results.json, summary-stats.json)
+					// Only validate individual request JSON files (request-*.json)
+					if ( !findNoCase( "request-", filename ) ) {
 						continue;
 					}
 
@@ -59,12 +57,16 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var json = deserializeJSON( fileRead( arguments.jsonFilePath ) );
 		var label = getFileFromPath( arguments.jsonFilePath );
 
-		// Validate each file in the JSON
-		for ( var fileKey in json.FILES ) {
-			var file = json.FILES[ fileKey ];
-			var coverage = json.coverage[ fileKey ];
+		expect(json.files).NotToBeEmpty("No files found in JSON: " & arguments.jsonFilePath);
 
-			systemOutput( "Validating file: #file.path#", true );
+		// Validate each file in the JSON
+		for ( var fileKey in json.files ) {
+			var file = json.files[ fileKey ];
+			expect(json).toHaveKey( "COVERAGE", "No coverage for found in JSON: " & arguments.jsonFilePath);
+			expect(json.COVERAGE).toHaveKey( fileKey, "No coverage for #fileKey# found in JSON: " & arguments.jsonFilePath);
+			var coverage = json.COVERAGE[ fileKey ];
+
+			//systemOutput( "Validating file: #file.path#", true );
 
 			// Check each line
 			for ( var lineNum in coverage ) {
@@ -78,9 +80,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// If it does, it means child time is being counted multiple times
 				if ( childTime > 0 ) {
 					expect( childTime ).toBeLTE( totalTime,
-						"#label# Line #lineNum#: childTime (#childTime#) exceeds totalTime (#totalTime#). ownTime=#ownTime#. This suggests double-counting!" );
+						"#label# Line #lineNum#: childTime (#childTime#) exceeds totalTime (#totalTime#). ownTime=#ownTime#. This suggests double-counting in " & jsonFilePath);
 
-					systemOutput( "  Line #lineNum#: hitCount=#hitCount#, ownTime=#ownTime#, childTime=#childTime#, total=#totalTime#", true );
+					//systemOutput( "  Line #lineNum#: hitCount=#hitCount#, ownTime=#ownTime#, childTime=#childTime#, total=#totalTime#", true );
 				}
 			}
 		}
@@ -90,7 +92,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var json = deserializeJSON( fileRead( arguments.jsonFilePath ) );
 		var label = getFileFromPath( arguments.jsonFilePath );
 
-		systemOutput( "Validating aggregate totals for: #label#", true );
+		//systemOutput( "Validating aggregate totals for: #label#", true );
 
 		// Get request execution time from metadata
 		var requestExecutionTime = json.metadata["execution-time"];
@@ -102,17 +104,17 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Get aggregate stats
 		var totalExecutionTime = json.stats.totalExecutionTime;
 
-		systemOutput( "  Request execution time: #requestExecutionTime#", true );
-		systemOutput( "  Total execution time (stats): #totalExecutionTime#", true );
-		systemOutput( "  Ratio: #numberFormat(totalExecutionTime / requestExecutionTime, '0.00')#x", true );
+		//systemOutput( "  Request execution time: #requestExecutionTime#", true );
+		//systemOutput( "  Total execution time (stats): #totalExecutionTime#", true );
+		//systemOutput( "  Ratio: #numberFormat(totalExecutionTime / requestExecutionTime, '0.00')#x", true );
 
 		// CRITICAL: The sum of all execution times should not exceed the request time
 		expect( totalExecutionTime ).toBeLTE( requestExecutionTime,
-			"#label#: Total execution time (#totalExecutionTime#) exceeds request execution time (#requestExecutionTime#). Child time is being over-counted by #numberFormat((totalExecutionTime / requestExecutionTime - 1) * 100, '0.0')#%!" );
+			"#label#: Total execution time (#totalExecutionTime#) exceeds request execution time (#requestExecutionTime#). Child time is being over-counted by #numberFormat((totalExecutionTime / requestExecutionTime - 1) * 100, '0.0')#%! in " & jsonFilePath );
 	}
 
 	private function validateRequestTotalTime( required string exlFilePath ) {
-		systemOutput( "Validating request-level totals for: #arguments.exlFilePath#", true );
+		//systemOutput( "Validating request-level totals for: #arguments.exlFilePath#", true );
 
 		// Use lcovGenerateJson to parse the log
 		var exlDir = getDirectoryFromPath( arguments.exlFilePath );
@@ -144,14 +146,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Calculate sum of totalExecutionTime across all files
 		var totalExecutionTime = result.stats.totalExecutionTime;
 
-		systemOutput( "  Request execution time: #requestExecutionTime#", true );
-		systemOutput( "  Sum of file totalExecutionTime: #totalExecutionTime#", true );
-		systemOutput( "  Ratio: #numberFormat(totalExecutionTime / requestExecutionTime, '0.00')#x", true );
+		//systemOutput( "  Request execution time: #requestExecutionTime#", true );
+		//systemOutput( "  Sum of file totalExecutionTime: #totalExecutionTime#", true );
+		//systemOutput( "  Ratio: #numberFormat(totalExecutionTime / requestExecutionTime, '0.00')#x", true );
 
 		// CRITICAL: The sum of all file execution times should not exceed the request time
 		// If it does, we're double-counting child time somewhere
 		expect( totalExecutionTime ).toBeLTE( requestExecutionTime,
-			"Total execution time (#totalExecutionTime#) exceeds request execution time (#requestExecutionTime#). Child time is being over-counted!" );
+			"Total execution time (#totalExecutionTime#) exceeds request execution time (#requestExecutionTime#). Child time is being over-counted! in " & arguments.exlFilePath );
 	}
 
 }

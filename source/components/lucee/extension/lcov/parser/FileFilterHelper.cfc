@@ -20,11 +20,11 @@ component {
 	 * @blocklist Array of blocked patterns
 	 * @return boolean True if file should be skipped, false if it should be processed
 	 */
-	public boolean function shouldSkipFile(required string path, required array allowList, required array blocklist) {
+	public function shouldSkipFile( path, allowList,blocklist )  localmode=true {
 		// Check allowList first (if present, file must match to proceed)
 		if (arrayLen(arguments.allowList) > 0) {
 			var foundInAllowList = false;
-			for (var pattern in arguments.allowList) {
+			cfloop( array=arguments.allowList, item="local.pattern" ) {
 				if (matchesPattern(arguments.path, pattern)) {
 					foundInAllowList = true;
 					break;
@@ -37,7 +37,7 @@ component {
 		}
 
 		// Check blocklist (if matches any pattern, skip)
-		for (var pattern in arguments.blocklist) {
+		cfloop( array=arguments.blocklist, item="local.pattern" ) {
 			if (matchesPattern(arguments.path, pattern)) {
 				variables.logger.debug("Skipping file [" & arguments.path & "] - found in blocklist pattern [" & pattern & "]");
 				return true;
@@ -54,7 +54,7 @@ component {
 	 * @pattern Pattern to match against
 	 * @return boolean True if pattern found in path
 	 */
-	private boolean function matchesPattern(required string path, required string pattern) {
+	private function matchesPattern( path, pattern )  localmode=true {
 		var normalizedPath = normalizePathForComparison(arguments.path);
 		var normalizedPattern = normalizePathForComparison(arguments.pattern);
 		return find(normalizedPattern, normalizedPath) > 0;
@@ -65,7 +65,7 @@ component {
 	 * @path Path to normalize
 	 * @return string Normalized path
 	 */
-	private string function normalizePathForComparison(required string path) {
+	private function normalizePathForComparison( path ) localmode=true {
 		var normalized = replace(arguments.path, "/", server.separator.file, "all");
 		normalized = replace(normalized, "\", server.separator.file, "all");
 		return normalized;

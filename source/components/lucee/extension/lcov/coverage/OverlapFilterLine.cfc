@@ -15,7 +15,7 @@ component displayname="OverlapFilterLine" accessors="true" {
 	 * Process line-based blocks with overlap detection
 	 * Blocks are already defined by line numbers [fileIdx, startLine, endLine, execTime]
 	 */
-	public struct function filter(blocksByFile, files, lineMappingsCache) localmode="modern" {
+	public struct function filter(blocksByFile, files, lineMappingsCache) localmode=true {
 		var startTime = getTickCount();
 		var coverage = [=];
 
@@ -68,7 +68,7 @@ component displayname="OverlapFilterLine" accessors="true" {
 	 * Filter overlapping blocks for line-based data
 	 * Blocks are already defined by line numbers [fileIdx, startLine, endLine, execTime]
 	 */
-	private array function filterOverlappingBlocks(blocks) localmode="modern" {
+	private array function filterOverlappingBlocks(blocks) localmode=true {
 		var filteredBlocks = [];
 		var blockRanges = [];
 

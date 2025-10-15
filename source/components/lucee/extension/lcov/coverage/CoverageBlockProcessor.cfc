@@ -25,7 +25,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		var coverage = [=];
 
 		// Process each file's blocks
-		for (var fileIdx in arguments.blocksByFile) {
+		cfloop( collection=arguments.blocksByFile, key="local.fileIdx" ) {
 			if (!structKeyExists(arguments.files, fileIdx)) continue;
 
 			var filePath = arguments.files[fileIdx].path;
@@ -82,7 +82,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		var coverage = [=];
 
 		// Process each file's blocks
-		for (var fileIdx in arguments.blocksByFile) {
+		cfloop( collection=arguments.blocksByFile, key="local.fileIdx" ) {
 			if (!structKeyExists(arguments.files, fileIdx)) continue;
 
 			var filePath = arguments.files[fileIdx].path;
@@ -327,7 +327,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 	/**
 	 * Character to line mapping with improved string processing
 	 */
-	public array function buildCharacterToLineMapping(string fileContent) localmode="modern" {
+	public array function buildCharacterToLineMapping(string fileContent) localmode=true {
 		var lineStarts = [1];
 		var currentPos = 1;
 		var contentLen = len(arguments.fileContent);

@@ -13,6 +13,9 @@ component {
 	public function init(required Logger logger, string displayUnit = "μs") {
 		variables.logger = arguments.logger;
 		variables.displayUnit = arguments.displayUnit;
+		variables.htmlAssets = new HtmlAssets();
+		variables.htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
+		variables.markdownWriter = new MarkdownWriter( logger=variables.logger, displayUnit=variables.displayUnit );
 		return this;
 	}
 
@@ -32,13 +35,15 @@ component {
 		if (!isInstanceOf(arguments.result, "lucee.extension.lcov.model.result")) {
 			throw(message="generateHtmlReport requires a lucee.extension.lcov.model.result instance, got: " & getMetaData(arguments.result).name);
 		}
-		if (!isStruct(arguments.result.getCoverage()) || structIsEmpty(arguments.result.getCoverage())) {
-			variables.logger.debug("No coverage data found in " & arguments.result.getExeLog() & ", skipping HTML report generation");
-			return; // Skip empty files
+
+		// Fail fast - coverage must exist before generating HTML
+		var coverage = arguments.result.getCoverage();
+		if (!isStruct(coverage) || structIsEmpty(coverage)) {
+			var outputFilename = arguments.result.getOutputFilename();
+			throw(message="No coverage data in result for outputFilename=[#outputFilename#]. Coverage must be built before generating HTML reports. Call buildLineCoverage() first.");
 		}
 
-		var htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
-		var html = htmlWriter.generateHtmlContent( result, variables.displayUnit );
+		var html = variables.htmlWriter.generateHtmlContent( result, variables.displayUnit );
 		var htmlPath = createHtmlPath(result);
 		fileWrite(htmlPath, html);
 
@@ -58,10 +63,7 @@ component {
 	public string function generateIndexHtml(string outputDirectory) {
 
 		// Copy CSS/JS assets to output directory
-		var htmlAssets = new HtmlAssets();
-		htmlAssets.copyAssets( arguments.outputDirectory );
-
-		var htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
+		variables.htmlAssets.copyAssets( arguments.outputDirectory );
 
 		var indexJsonPath = outputDirectory & "/index.json";
 
@@ -91,7 +93,7 @@ component {
 		}
 
 		// Generate HTML content
-		var html = htmlWriter.generateIndexHtmlContent( indexData );
+		var html = variables.htmlWriter.generateIndexHtmlContent( indexData );
 
 		// Write index.html file
 		var indexHtmlPath = arguments.outputDirectory & "/index.html";
@@ -175,13 +177,15 @@ component {
 		if (!isInstanceOf(arguments.result, "lucee.extension.lcov.model.result")) {
 			throw(message="generateMarkdownReport requires a lucee.extension.lcov.model.result instance, got: " & getMetaData(arguments.result).name);
 		}
-		if (!isStruct(arguments.result.getCoverage()) || structIsEmpty(arguments.result.getCoverage())) {
-			variables.logger.debug("No coverage data found in " & arguments.result.getExeLog() & ", skipping Markdown report generation");
-			return; // Skip empty files
+
+		// Fail fast - coverage must exist before generating Markdown
+		var coverage = arguments.result.getCoverage();
+		if (!isStruct(coverage) || structIsEmpty(coverage)) {
+			var outputFilename = arguments.result.getOutputFilename();
+			throw(message="No coverage data in result for outputFilename=[#outputFilename#]. Coverage must be built before generating Markdown reports. Call buildLineCoverage() first.");
 		}
 
-		var markdownWriter = new MarkdownWriter( logger=variables.logger, displayUnit=variables.displayUnit );
-		var markdown = markdownWriter.generateMarkdownContent( result );
+		var markdown = variables.markdownWriter.generateMarkdownContent( result );
 		var markdownPath = createMarkdownPath(result);
 		fileWrite(markdownPath, markdown);
 
@@ -203,8 +207,7 @@ component {
 	* @return Path to the generated index.md file
 	*/
 	public string function generateIndexMarkdown(required array indexData, required string outputDirectory) {
-		var markdownWriter = new MarkdownWriter( logger=variables.logger, displayUnit=variables.displayUnit );
-		return markdownWriter.generateIndexMarkdown(indexData=arguments.indexData, outputDirectory=arguments.outputDirectory);
+		return variables.markdownWriter.generateIndexMarkdown(indexData=arguments.indexData, outputDirectory=arguments.outputDirectory);
 	}
 
 }

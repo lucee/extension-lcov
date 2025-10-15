@@ -28,12 +28,12 @@ component {
 		required struct blocks,
 		required struct files,
 		required struct lineMappingsCache
-	) localmode="modern" {
-		var aggregatorStart = getTickCount();
+	) localmode=true {
+		var event = variables.logger.beginEvent( "BlockToLineAggregation" );
 		var blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		var coverage = structNew( "regular" );
 
-		cfloop( collection=arguments.files, item="local.fileIdx" ) {
+		cfloop( collection=arguments.files, key="local.fileIdx" ) {
 			var fileInfo = arguments.files[fileIdx];
 
 			// Aggregate blocks for this file
@@ -54,7 +54,7 @@ component {
 
 			// STAGE 2.5: Add zero-count entries for unexecuted executable lines
 			if (structKeyExists(fileInfo, "executableLines")) {
-				cfloop( collection=fileInfo.executableLines, item="local.lineNum" ) {
+				cfloop( collection=fileInfo.executableLines, key="local.lineNum" ) {
 					if (!structKeyExists(coverage[fileIdx], lineNum)) {
 						coverage[fileIdx][lineNum] = [0, 0, 0]; // [hitCount, ownTime, childTime]
 					}
@@ -68,11 +68,7 @@ component {
 			structDelete(fileInfo, "mappingLen");
 		}
 
-		var processingTime = getTickCount() - aggregatorStart;
-		// Only log if it took more than 100ms to avoid log spam with thousands of files
-		if ( processingTime > 100 ) {
-			variables.logger.debug("Block aggregation to lines completed in " & numberFormat(processingTime) & "ms");
-		}
+		variables.logger.commitEvent( event=event, minThresholdMs=100, logLevel="debug" );
 
 		return coverage;
 	}

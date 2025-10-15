@@ -12,6 +12,7 @@ component {
 	variables.legend = new HtmlLegend();
 	variables.index = new HtmlIndex();
 	variables.fileUtils = new FileUtils();
+	variables.footer = new lucee.extension.lcov.reporter.HtmlFooter();
 	
 	/**
 	* Constructor/init function
@@ -134,8 +135,7 @@ component {
 		html &= '</div>';
 
 		// Add version footer
-		var footer = new lucee.extension.lcov.reporter.HtmlFooter();
-		html &= footer.generateFooter();
+		html &= variables.footer.generateFooter();
 
 		html &= variables.htmlAssets.getDarkModeScript();
 		html &= variables.htmlAssets.getTableSortScript();

@@ -30,7 +30,7 @@ component {
 	 * @buildWithCallTree If true, marks blocks with isChild flags before building coverage (combines buildLineCoverage+annotateCallTree)
 	 * @return Array of processed JSON file paths
 	 */
-	public array function buildCoverage(required array jsonFilePaths, required string astMetadataPath, boolean buildWithCallTree = false) localmode="modern" {
+	public array function buildCoverage(required array jsonFilePaths, required string astMetadataPath, boolean buildWithCallTree = false) localmode=true {
 		var startTime = getTickCount();
 		var totalFiles = arrayLen(arguments.jsonFilePaths);
 		variables.logger.info( "Phase buildLineCoverage: Building line coverage for #totalFiles# files" );
@@ -94,6 +94,69 @@ component {
 		return arguments.jsonFilePaths;
 	}
 
+	/**
+	 * Build line coverage for in-memory results (Stage 2 optimization)
+	 * Works with already-merged results instead of loading from disk
+	 *
+	 * @mergedResults Struct of merged result objects keyed by canonical index
+	 * @astMetadataPath Path to ast-metadata.json
+	 * @buildWithCallTree If true, marks blocks with isChild flags before building coverage
+	 * @return Struct of result objects with coverage added
+	 */
+	public struct function buildCoverageFromResults(
+		required struct mergedResults,
+		required string astMetadataPath,
+		boolean buildWithCallTree = false
+	) localmode=true {
+		var startTime = getTickCount();
+		var totalFiles = structCount(arguments.mergedResults);
+		variables.logger.info( "Phase buildLineCoverage: Building line coverage for #totalFiles# in-memory results" );
+
+		// Load AST index once for all files (shared across parallel processing)
+		var astLoader = new lucee.extension.lcov.parser.AstMetadataLoader( logger=variables.logger );
+		var astIndex = astLoader.loadIndex( arguments.astMetadataPath );
+
+		// Cache for closure access
+		var self = this;
+		var astMetadataPath = arguments.astMetadataPath;
+		var buildWithCallTree = arguments.buildWithCallTree;
+
+		// Convert struct to array of {canonicalIndex, result} for parallel processing
+		var resultArray = [];
+		cfloop(collection=arguments.mergedResults, item="local.canonicalIndex") {
+			arrayAppend(resultArray, {
+				"canonicalIndex": canonicalIndex,
+				"result": arguments.mergedResults[canonicalIndex]
+			});
+		}
+
+		// Process in parallel
+		var results = arrayMap(resultArray, function(item) {
+			// Check flags - skip if already done
+			var flags = item.result.getFlags();
+			if (structKeyExists(flags, "hasCoverage") && flags.hasCoverage) {
+				return {processed: false, skipped: true};
+			}
+
+			// Build coverage
+			self.buildCoverageForResult(item.result, astMetadataPath, astLoader, astIndex, buildWithCallTree);
+			return {processed: true, skipped: false};
+		}, true); // true = parallel processing
+
+		// Count results
+		var processedCount = 0;
+		var skippedCount = 0;
+		for (var r in results) {
+			if (r.processed) processedCount++;
+			if (r.skipped) skippedCount++;
+		}
+
+		var elapsedTime = getTickCount() - startTime;
+		variables.logger.info( "Phase buildLineCoverage: Processed #processedCount# in-memory results, skipped #skippedCount# in #elapsedTime#ms" );
+
+		return arguments.mergedResults;
+	}
+
 
 	/**
 	 * Build line coverage for a single result.
@@ -104,80 +167,50 @@ component {
 	 * @astIndex Loaded AST index (shared across parallel processing)
 	 * @return The result object with coverage added
 	 */
-	public any function buildCoverageForResult(required any result, string astMetadataPath, any astLoader, struct astIndex, boolean buildWithCallTree = false) localmode="modern" {
-		// Check if already done
+	public any function buildCoverageForResult(required any result, string astMetadataPath, any astLoader, struct astIndex, boolean buildWithCallTree = false) localmode=true {
 		var flags = arguments.result.getFlags();
 		if ( structKeyExists( flags, "hasCoverage" ) && flags.hasCoverage ) {
 			variables.logger.debug( "Skipping coverage build - already done (hasCoverage=true)" );
 			return arguments.result;
 		}
 
-		var startTime = getTickCount();
-		variables.logger.trace( "Building line coverage from aggregated blocks" );
-
-		// Get aggregated blocks and files
+		var event = variables.logger.beginEvent( "BuildLineCoverage" );
 		var aggregated = arguments.result.getAggregated();
 		var files = arguments.result.getFiles();
 
-		// If buildWithCallTree, mark blocks with isChild flags BEFORE converting (buildLineCoverage+annotateCallTree combined)
+		// If buildWithCallTree, build CallTree data and mark blocks with isChild flags
 		if ( arguments.buildWithCallTree ) {
-			// Build callTreeMap: nested struct keyed by fileIdx, then position
 			var callTreeMap = structNew( "regular" );
-			for ( var fileIdx in files ) {
-				var astData = arguments.astLoader.loadMetadataForFileWithIndex(
+			cfloop( collection=files, key="local.fileIdx", value="local.fileInfo" ) {
+				callTreeMap[fileIdx] = arguments.astLoader.loadMetadataForFileWithIndex(
 					arguments.astMetadataPath,
 					arguments.astIndex,
-					files[fileIdx].path
-				);
-				callTreeMap[fileIdx] = astData.callTree;
+					fileInfo.path
+				).callTree;
 			}
 
-			// Mark blocks with CallTree flags using CallTreeAnalyzer
 			var callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
 			var markedBlocks = callTreeAnalyzer.markChildTimeBlocks( aggregated, callTreeMap );
 
-			// Calculate metrics
-			var metrics = callTreeAnalyzer.calculateChildTimeMetrics( markedBlocks );
-
-			// Store CallTree data and metrics
 			arguments.result.setCallTree( callTreeMap );
-			arguments.result.setCallTreeMetrics( metrics );
-
-			// Convert aggregated to blocks WITH CallTree isChild flags already set
-			var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
-
-			// Update blocks with isChild flags from markedBlocks
-			for (var flatKey in markedBlocks) {
-				var markedBlock = markedBlocks[flatKey];
-				var fileIdx = markedBlock.fileIdx;
-				var blockKey = markedBlock.startPos & "-" & markedBlock.endPos;
-
-				if (structKeyExists(blocks, fileIdx) && structKeyExists(blocks[fileIdx], blockKey)) {
-					blocks[fileIdx][blockKey].isChild = markedBlock.isChildTime ?: false;
-				}
-			}
-		} else {
-			// Convert aggregated to blocks WITHOUT CallTree (LCOV/Summary format)
-			var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
+			arguments.result.setCallTreeMetrics( callTreeAnalyzer.calculateChildTimeMetrics( markedBlocks ) );
 		}
 
-		// Store blocks in result
+		var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
+
+		if ( arguments.buildWithCallTree ) {
+			applyIsChildFlags( blocks, markedBlocks );
+		}
+
 		arguments.result.setBlocks( blocks );
 
 		// Build line mappings cache from AST JSON files (calculated once in extractAstMetadata)
-		// This eliminates 53,080 redundant file reads!
-		var lineMappingsCache = {};
-		for (var fileIdx in files) {
-			var fileInfo = files[fileIdx];
-			if ( !structKeyExists( fileInfo, "path" ) ) {
-				continue;
-			}
+		var lineMappingsCache = structNew( "regular" );
+		cfloop( collection=files, key="local.fileIdx", value="local.fileInfo" ) {
 
-			// Check if lineMapping already exists
 			if ( structKeyExists( fileInfo, "lineMapping" ) ) {
 				lineMappingsCache[fileInfo.path] = fileInfo.lineMapping;
 			} else {
-				// Load from AST JSON - fail fast if not available!
 				var astData = arguments.astLoader.loadMetadataForFileWithIndex(
 					arguments.astMetadataPath,
 					arguments.astIndex,
@@ -191,10 +224,11 @@ component {
 				}
 				fileInfo.lineMapping = astData.lineMapping;
 				lineMappingsCache[fileInfo.path] = astData.lineMapping;
+				fileInfo.linesFound = astData.executableLineCount;
+				fileInfo.executableLines = astData.executableLines;
 			}
 		}
 
-		// Convert blocks to line-based coverage
 		var coverage = variables.blockToLineAggregator.aggregateBlocksToLines(
 			arguments.result,
 			blocks,
@@ -202,7 +236,6 @@ component {
 			lineMappingsCache
 		);
 
-		// Store coverage in result
 		arguments.result.setCoverage( coverage );
 
 		// Recalculate stats if we built with CallTree (to pick up childTime values)
@@ -211,20 +244,29 @@ component {
 			coverageStats.calculateCoverageStats( arguments.result );
 		}
 
-		// Update flags
 		arguments.result.setFlags({
 			"hasCallTree": arguments.buildWithCallTree, // Has CallTree if built with it
 			"hasBlocks": true,
 			"hasCoverage": true
 		});
 
-		var elapsedTime = getTickCount() - startTime;
-		// Only log if it took more than 100ms to avoid log spam with thousands of files
-		if ( elapsedTime > 100 ) {
-			variables.logger.debug( "Built line coverage in #elapsedTime#ms" );
-		}
+		variables.logger.commitEvent( event=event, minThresholdMs=100, logLevel="debug" );
 
 		return arguments.result;
+	}
+
+	/**
+	 * Apply isChild flags from markedBlocks to blocks struct.
+	 * @blocks Blocks struct keyed by fileIdx -> blockKey
+	 * @markedBlocks Flat struct of marked blocks from CallTreeAnalyzer
+	 */
+	private void function applyIsChildFlags( required struct blocks, required struct markedBlocks ) {
+		cfloop( collection=arguments.markedBlocks, key="local.flatKey", value="local.markedBlock" ) {
+			var fileIdx = markedBlock.fileIdx;
+			var blockKey = markedBlock.startPos & "-" & markedBlock.endPos;
+
+			arguments.blocks[fileIdx][blockKey].isChild = markedBlock.isChildTime ?: false;
+		}
 	}
 
 }

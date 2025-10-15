@@ -31,19 +31,18 @@ component {
 	 * @aggregatedBlocks Struct with tab-delimited keys: "fileIdx\tstartPos\tendPos", values: [fileIdx, startPos, endPos, hitCount, execTime]
 	 * @return Struct keyed by fileIdx, containing blocks keyed by "startPos-endPos": {hitCount, execTime}
 	 */
-	public struct function convertAggregatedToBlocks( required struct aggregatedBlocks ) localmode="modern" {
+	public struct function convertAggregatedToBlocks( required struct aggregatedBlocks ) localmode=true {
 		var blocks = structNew('regular');
 
-		for ( var key in arguments.aggregatedBlocks ) {
+		cfloop( collection=arguments.aggregatedBlocks, key="local.key", value="local.blockData" ) {
 			var parts = listToArray( key, "	", false, false );
 			var fileIdx = parts[ 1 ];
 			var startPos = parts[ 2 ];
 			var endPos = parts[ 3 ];
-			var blockData = arguments.aggregatedBlocks[ key ];
 			// blockData is [fileIdx, startPos, endPos, hitCount, execTime]
 
 			if ( !structKeyExists( blocks, fileIdx ) ) {
-				blocks[ fileIdx ] = {};
+				blocks[ fileIdx ] = structNew('regular');
 			}
 
 			var blockKey = startPos & "-" & endPos;
@@ -64,7 +63,7 @@ component {
 	 * @lineMapping Array where index = character position, value = line number
 	 * @return Struct of line-based coverage: {lineNum: [hitCount, ownTime, childTime]}
 	 */
-	public struct function aggregateBlocksToLines( required any result, required numeric fileIndex, required array lineMapping ) localmode="modern" {
+	public struct function aggregateBlocksToLines( required any result, required numeric fileIndex, required array lineMapping ) localmode=true {
 		var lineCoverage = structNew('regular');
 		var fileBlocks = arguments.result.getBlocksForFile( arguments.fileIndex );
 
@@ -73,8 +72,7 @@ component {
 		// Check once if blocks have isChild flag (set in annotateCallTree, missing in buildLineCoverage)
 		var hasIsChildFlag = 0;
 
-		for ( var blockKey in fileBlocks ) {
-			var block = fileBlocks[ blockKey ];
+		cfloop( collection=fileBlocks, key="local.blockKey", value="local.block" ) {
 			var parts = listToArray( blockKey, "-" );
 			var startPos = parts[ 1 ];
 			var originalStartPos = startPos;
@@ -131,20 +129,12 @@ component {
 	 * @files The files struct with line mappings
 	 * @return Struct of coverage data: {fileIdx: {lineNum: [hitCount, ownTime, childTime]}}
 	 */
-	public struct function aggregateAllBlocksToLines( required any result, required struct files ) localmode="modern" {
+	public struct function aggregateAllBlocksToLines( required any result, required struct files ) localmode=true {
 		var coverage = structNew('regular');
 		var blocks = arguments.result.getBlocks();
 
-		for ( var fileIdx in blocks ) {
-			if ( !structKeyExists( arguments.files, fileIdx ) ) {
-				continue; // Skip files not in files struct
-			}
-
+		cfloop( collection=blocks, key="local.fileIdx" ) {
 			var fileInfo = arguments.files[ fileIdx ];
-			if ( !structKeyExists( fileInfo, "lineMapping" ) ) {
-				continue; // Skip files without line mappings
-			}
-
 			coverage[ fileIdx ] = aggregateBlocksToLines( arguments.result, fileIdx, fileInfo.lineMapping );
 		}
 
@@ -158,16 +148,11 @@ component {
 	 * @mergedFiles Struct of file info keyed by file path: {"/path": {path, lines, content, ...}}
 	 * @return Struct of coverage data keyed by file path: {"/path": {lineNum: [hitCount, ownTime, childTime]}}
 	 */
-	public struct function aggregateMergedBlocksToLines( required struct mergedBlocks, required struct mergedFiles ) localmode="modern" {
+	public struct function aggregateMergedBlocksToLines( required struct mergedBlocks, required struct mergedFiles ) localmode=true {
 		var coverage = {};
 
-		for ( var filePath in arguments.mergedBlocks ) {
-			if ( !structKeyExists( arguments.mergedFiles, filePath ) ) {
-				continue; // Skip blocks for files not in files struct
-			}
-
+		cfloop( collection=arguments.mergedBlocks, key="local.filePath", value="local.fileBlocks" ) {
 			var fileInfo = arguments.mergedFiles[ filePath ];
-			var fileBlocks = arguments.mergedBlocks[ filePath ];
 
 			// Build line mapping if not exists (need full content)
 			var lineMapping = [];
@@ -189,9 +174,7 @@ component {
 
 			// Aggregate blocks to lines for this file
 			var lineCoverage = structNew('regular');
-			for ( var blockKey in fileBlocks ) {
-				
-				var block = fileBlocks[ blockKey ];
+			cfloop( collection=fileBlocks, key="local.blockKey", value="local.block" ) {
 				var parts = listToArray( blockKey, "-" );
 				var startPos = parts[ 1 ];
 				// Check once if blocks have isChild flag (set in annotateCallTree, missing in buildLineCoverage)

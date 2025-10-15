@@ -16,7 +16,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 * Filter overlapping position-based blocks
 	 * Returns filtered blocks still in character position format
 	 */
-	public struct function filter(aggregatedOrBlocksByFile, files, lineMappingsCache) localmode="modern" {
+	public struct function filter(aggregatedOrBlocksByFile, files, lineMappingsCache) localmode=true {
 		var event = variables.logger.beginEvent("OverlapFilterPosition");
 		event["inputEntries"] = structCount(arguments.aggregatedOrBlocksByFile);
 		var startTime = getTickCount();
@@ -27,7 +27,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		var isAggregatedFormat = false;
 
 		// Check if this is aggregated format (has tab-delimited keys) or blocks format (numeric keys with array values)
-		cfloop( collection=arguments.aggregatedOrBlocksByFile, item="local.key" ) {
+		cfloop( collection=arguments.aggregatedOrBlocksByFile, key="local.key" ) {
 			var value = arguments.aggregatedOrBlocksByFile[key];
 			if (isArray(value) && arrayLen(value) > 0) {
 				if (isArray(value[1])) {
@@ -44,7 +44,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 
 		if (isAggregatedFormat) {
 			// Convert aggregated structure to blocks by file
-			cfloop( collection=arguments.aggregatedOrBlocksByFile, item="local.key" ) {
+			cfloop( collection=arguments.aggregatedOrBlocksByFile, key="local.key" ) {
 				var block = arguments.aggregatedOrBlocksByFile[key];
 				// Block format from aggregator: [fileIdx, startPos, endPos, count, totalTime]
 				var fileIdx = toString(block[1]);
@@ -62,7 +62,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		var filesProcessed = 0;
 		var filesWithChanges = 0;
 
-		cfloop( collection=blocksByFile, item="local.fileIdx" ) {
+		cfloop( collection=blocksByFile, key="local.fileIdx" ) {
 			var fileStart = getTickCount();
 			var blocks = blocksByFile[ fileIdx ];
 			var blockCountBefore = arrayLen( blocks );
@@ -148,7 +148,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 * Filter overlapping blocks for position-based (character offset) data
 	 * Blocks are defined by character positions [fileIdx, startPos, endPos, execTime]
 	 */
-	private array function filterOverlappingBlocks(blocks) localmode="modern" {
+	private array function filterOverlappingBlocks(blocks) localmode=true {
 		var filteredBlocks = [];
 
 		// Sort blocks by span size (smallest first)

@@ -1,13 +1,18 @@
 component {
+
+	public function init() {
+		variables.header = new HtmlReportHeader();
+		variables.htmlAssets = new HtmlAssets();
+		variables.footer = new lucee.extension.lcov.reporter.HtmlFooter();
+		return this;
+	}
+
 	/**
 	 * Generates the HTML for the index page.
 	 * @results Array of result model objects (model/result.cfc)
 	 */
 	public string function generateIndexHtmlContent(required array results, required any htmlEncoder, required string displayUnit) {
 		var heatmapData = calculateCoverageHeatmapData(arguments.results, arguments.displayUnit);
-
-		var header = new HtmlReportHeader();
-		var htmlAssets = new HtmlAssets();
 		var timeFormatter = new lucee.extension.lcov.reporter.TimeFormatter(arguments.displayUnit);
 		var html = '<!DOCTYPE html>
 		<html lang="en">
@@ -17,7 +22,7 @@ component {
 				<title>Code Coverage Reports Index</title>
 				<link rel="alternate" type="application/json" href="index.json">
 				<link rel="alternate" type="text/markdown" href="index.md">
-				' & htmlAssets.getCommonCss() & '
+				' & variables.htmlAssets.getCommonCss() & '
 				<style>' & heatmapData.css & '</style>
 				<script>
 				document.addEventListener("DOMContentLoaded", function() {
@@ -37,7 +42,7 @@ component {
 				<div class="container">
 					<div class="header-top">
 						<div class="header-content">'
-						& header.getReportTitleHeader() & '
+						& variables.header.getReportTitleHeader() & '
 						<h1>Code Coverage Reports</h1>
 					</div>
 						<button id="dark-mode-toggle" class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">
@@ -48,7 +53,7 @@ component {
 		var totalLinesHit = 0;
 		var totalLinesFound = 0;
 		var totalExecutionTimeMicroseconds = 0;
-		for (var result in arguments.results) {
+		cfloop( array=arguments.results, item="local.result" ) {
 			if (isNumeric(result["totalLinesHit"])) totalLinesHit += result["totalLinesHit"];
 			if (isNumeric(result["totalLinesFound"])) totalLinesFound += result["totalLinesFound"];
 			if (structKeyExists(result, "totalExecutionTime") && isNumeric(result["totalExecutionTime"])) {
@@ -76,7 +81,7 @@ component {
 
 		// Check for minimum time warnings across all results
 		var hasMinTimeWarnings = false;
-		for (var result in arguments.results) {
+		cfloop( array=arguments.results, item="local.result" ) {
 			if (structKeyExists(result, "minTimeNano") && isNumeric(result["minTimeNano"]) && result["minTimeNano"] > 0) {
 				hasMinTimeWarnings = true;
 				break;
@@ -117,7 +122,7 @@ component {
 				return percentA - percentB; // Ascending order (worst first)
 			});
 
-			for (var result in arguments.results) {
+			cfloop( array=arguments.results, item="local.result" ) {
 				// Get required properties from report summary struct (from index.json)
 				var scriptName = result["scriptName"];
 				var htmlFile = result["htmlFile"];
@@ -200,11 +205,10 @@ component {
 			html &= '</div>';
 
 			// Add version footer
-			var footer = new lucee.extension.lcov.reporter.HtmlFooter();
-			html &= footer.generateFooter();
+			html &= variables.footer.generateFooter();
 
-			html &= htmlAssets.getDarkModeScript();
-			html &= htmlAssets.getTableSortScript();
+			html &= variables.htmlAssets.getDarkModeScript();
+			html &= variables.htmlAssets.getTableSortScript();
 			html &= '</body></html>';
 			return html;
 	}
@@ -221,7 +225,7 @@ component {
 		var executionTimes = [];
 
 		// Collect coverage percentages and execution times for heatmap calculation
-		for (var result in arguments.results) {
+		cfloop( array=arguments.results, item="local.result" ) {
 			// Coverage percentages
 			if (isNumeric(result["totalLinesHit"]) && isNumeric(result["totalLinesFound"]) && result["totalLinesFound"] > 0) {
 				var percentage = 100.0 * result["totalLinesHit"] / result["totalLinesFound"];

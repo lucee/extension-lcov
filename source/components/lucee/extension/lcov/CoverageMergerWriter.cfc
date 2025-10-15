@@ -13,11 +13,10 @@ component accessors=false {
 	 * @logLevel Log level for verbose logging
 	 * @return Array of written file paths
 	 */
-	public array function writeMergedResultsToFiles(required struct mergedResults, required string outputDir, string logLevel = "none") localmode="modern" {
+	public array function writeMergedResultsToFiles(required struct mergedResults, required string outputDir, string logLevel = "none") localmode=true {
 		var logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
 		var writtenFiles = [];
-		for (var canonicalIndex in arguments.mergedResults) {
-			var entry = arguments.mergedResults[canonicalIndex];
+		cfloop( collection=arguments.mergedResults, key="local.canonicalIndex", value="local.entry" ) {
 			// Always synchronize stats from canonical files struct
 			var files = entry.getFiles();
 			var canonicalStats = {};
@@ -29,13 +28,13 @@ component accessors=false {
 				// Fail fast if any required field is missing
 				// Note: executableLines removed from required fields - coverage now contains all executable lines
 				var requiredFields = ["linesSource","linesFound","linesHit","path","totalExecutions","totalExecutionTime","lines"];
-				for (var f in requiredFields) {
+				cfloop( array=requiredFields, item="local.f" ) {
 					if (!structKeyExists(srcFile, f)) {
 						throw(message="BUG: Missing required field '" & f & "' in srcFile for canonical index " & canonicalIndex & ". srcFile: " & serializeJSON(srcFile));
 					}
 				}
 				// Copy all required fields exactly, no patching or fallback
-				for (var f in requiredFields) {
+				cfloop( array=requiredFields, item="local.f" ) {
 					canonicalStats[f] = srcFile[f];
 				}
 			} else {
