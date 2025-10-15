@@ -6,10 +6,10 @@
  */
 component {
 
-	public function init() {
-		var logger = new lucee.extension.lcov.Logger( level="none" );
-		variables.blockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=logger );
-		variables.coverageStats = new lucee.extension.lcov.CoverageStats( logger=logger );
+	public function init(required any logger) {
+		variables.logger = arguments.logger;
+		variables.blockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=variables.logger );
+		variables.coverageStats = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 		return this;
 	}
 
@@ -52,12 +52,12 @@ component {
 	}
 
 	/**
-	 * Parse execution logs and return JSON file paths
+	 * Parse execution logs and return struct with jsonFilePaths and allFiles
 	 * @executionLogDir Directory containing .exl files
 	 * @options Processing options
-	 * @return Array of JSON file paths
+	 * @return Struct with {jsonFilePaths: array, allFiles: struct}
 	 */
-	public array function parseExecutionLogs( required string executionLogDir, required struct options ) {
+	public struct function parseExecutionLogs( required string executionLogDir, required struct options ) {
 		var logProcessor = new lucee.extension.lcov.ExecutionLogProcessor( arguments.options );
 		return logProcessor.parseExecutionLogs( arguments.executionLogDir, arguments.options );
 	}
@@ -65,13 +65,13 @@ component {
 	/**
 	 * Phase 2: Extract AST metadata from unique source files
 	 * @executionLogDir Directory containing .exl files and minimal JSONs
-	 * @jsonFilePaths Array of JSON file paths from Phase 1
+	 * @allFiles Struct of all files from Phase 1 (from parseExecutionLogs)
 	 * @options Processing options
 	 * @return Path to ast-metadata.json
 	 */
-	public string function extractAstMetadata( required string executionLogDir, required array jsonFilePaths, required struct options ) {
-		var logProcessor = new lucee.extension.lcov.ExecutionLogProcessor( arguments.options );
-		return logProcessor.extractAstMetadata( arguments.executionLogDir, arguments.jsonFilePaths, arguments.options );
+	public string function extractAstMetadata( required string executionLogDir, required struct allFiles, required struct options ) {
+		var astMetadataGenerator = new lucee.extension.lcov.ast.AstMetadataGenerator( logger=variables.logger );
+		return astMetadataGenerator.generate( arguments.executionLogDir, arguments.allFiles );
 	}
 
 	/**
@@ -82,9 +82,8 @@ component {
 	 * @return Array of JSON file paths
 	 */
 	public array function buildLineCoverage( required array jsonFilePaths, string astMetadataPath, required struct options ) {
-		var logger = createLogger( arguments.options.logLevel ?: "none" );
-		var coverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger );
-		return coverageBuilder.buildCoverage( arguments.jsonFilePaths, arguments.astMetadataPath ?: "" );
+		var coverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
+		return coverageBuilder.buildCoverage( arguments.jsonFilePaths, arguments.astMetadataPath );
 	}
 
 	/**
@@ -95,8 +94,7 @@ component {
 	 * @return Array of JSON file paths
 	 */
 	public array function annotateCallTree( required array jsonFilePaths, required string astMetadataPath, required struct options ) {
-		var logger = createLogger( arguments.options.logLevel ?: "none" );
-		var callTreeAnnotator = new lucee.extension.lcov.coverage.CallTreeAnnotator( logger );
+		var callTreeAnnotator = new lucee.extension.lcov.coverage.CallTreeAnnotator( logger=variables.logger );
 		return callTreeAnnotator.annotate( arguments.jsonFilePaths, arguments.astMetadataPath );
 	}
 
@@ -108,15 +106,6 @@ component {
 	public void function writeOutputFile( required string outputFile, required string content ) {
 		variables.blockProcessor.ensureDirectoryExists( getDirectoryFromPath( arguments.outputFile ) );
 		fileWrite( arguments.outputFile, arguments.content );
-	}
-
-	/**
-	 * Create logger instance
-	 * @logLevel Log level (none, info, debug, trace)
-	 * @return Logger instance
-	 */
-	public any function createLogger( required string logLevel ) {
-		return new lucee.extension.lcov.Logger( level=arguments.logLevel );
 	}
 
 	/**
@@ -183,7 +172,8 @@ component {
 
 	/**
 	 * Generate separate file merged results using CoverageMerger workflow
-	 * @results Struct of results loaded from JSON files
+	 * STREAMING VERSION - loads one file at a time to avoid OOM
+	 * @jsonFilePaths Array of JSON file paths to merge
 	 * @logger Logger instance
 	 * @outputDir Output directory for merged JSON files
 	 * @logLevel Log level for CoverageMergerWriter
@@ -191,7 +181,7 @@ component {
 	 * @return Array of generated source file JSON paths
 	 */
 	public array function generateSeparateFileMergedResults(
-		required struct results,
+		required array jsonFilePaths,
 		required any logger,
 		required string outputDir,
 		required string logLevel,
@@ -199,18 +189,94 @@ component {
 	) {
 		var merger = new lucee.extension.lcov.CoverageMerger( logger=arguments.logger );
 		var utils = new lucee.extension.lcov.CoverageMergerUtils();
-		var validResults = utils.filterValidResults( arguments.results );
+
+		// Load files one-at-a-time to build mappings without loading all into memory
+		var resultFactory = new lucee.extension.lcov.model.result();
+		var validResults = {};
+		arguments.logger.debug( "Loading #arrayLen(arguments.jsonFilePaths)# files for merge (streaming mode)" );
+
+		for ( var jsonPath in arguments.jsonFilePaths ) {
+			var result = resultFactory.fromJson( fileRead( jsonPath ), false );
+			if ( structCount( result.getFiles() ) > 0 ) {
+				validResults[jsonPath] = result;
+			}
+			result = nullValue(); // Allow GC
+		}
+
 		var mappings = utils.buildFileIndexMappings( validResults );
 		var mergedResults = utils.initializeMergedResults( validResults, mappings.filePathToIndex, mappings.indexToFilePath );
 		var sourceFileStats = merger.createSourceFileStats( mappings.indexToFilePath );
 		merger.mergeAllCoverageDataFromResults( validResults, mergedResults, mappings, sourceFileStats );
 
+		// Clear validResults to free memory before aggregation
+		validResults = {};
+
 		if ( arguments.aggregateCallTree ) {
-			merger.aggregateCallTreeMetricsForMergedResults( mergedResults, arguments.results );
+			// Reload results one-at-a-time for CallTree aggregation
+			for ( var jsonPath in arguments.jsonFilePaths ) {
+				var result = resultFactory.fromJson( fileRead( jsonPath ), false );
+				validResults[jsonPath] = result;
+			}
+			merger.aggregateCallTreeMetricsForMergedResults( mergedResults, validResults );
+			validResults = {};
 		}
 
 		new lucee.extension.lcov.CoverageStats( logger=arguments.logger ).calculateStatsForMergedResults( mergedResults );
-		return new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles( mergedResults, arguments.outputDir, arguments.logLevel );
+
+		// Hydrate source code back into mergedResults before writing per-file JSONs
+		// This is needed because Phase 1 minimal JSONs don't include source code/AST
+		hydrateSourceCodeForMergedResults( mergedResults, arguments.logger );
+
+		// Write per-file JSONs
+		var sourceFileJsons = new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles( mergedResults, arguments.outputDir, arguments.logLevel );
+
+		// Also write merged.json that contains all coverage aggregated together
+		// This is needed by tests and for overall coverage reporting
+		var mergedByFile = merger.mergeResultsByFile( arguments.jsonFilePaths, arguments.logLevel );
+		var mergedFile = arguments.outputDir & "/merged.json";
+		fileWrite( mergedFile, serializeJSON( var=mergedByFile, compact=false ) );
+		arguments.logger.debug( "Wrote merged.json with #structCount(mergedByFile.mergedCoverage.files)# files" );
+
+		return sourceFileJsons;
+	}
+
+	/**
+	 * Hydrate source code back into merged results
+	 * Phase 1 minimal JSONs exclude source code/AST to save space (~2MB → ~1KB)
+	 * This function loads source code from disk using the file path
+	 * @mergedResults Struct of merged result objects (modified in place)
+	 * @logger Logger instance
+	 */
+	private void function hydrateSourceCodeForMergedResults( required struct mergedResults, required any logger ) {
+		arguments.logger.debug( "Hydrating source code for #structCount(arguments.mergedResults)# merged results" );
+		var fileCacheHelper = new lucee.extension.lcov.parser.FileCacheHelper( logger=arguments.logger, blockProcessor=variables.blockProcessor );
+
+		for ( var canonicalIndex in arguments.mergedResults ) {
+			var entry = arguments.mergedResults[canonicalIndex];
+			var files = entry.getFiles();
+
+			// Each merged result should have exactly one file
+			for ( var fileIdx in files ) {
+				var fileInfo = files[fileIdx];
+				var filePath = fileInfo.path;
+
+				// Only hydrate if source code is missing
+				if ( !structKeyExists( fileInfo, "lines" ) || !isArray( fileInfo.lines ) ) {
+					arguments.logger.trace( "Hydrating source code for: " & filePath );
+
+					// Read file from disk and convert to lines array
+					var sourceLines = fileCacheHelper.readFileAsArrayBylines( filePath );
+					fileInfo.lines = sourceLines;
+
+					// Also store content as single string if needed
+					fileInfo.content = arrayToList( sourceLines, chr(10) );
+
+					arguments.logger.trace( "Hydrated " & arrayLen(sourceLines) & " lines for: " & filePath );
+				}
+			}
+		}
+
+		arguments.logger.debug( "Completed hydrating source code" );
 	}
 
 }

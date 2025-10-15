@@ -33,7 +33,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Create ExecutionLogProcessor and parse the logs
 		var processor = new lucee.extension.lcov.ExecutionLogProcessor();
 
-		var jsonFilePaths = processor.parseExecutionLogs(variables.testExlDir);
+		var parseResult = processor.parseExecutionLogs(variables.testExlDir);
+		var jsonFilePaths = parseResult.jsonFilePaths;
 
 		// Verify that JSON files array is returned
 		expect(isArray(jsonFilePaths)).toBeTrue("parseExecutionLogs should return array of JSON file paths");

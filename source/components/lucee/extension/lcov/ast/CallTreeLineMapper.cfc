@@ -16,13 +16,13 @@ component {
 		required struct files,
 		required any blockProcessor
 	) {
-		var lineCallTree = {};
+		var lineCallTree = structNew( "regular" );
 
 		// Extract blocks from the call tree structure
 		var blocks = arguments.callTree.blocks;
 
 		// Process each block in the call tree
-		for (var blockKey in blocks) {
+		cfloop( collection=blocks, item="local.blockKey" ) {
 			var block = blocks[blockKey];
 			var fileIdx = block.fileIdx;
 
@@ -100,10 +100,10 @@ component {
 	 * @lineCallTree The line-based call tree from mapCallTreeToLines
 	 * @return Struct keyed by fileIdx with nested struct keyed by lineNum
 	 */
-	public struct function createLineLookup(required struct lineCallTree) {
-		var lookup = {};
+	public struct function createLineLookup(required struct lineCallTree) localmode="modern" {
+		var lookup = structNew( "regular" );
 
-		for (var lineKey in arguments.lineCallTree) {
+		cfloop( collection=arguments.lineCallTree, item="local.lineKey" ) {
 			var lineData = arguments.lineCallTree[lineKey];
 			var fileIdx = lineData.fileIdx;
 			var lineNum = lineData.lineNum;
@@ -115,7 +115,7 @@ component {
 			// Calculate total childTime from blocks where isChildTime is true
 			var childTime = 0;
 			if (lineData.isChildTime) {
-				for (var block in lineData.blocks) {
+				cfloop( array=lineData.blocks, item="local.block" ) {
 					if (block.isChildTime) {
 						childTime += block.executionTime;
 					}
@@ -149,7 +149,7 @@ component {
 
 		// First, ensure ALL coverage arrays have 3 elements
 		// [count, executionTime, isChildTime]
-		for (var fileIdx in arguments.coverage) {
+		cfloop( collection=arguments.coverage, item="local.fileIdx" ) {
 			var fileCoverage = arguments.coverage[fileIdx];
 			if (!isStruct(fileCoverage)) {
 				throw "Coverage data for file index " & fileIdx & " must be a struct, got: " & getMetadata(fileCoverage).getName();
@@ -158,7 +158,7 @@ component {
 		}
 
 		// Now mark lines that represent child time (function calls)
-		for (var fileIdx in lookup) {
+		cfloop( collection=lookup, item="local.fileIdx" ) {
 			if (!structKeyExists(arguments.coverage, fileIdx)) {
 				arguments.coverage[fileIdx] = {};
 			}
@@ -166,7 +166,7 @@ component {
 			var fileCoverage = arguments.coverage[fileIdx];
 			var fileCallTree = lookup[fileIdx];
 
-			for (var lineNum in fileCallTree) {
+			cfloop( collection=fileCallTree, item="local.lineNum" ) {
 				var callTreeData = fileCallTree[lineNum];
 
 				// If line already has coverage data, set the childTime value

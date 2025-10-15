@@ -13,9 +13,7 @@ component extends="ReportGenerator" {
 	 * @return String containing LCOV format content
 	 */
 	public string function buildLcovContent( required array jsonFilePaths, required struct options ) {
-		var logger = createLogger( arguments.options.logLevel ?: "none" );
-
-		var merger = new lucee.extension.lcov.CoverageMerger( logger=logger );
+		var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 		var merged = merger.mergeResultsByFile( arguments.jsonFilePaths );
 
 		var blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
@@ -37,7 +35,7 @@ component extends="ReportGenerator" {
 			"coverage": lineCoverage
 		};
 
-		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter( logger=logger, options=arguments.options );
+		var lcovWriter = new lucee.extension.lcov.reporter.LcovWriter( logger=variables.logger, options=arguments.options );
 		return lcovWriter.buildLCOV( mergedForLcov, arguments.options.useRelativePath ?: false );
 	}
 

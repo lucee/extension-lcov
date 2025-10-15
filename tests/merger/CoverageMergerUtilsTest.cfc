@@ -7,21 +7,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	};
 
 	function run() {
-		describe("filters out results with no coverage data", function() {
-			it("filters out results with no coverage data", function() {
-				var emptyResult = new lucee.extension.lcov.model.result();
-				emptyResult.setCoverage({});
-				var validResult = new lucee.extension.lcov.model.result();
-				validResult.setCoverage({ 0: { 1: [0,0,0] } });
-				var dummy = {
-					"/foo.exl": emptyResult,
-					"/bar.exl": validResult
-				};
-				var filtered = utils.filterValidResults(dummy);
-				expect(structKeyExists(filtered, "/foo.exl")).toBeFalse();
-				expect(structKeyExists(filtered, "/bar.exl")).toBeTrue();
-			});
-		});
+		// NOTE: filterValidResults test was removed - that function is now a private helper in CoverageMergerTest
 
 		describe("builds file index mappings from valid results", function() {
 			it("builds file index mappings from valid results", function() {

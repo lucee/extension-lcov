@@ -18,14 +18,17 @@ component {
 	 */
 	public string function lcovStartLogging(required string adminPassword, required string executionLogDir = "", struct options = {}) {
 		try {
-			var generator = new generator.ReportGenerator();
-
 			var defaultOptions = {
+				logLevel: "none",
 				unit: "micro",
 				minTime: 0,
 				className: "lucee.runtime.engine.ResourceExecutionLog"
 			};
-			var _options = generator.prepareOptions( arguments.options, defaultOptions );
+			var _options = structCopy( defaultOptions );
+			structAppend( _options, arguments.options );
+
+			var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
+			var generator = new generator.ReportGenerator( logger=logger );
 
 			// Generate temp directory if not provided
 			var logDir = len(arguments.executionLogDir) ? arguments.executionLogDir :
@@ -79,7 +82,18 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateAllReports(required string executionLogDir, required string outputDir, struct options = {}) {
-		var generator = new generator.ReportGenerator();
+		var defaultOptions = {
+			logLevel: "none",
+			chunkSize: 50000,
+			allowList: [],
+			blocklist: [],
+			displayUnit: "milli"
+		};
+		var _options = structCopy( defaultOptions );
+		structAppend( _options, arguments.options );
+
+		var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
+		var generator = new generator.ReportGenerator( logger=logger );
 
 		generator.validateExecutionLogDir( arguments.executionLogDir );
 		generator.validateOutputDir( arguments.outputDir );
@@ -88,15 +102,6 @@ component {
 		var jsonDir = arguments.outputDir & "/json";
 		generator.ensureDirectoryExists( htmlDir );
 		generator.ensureDirectoryExists( jsonDir );
-
-		var defaultOptions = {
-			logLevel: "none",
-			chunkSize: 50000,
-			allowList: [],
-			blocklist: [],
-			displayUnit: "milli"
-		};
-		var _options = generator.prepareOptions( arguments.options, defaultOptions );
 
 		var startTime = getTickCount();
 
@@ -149,23 +154,26 @@ component {
 	 * @return String containing LCOV file content
 	 */
 	public string function lcovGenerateLcov(required string executionLogDir, string outputFile = "", struct options = {}) {
-		var generator = new generator.LcovReportGenerator();
-
-		generator.validateExecutionLogDir( arguments.executionLogDir );
-
 		var defaultOptions = {
 			logLevel: "none",
 			allowList: [],
 			blocklist: [],
 			useRelativePath: false
 		};
-		var _options = generator.prepareOptions( arguments.options, defaultOptions );
+		var _options = structCopy( defaultOptions );
+		structAppend( _options, arguments.options );
+
+		var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
+		var generator = new generator.LcovReportGenerator( logger=logger );
+
+		generator.validateExecutionLogDir( arguments.executionLogDir );
 
 		// Phase 1: Parse .exl files → minimal JSON files
-		var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+		var parseResult = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+		var jsonFilePaths = parseResult.jsonFilePaths;
 
 		// Phase 2: Extract AST metadata (CallTree + executable lines)
-		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, parseResult.allFiles, _options );
 
 		// Phase 3: Build line coverage (lazy - skips if already done)
 		generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
@@ -190,11 +198,6 @@ component {
 	 * @return Struct with generated file paths and statistics
 	 */
 	public struct function lcovGenerateHtml(required string executionLogDir, required string outputDir, struct options = {}) {
-		var generator = new generator.HtmlReportGenerator();
-
-		generator.validateExecutionLogDir( arguments.executionLogDir );
-		generator.validateOutputDir( arguments.outputDir );
-
 		var defaultOptions = {
 			logLevel: "none",
 			displayUnit: "milli",
@@ -202,17 +205,24 @@ component {
 			blocklist: [],
 			separateFiles: false
 		};
-		var _options = generator.prepareOptions( arguments.options, defaultOptions );
+		var _options = structCopy( defaultOptions );
+		structAppend( _options, arguments.options );
+
+		var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
+		var generator = new generator.HtmlReportGenerator( logger=logger );
+
+		generator.validateExecutionLogDir( arguments.executionLogDir );
+		generator.validateOutputDir( arguments.outputDir );
 
 		var startTime = getTickCount();
-		var logger = generator.createLogger( _options.logLevel );
 		generator.ensureDirectoryExists( arguments.outputDir );
 
 		// Phase 1: Parse .exl files → minimal JSON files
-		var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+		var parseResult = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+		var jsonFilePaths = parseResult.jsonFilePaths;
 
 		// Phase 2: Extract AST metadata (CallTree + executable lines)
-		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+		var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, parseResult.allFiles, _options );
 
 		// Phase 3: Build line coverage (lazy - skips if already done)
 		generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
@@ -228,8 +238,7 @@ component {
 		// Process results based on separateFiles option
 		if (_options.separateFiles) {
 			var mergeFileEvent = logger.beginEvent("Merge File Reports");
-			var results = generator.loadResultsFromJsonFiles( jsonFilePaths, false );
-			var sourceFileJsons = generator.generateSeparateFileMergedResults( results, logger, arguments.outputDir, _options.logLevel, true );
+			var sourceFileJsons = generator.generateSeparateFileMergedResults( jsonFilePaths, logger, arguments.outputDir, _options.logLevel, true );
 			logger.commitEvent(mergeFileEvent);
 			generator.renderSeparateFileHtmlReports( sourceFileJsons, htmlReporter, logger );
 		}
@@ -268,11 +277,6 @@ component {
 	 */
 	public struct function lcovGenerateJson(required string executionLogDir, required string outputDir, struct options = {}) {
 		try {
-			var generator = new generator.JsonReportGenerator();
-
-			generator.validateExecutionLogDir( arguments.executionLogDir );
-			generator.validateOutputDir( arguments.outputDir );
-
 			var defaultOptions = {
 				logLevel: "none",
 				compact: false,
@@ -281,17 +285,24 @@ component {
 				allowList: [],
 				blocklist: []
 			};
-			var _options = generator.prepareOptions( arguments.options, defaultOptions );
+			var _options = structCopy( defaultOptions );
+			structAppend( _options, arguments.options );
+
+			var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
+			var generator = new generator.JsonReportGenerator( logger=logger );
+
+			generator.validateExecutionLogDir( arguments.executionLogDir );
+			generator.validateOutputDir( arguments.outputDir );
 
 			var startTime = getTickCount();
-			var logger = generator.createLogger( _options.logLevel );
 			generator.ensureDirectoryExists( arguments.outputDir );
 
 			// Phase 1: Parse .exl files → minimal JSON files
-			var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+			var parseResult = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+		var jsonFilePaths = parseResult.jsonFilePaths;
 
 			// Phase 2: Extract AST metadata (CallTree + executable lines)
-			var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+			var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, parseResult.allFiles, _options );
 
 			// Phase 3: Build line coverage (lazy - skips if already done)
 			generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );
@@ -299,20 +310,22 @@ component {
 			// Phase 4: Annotate CallTree (adds childTime to coverage)
 		generator.annotateCallTree( jsonFilePaths, astMetadataPath, _options );
 
-			// Phase 5: Load results and generate JSON reports
-			var results = generator.loadResultsFromJsonFiles( jsonFilePaths, false );
-
-			var jsonFiles = generator.writeCoreJsonFiles( results, jsonFilePaths, arguments.outputDir, _options.compact, logger, getTickCount() - startTime );
+			// Phase 5: Generate JSON reports
+			var jsonFiles = {};
 			var totalStats = generator.aggregateCoverageStats( jsonFilePaths, getTickCount() - startTime );
 
 			// Generate separate files if requested
 			if (_options.separateFiles) {
-				var sourceFileJsons = generator.generateSeparateFileMergedResults( results, logger, arguments.outputDir, _options.logLevel, false );
+				var sourceFileJsons = generator.generateSeparateFileMergedResults( jsonFilePaths, logger, arguments.outputDir, _options.logLevel, false );
 				for (var jsonFile in sourceFileJsons) {
 					jsonFiles[getFileFromPath(jsonFile)] = jsonFile;
 				}
 			} else {
+				// Load results only for non-separate files mode
+				var results = generator.loadResultsFromJsonFiles( jsonFilePaths, false );
+				var coreFiles = generator.writeCoreJsonFiles( results, jsonFilePaths, arguments.outputDir, _options.compact, logger, getTickCount() - startTime );
 				var requestFiles = generator.writeRequestJsonFiles( results, arguments.outputDir, _options.compact );
+				structAppend( jsonFiles, coreFiles );
 				structAppend( jsonFiles, requestFiles );
 			}
 
@@ -334,25 +347,28 @@ component {
 	 */
 	public struct function lcovGenerateSummary(required string executionLogDir, struct options = {}) {
 		try {
-			var generator = new generator.ReportGenerator();
-
-			generator.validateExecutionLogDir( arguments.executionLogDir );
-
 			var defaultOptions = {
 				logLevel: "none",
 				chunkSize: 50000,
 				allowList: [],
 				blocklist: []
 			};
-			var _options = generator.prepareOptions( arguments.options, defaultOptions );
+			var _options = structCopy( defaultOptions );
+			structAppend( _options, arguments.options );
+
+			var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
+			var generator = new generator.ReportGenerator( logger=logger );
+
+			generator.validateExecutionLogDir( arguments.executionLogDir );
 
 			var startTime = getTickCount();
 
 			// Phase 1: Parse .exl files → minimal JSON files
-			var jsonFilePaths = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+			var parseResult = generator.parseExecutionLogs( arguments.executionLogDir, _options );
+		var jsonFilePaths = parseResult.jsonFilePaths;
 
 			// Phase 2: Extract AST metadata (CallTree + executable lines)
-			var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, jsonFilePaths, _options );
+			var astMetadataPath = generator.extractAstMetadata( arguments.executionLogDir, parseResult.allFiles, _options );
 
 			// Phase 3: Build line coverage (lazy - skips if already done)
 			generator.buildLineCoverage( jsonFilePaths, astMetadataPath, _options );

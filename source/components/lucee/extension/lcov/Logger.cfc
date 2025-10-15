@@ -21,6 +21,7 @@ component accessors="true" {
 
 	property name="level" type="string" default="none";
 	property name="jfrEnabled" type="boolean" default="false";
+	property name="logMemory" type="boolean" default="true";
 
 	variables.levels = {
 		"none": 0,
@@ -33,10 +34,12 @@ component accessors="true" {
 	 * Initialize logger with specified log level
 	 * @level Log level: "none" (silent), "trace", "debug", or "info" (default: "none")
 	 * @jfrEnabled Enable JFR event emission (default: false)
+	 * @logMemory Include heap memory usage in log output (default: false)
 	 */
-	public function init(string level="none", boolean jfrEnabled=false) {
+	public function init(string level="none", boolean jfrEnabled=false, boolean logMemory=true) {
 		variables.level = arguments.level;
 		variables.jfrEnabled = arguments.jfrEnabled;
+		variables.logMemory = arguments.logMemory;
 		return this;
 	}
 
@@ -95,8 +98,9 @@ component accessors="true" {
 	 * Commit an event (logs duration and emits to JFR if enabled)
 	 * @event Event struct returned from beginEvent()
 	 * @minThresholdMs Minimum duration in milliseconds to log (-1 = don't log, 0 = always log, >0 = only log if duration >= threshold)
+	 * @logLevel Log level to use: "trace" (default), "debug", or "info"
 	 */
-	public void function commitEvent(required struct event, numeric minThresholdMs=0) {
+	public void function commitEvent(required struct event, numeric minThresholdMs=0, string logLevel="trace") {
 		arguments.event["endTime"] = getTickCount();
 		arguments.event["endNano"] = createObject("java", "java.lang.System").nanoTime();
 		arguments.event["durationMs"] = arguments.event["endTime"] - arguments.event["startTime"];
@@ -107,8 +111,8 @@ component accessors="true" {
 			return;
 		}
 
-		// Log event at trace level with all attributes
-		if (shouldLog("trace")) {
+		// Log event at specified level with all attributes
+		if (shouldLog(arguments.logLevel)) {
 			var msg = "Event: " & arguments.event["name"] & " completed in " & numberFormat(arguments.event["durationMs"]) & "ms";
 
 			// Add any custom attributes (skip internal tracking fields)
@@ -119,7 +123,7 @@ component accessors="true" {
 				}
 			}
 
-			output("TRACE", msg);
+			output(uCase(arguments.logLevel), msg);
 		}
 
 		// Future: emit to JFR if enabled
@@ -129,12 +133,22 @@ component accessors="true" {
 	}
 
 	/**
-	 * Internal: Format and output log message with timestamp and level
+	 * Internal: Format and output log message with timestamp, optional memory usage, and level
 	 */
 	private void function output(required string level, required string message) {
 		var timestamp = timeFormat(now(), "HH:nn:ss.SSS");
 		var paddedLevel = lJustify(arguments.level, 5);
-		systemOutput("[" & timestamp & "] [" & paddedLevel & "] " & arguments.message, true);
+		var memoryInfo = variables.logMemory ? "[" & getHeapUsedMB() & "MB] " : "";
+		systemOutput("[" & timestamp & "] [" & paddedLevel & "] " & memoryInfo & arguments.message, true);
+	}
+
+	/**
+	 * Internal: Get current heap usage in MB
+	 */
+	private numeric function getHeapUsedMB() {
+		var runtime = createObject("java", "java.lang.Runtime").getRuntime();
+		var usedBytes = runtime.totalMemory() - runtime.freeMemory();
+		return round(usedBytes / 1024 / 1024);
 	}
 
 	/**

@@ -28,7 +28,7 @@ component {
 		required struct aggregated,
 		required struct files,
 		required any callTreeAnalyzer
-	) {
+	) localmode="modern" {
 		// STAGE 1.6: Call tree analysis using AST
 		var callTreeStart = getTickCount();
 		var callTreeResult = arguments.callTreeAnalyzer.analyzeCallTree( arguments.aggregated, arguments.files );

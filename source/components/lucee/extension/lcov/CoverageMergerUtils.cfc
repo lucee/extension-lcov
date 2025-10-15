@@ -7,36 +7,18 @@
 component accessors=false {
 
 	/**
-	 * Filter out results that have no coverage data
-	 * @results Struct of results keyed by .exl file path
-	 * @return Struct of valid results with coverage data
-	 */
-	public static struct function filterValidResults(required struct results) {
-		var validResults = {};
-		for (var exlPath in arguments.results) {
-			var result = arguments.results[exlPath];
-			var coverageData = result.getCoverage();
-			if (!isStruct(coverageData) || structIsEmpty(coverageData)) {
-				continue;
-			}
-			validResults[exlPath] = result;
-		}
-		return validResults;
-	}
-
-	/**
 	 * Build mappings from source file paths to canonical indices and vice versa
 	 * @validResults Struct of valid results with coverage data
 	 * @return Struct with filePathToIndex and indexToFilePath mappings
 	 */
-	public static struct function buildFileIndexMappings(required struct validResults) {
-		var filePathToIndex = {};
-		var indexToFilePath = {};
+	public static struct function buildFileIndexMappings(required struct validResults) localmode="modern" {
+		var filePathToIndex = structNew( "regular" );
+		var indexToFilePath = structNew( "regular" );
 		var nextIndex = 0;
-		for (var exlPath in arguments.validResults) {
+		cfloop( collection=arguments.validResults, item="local.exlPath" ) {
 			var result = arguments.validResults[exlPath];
 			var files = result.getFiles();
-			for (var fileIndex in files) {
+			cfloop( collection=files, item="local.fileIndex" ) {
 				var sourceFilePath = result.getFileItem(fileIndex).path;
 				if (!len(sourceFilePath)) {
 					throw(message="BUG: Encountered fileIndex with empty or missing path during buildFileIndexMappings. exlPath=" & exlPath & ", fileIndex=" & fileIndex & ", result=" & serializeJSON(result));
@@ -61,14 +43,14 @@ component accessors=false {
 	 */
 	public static struct function initializeMergedResults(required struct validResults,
 			required struct filePathToIndex, required struct indexToFilePath) {
-		var mergedResults = {};
-		for (var canonicalIndex in indexToFilePath) {
+		var mergedResults = structNew( "regular" );
+		cfloop( collection=indexToFilePath, item="local.canonicalIndex" ) {
 			var sourceFilePath = indexToFilePath[canonicalIndex];
 			var found = false;
-			for (var exlPath in validResults) {
+			cfloop( collection=validResults, item="local.exlPath" ) {
 				var result = validResults[exlPath];
 				var files = result.getFiles();
-				for (var fileIndex in files) {
+				cfloop( collection=files, item="local.fileIndex" ) {
 					if (files[fileIndex].path == sourceFilePath) {
 						mergedResults[canonicalIndex] = lucee.extension.lcov.CoverageMergerUtils::initializeSourceFileEntry(sourceFilePath, result, fileIndex, canonicalIndex);
 						found = true;
@@ -115,7 +97,7 @@ component accessors=false {
 		var files = entry.getFiles();
 		// Always use index 0 for separated files - each file gets its own result model
 		var idx = 0;
-		var filesStruct = {};
+		var filesStruct = structNew( "regular" );
 		if (structKeyExists(filesData, arguments.fileIndex)) {
 			var fileStruct = duplicate(filesData[arguments.fileIndex]);
 			fileStruct.path = arguments.sourceFilePath;
@@ -124,12 +106,12 @@ component accessors=false {
 			filesStruct[idx] = { path = arguments.sourceFilePath };
 		}
 		entry.setFiles(filesStruct);
-		var coverageData = {};
+		var coverageData = structNew( "regular" );
 		var sourceCoverage = arguments.sourceResult.getCoverage();
 		if (structKeyExists(sourceCoverage, arguments.fileIndex)) {
 			coverageData[idx] = duplicate(sourceCoverage[arguments.fileIndex]);
 		} else {
-			coverageData[idx] = {};
+			coverageData[idx] = structNew( "regular" );
 		}
 		entry.setCoverage(coverageData);
 		// Always build fileItem as a duplicate of the canonical file struct, then add/override computed fields
@@ -141,7 +123,7 @@ component accessors=false {
 		var hitLines = [];
 		if (structKeyExists(mergedCoverage, idx) && !structIsEmpty(mergedCoverage[idx])) {
 			var coverageStruct = mergedCoverage[idx];
-			for (var lineNum in coverageStruct) {
+			cfloop( collection=coverageStruct, item="local.lineNum" ) {
 				if (isNumeric(lineNum) && lineNum >= 1) {
 					arrayAppend(foundLines, lineNum);
 					var hitCount = 0;
@@ -168,7 +150,7 @@ component accessors=false {
 		var totalExecutionTime = 0;
 		if (structKeyExists(mergedCoverage, idx)) {
 			var coverageStruct = mergedCoverage[idx];
-			for (var lineNum in coverageStruct) {
+			cfloop( collection=coverageStruct, item="local.lineNum" ) {
 				var lineData = coverageStruct[lineNum];
 				if (isArray(lineData) && arrayLen(lineData) >= 2) {
 					totalExecutions += lineData[1];  // Hit count is at index 1

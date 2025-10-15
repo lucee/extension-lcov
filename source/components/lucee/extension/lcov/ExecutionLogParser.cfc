@@ -57,7 +57,7 @@ component accessors="true" {
 	* @return Result object containing sections and fileCoverage data
 	*/
 	public result function parseExlFile(string exlPath,
-		array allowList=[], array blocklist=[], boolean writeJsonCache = false, boolean includeCallTree = false, boolean includeSourceCode = true) {
+		array allowList=[], array blocklist=[], boolean writeJsonCache = false, boolean includeCallTree = false, boolean includeSourceCode = false) {
 
 		var startTime = getTickCount();
 

@@ -13,7 +13,7 @@ component accessors=false {
 	 * @logLevel Log level for verbose logging
 	 * @return Array of written file paths
 	 */
-	public array function writeMergedResultsToFiles(required struct mergedResults, required string outputDir, string logLevel = "none") {
+	public array function writeMergedResultsToFiles(required struct mergedResults, required string outputDir, string logLevel = "none") localmode="modern" {
 		var logger = new lucee.extension.lcov.Logger(level=arguments.logLevel);
 		var writtenFiles = [];
 		for (var canonicalIndex in arguments.mergedResults) {

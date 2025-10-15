@@ -9,7 +9,7 @@ component {
 	 * Enriches a result model with child time analysis data.
 	 * This marks blocks that represent child time (function calls).
 	 */
-	public void function enrich(required any result, struct options = {}) {
+	public void function enrich(required any result, struct options = {}) localmode="modern" {
 		var callTreeAnalyzer = new CallTreeAnalyzer( logger=variables.logger );
 
 		// Build aggregated data from the result's coverage
@@ -35,12 +35,12 @@ component {
 	 * Builds aggregated execution data from a result model's coverage data.
 	 * Converts from per-line coverage format to position-based aggregated format.
 	 */
-	private struct function buildAggregatedFromResult(required any result) {
-		var aggregated = {};
+	private struct function buildAggregatedFromResult(required any result) localmode="modern" {
+		var aggregated = structNew("regular");
 		var coverage = arguments.result.getCoverage();
 		var files = arguments.result.getFiles();
 
-		for (var fileIdx in coverage) {
+		cfloop( collection=coverage, item="local.fileIdx" ) {
 			var fileCoverage = coverage[fileIdx];
 			var fileData = files[fileIdx];
 
@@ -56,30 +56,27 @@ component {
 			var currentPos = 0;
 
 			// Process each line of coverage
-			for (var lineNum in fileCoverage) {
+			cfloop( collection=fileCoverage, item="local.lineNum" ) {
 				var lineData = fileCoverage[lineNum];
+				var hitCount = lineData[1];
+				var execTime = lineData[2];
 
-				if (isArray(lineData) && arrayLen(lineData) >= 2) {
-					var hitCount = lineData[1];
-					var execTime = lineData[2];
+				// Only process lines that were executed
+				if (hitCount > 0 && execTime > 0) {
+					// Calculate character positions for this line
+					var lineIdx = val(lineNum);
+					var startPos = getCharacterPositionForLine(lines, lineIdx);
+					var endPos = getCharacterPositionForLine(lines, lineIdx + 1) - 1;
 
-					// Only process lines that were executed
-					if (hitCount > 0 && execTime > 0) {
-						// Calculate character positions for this line
-						var lineIdx = val(lineNum);
-						var startPos = getCharacterPositionForLine(lines, lineIdx);
-						var endPos = getCharacterPositionForLine(lines, lineIdx + 1) - 1;
+					if (startPos >= 0 && endPos > startPos) {
+						// Create aggregated key: fileIdx#TAB#startPos#TAB#endPos#TAB#hitCount
+						var key = "#fileIdx#	#startPos#	#endPos#	#hitCount#";
 
-						if (startPos >= 0 && endPos > startPos) {
-							// Create aggregated key: fileIdx#TAB#startPos#TAB#endPos#TAB#hitCount
-							var key = arrayToList([fileIdx, startPos, endPos, hitCount], chr(9));
-
-							// Add or accumulate execution time
-							if (structKeyExists(aggregated, key)) {
-								aggregated[key] += execTime;
-							} else {
-								aggregated[key] = execTime;
-							}
+						// Add or accumulate execution time
+						if (structKeyExists(aggregated, key)) {
+							aggregated[key] += execTime;
+						} else {
+							aggregated[key] = execTime;
 						}
 					}
 				}
@@ -93,7 +90,7 @@ component {
 	 * Gets the character position for a given line number.
 	 * Line 1 starts at position 0.
 	 */
-	private numeric function getCharacterPositionForLine(required array lines, required numeric lineNum) {
+	private numeric function getCharacterPositionForLine(required array lines, required numeric lineNum) localmode="modern" {
 		if (arguments.lineNum <= 0 || arguments.lineNum > arrayLen(arguments.lines) + 1) {
 			return -1;
 		}
@@ -108,7 +105,7 @@ component {
 	/**
 	 * Updates result stats with child time metrics.
 	 */
-	private void function updateStatsWithCallTree(required any result, required struct metrics) {
+	private void function updateStatsWithCallTree(required any result, required struct metrics) localmode="modern" {
 		var stats = arguments.result.getStats();
 
 		// Add child time summary to stats

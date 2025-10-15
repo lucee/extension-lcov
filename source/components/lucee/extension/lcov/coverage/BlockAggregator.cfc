@@ -25,17 +25,17 @@ component {
 	}
 
 	/**
-	 * Convert aggregated blocks (tab-delimited format) to storage format with isChild flags.
-	 * This is a format conversion utility - takes blocks from CoverageAggregator and enriches them with call tree data.
+	 * Convert aggregated blocks (tab-delimited format) to storage format.
+	 * This is a format conversion utility - takes blocks from CoverageAggregator.
+	 * Note: isChild flags are NOT set here - they are added later in Phase 4 (CallTreeAnnotator) if needed.
 	 * @aggregatedBlocks Struct with tab-delimited keys: "fileIdx\tstartPos\tendPos", values: [fileIdx, startPos, endPos, hitCount, execTime]
-	 * @callTreeBlocks Struct with call tree analysis results (same tab-delimited keys), values: {isChildTime: boolean, ...}. OPTIONAL - if not provided, all blocks have isChild=false
-	 * @return Struct keyed by fileIdx, containing blocks keyed by "startPos-endPos": {hitCount, execTime, isChild}
+	 * @return Struct keyed by fileIdx, containing blocks keyed by "startPos-endPos": {hitCount, execTime}
 	 */
-	public struct function convertAggregatedToBlocks( required struct aggregatedBlocks, struct callTreeBlocks = {} ) {
-		var blocks = {};
+	public struct function convertAggregatedToBlocks( required struct aggregatedBlocks ) localmode="modern" {
+		var blocks = structNew('regular');
 
 		for ( var key in arguments.aggregatedBlocks ) {
-			var parts = listToArray( key, chr(9), false, false );
+			var parts = listToArray( key, "	", false, false );
 			var fileIdx = parts[ 1 ];
 			var startPos = parts[ 2 ];
 			var endPos = parts[ 3 ];
@@ -49,8 +49,7 @@ component {
 			var blockKey = startPos & "-" & endPos;
 			blocks[ fileIdx ][ blockKey ] = {
 				"hitCount": blockData[ 4 ],
-				"execTime": blockData[ 5 ],
-				"isChild": arguments.callTreeBlocks[ key ]?.isChildTime ?: false
+				"execTime": blockData[ 5 ]
 			};
 		}
 
@@ -65,17 +64,25 @@ component {
 	 * @lineMapping Array where index = character position, value = line number
 	 * @return Struct of line-based coverage: {lineNum: [hitCount, ownTime, childTime]}
 	 */
-	public struct function aggregateBlocksToLines( required any result, required numeric fileIndex, required array lineMapping ) {
-		var lineCoverage = {};
+	public struct function aggregateBlocksToLines( required any result, required numeric fileIndex, required array lineMapping ) localmode="modern" {
+		var lineCoverage = structNew('regular');
 		var fileBlocks = arguments.result.getBlocksForFile( arguments.fileIndex );
 
 		var lineMappingLen = arrayLen( arguments.lineMapping );
+
+		// Check once if blocks have isChild flag (set in Phase 4, missing in Phase 3)
+		var hasIsChildFlag = 0;
 
 		for ( var blockKey in fileBlocks ) {
 			var block = fileBlocks[ blockKey ];
 			var parts = listToArray( blockKey, "-" );
 			var startPos = parts[ 1 ];
 			var originalStartPos = startPos;
+
+			// Check once if blocks have isChild flag (set in Phase 4, missing in Phase 3)
+			if (hasIsChildFlag == 0){
+				hasIsChildFlag = structKeyExists( block, "isChild" ) ? 1 : -1;
+			}
 
 			// Get line number from position using binary search
 			// lineMapping is an array of line START positions: [1, 50, 100, ...] not a direct index lookup
@@ -107,7 +114,8 @@ component {
 			lineData[ 1 ] += block.hitCount;
 
 			// Separate own time vs child time based on isChild flag
-			if ( block.isChild ) {
+			// isChild may not exist if Phase 4 (CallTreeAnnotator) hasn't run yet
+			if ( hasIsChildFlag === 1 && block.isChild ) {
 				lineData[ 3 ] += block.execTime;  // Child time
 			} else {
 				lineData[ 2 ] += block.execTime;  // Own time
@@ -123,8 +131,8 @@ component {
 	 * @files The files struct with line mappings
 	 * @return Struct of coverage data: {fileIdx: {lineNum: [hitCount, ownTime, childTime]}}
 	 */
-	public struct function aggregateAllBlocksToLines( required any result, required struct files ) {
-		var coverage = {};
+	public struct function aggregateAllBlocksToLines( required any result, required struct files ) localmode="modern" {
+		var coverage = structNew('regular');
 		var blocks = arguments.result.getBlocks();
 
 		for ( var fileIdx in blocks ) {
@@ -150,7 +158,7 @@ component {
 	 * @mergedFiles Struct of file info keyed by file path: {"/path": {path, lines, content, ...}}
 	 * @return Struct of coverage data keyed by file path: {"/path": {lineNum: [hitCount, ownTime, childTime]}}
 	 */
-	public struct function aggregateMergedBlocksToLines( required struct mergedBlocks, required struct mergedFiles ) {
+	public struct function aggregateMergedBlocksToLines( required struct mergedBlocks, required struct mergedFiles ) localmode="modern" {
 		var coverage = {};
 
 		for ( var filePath in arguments.mergedBlocks ) {
@@ -177,12 +185,19 @@ component {
 				);
 			}
 
+			var hasIsChildFlag = 0;
+
 			// Aggregate blocks to lines for this file
-			var lineCoverage = {};
+			var lineCoverage = structNew('regular');
 			for ( var blockKey in fileBlocks ) {
+				
 				var block = fileBlocks[ blockKey ];
 				var parts = listToArray( blockKey, "-" );
 				var startPos = parts[ 1 ];
+				// Check once if blocks have isChild flag (set in Phase 4, missing in Phase 3)
+				if (hasIsChildFlag == 0){
+					hasIsChildFlag = structKeyExists( block, "isChild" ) ? 1 : -1;
+				}
 
 				// Get line number from position
 				// Handle startPos=0 (treat as position 1, first character)
@@ -204,7 +219,7 @@ component {
 				lineData[ 1 ] += block.hitCount;
 
 				// Separate own time vs child time based on isChild flag
-				if ( block.isChild ) {
+				if ( hasIsChildFlag === 1 && block.isChild ) {
 					lineData[ 3 ] += block.execTime;  // Child time
 				} else {
 					lineData[ 2 ] += block.execTime;  // Own time
@@ -224,6 +239,7 @@ component {
 	 */
 	private array function buildCharacterToLineMapping( required string content ) {
 		var mapping = [];
+		arrayResize( mapping, len( arguments.content ) + 1 ); // +1 for 1-based indexing
 		var lineNum = 1;
 		var contentLen = len( arguments.content );
 

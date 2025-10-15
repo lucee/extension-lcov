@@ -15,7 +15,7 @@ component accessors="true" {
 	* @fileCoverage Struct containing files and coverage data (merged format)
 	* @return Struct with stats keyed per file path
 	*/
-	public struct function calculateLcovStats(required struct fileCoverage) {
+	public struct function calculateLcovStats(required struct fileCoverage) localmode="modern" {
 		var startTime = getTickCount();
 		var fileCount = structCount(arguments.fileCoverage.files);
 
@@ -72,7 +72,7 @@ component accessors="true" {
 	* Calculate stats for all merged result objects
 	* @mergedResults Struct of result objects keyed by file index
 	*/
-	public static void function calculateStatsForMergedResults(required struct mergedResults) {
+	public static void function calculateStatsForMergedResults(required struct mergedResults) localmode="modern" {
 		// Calculate stats for each file
 		for (var fileIndex in arguments.mergedResults) {
 			calculateCoverageStats( arguments.mergedResults[ fileIndex ] );
@@ -82,7 +82,7 @@ component accessors="true" {
 	/**
 	* Calculate overall coverage stats from a result struct
 	*/
-	public any function calculateCoverageStats(result result) {
+	public any function calculateCoverageStats(result result) localmode="modern" {
 		var event = variables.logger.beginEvent("CoverageStats");
 		var totalStats = {
 			"totalLinesFound": 0,  // total executable lines
@@ -195,7 +195,7 @@ component accessors="true" {
 	 * @processingTimeMs Processing time in milliseconds for timing calculations
 	 * @return Detailed stats struct
 	 */
-	public struct function aggregateCoverageStats(required array jsonFilePaths, numeric processingTimeMs = 0) {
+	public struct function aggregateCoverageStats(required array jsonFilePaths, numeric processingTimeMs = 0) localmode="modern" {
 		var startTime = getTickCount();
 		var executedFiles = 0;
 		var fileStats = {};

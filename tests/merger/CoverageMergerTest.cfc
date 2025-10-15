@@ -5,6 +5,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.logger = new lucee.extension.lcov.Logger( level="info" );
 		variables.logger = new lucee.extension.lcov.Logger( level="none" );
 		variables.utils = new lucee.extension.lcov.CoverageMergerUtils();
+		variables.utils.filterValidResults = filterValidResults;
 		variables.testDataGenerator = new "../GenerateTestData"( testName="SeparateFilesStepsTest" );
 		variables.testData = variables.testDataGenerator.generateExlFilesForArtifacts(
 			adminPassword = request.SERVERADMINPASSWORD,
@@ -13,8 +14,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 		// Parse all .exl files using full pipeline (Phase 1-3)
 		var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: "none"} );
-		var jsonFilePaths = processor.parseExecutionLogs( variables.testData.COVERAGEDIR );
-		var astMetadataPath = processor.extractAstMetadata( variables.testData.COVERAGEDIR, jsonFilePaths );
+		var parseResult = processor.parseExecutionLogs( variables.testData.COVERAGEDIR );
+		var jsonFilePaths = parseResult.jsonFilePaths;
+		var astMetadataGenerator = new lucee.extension.lcov.ast.AstMetadataGenerator( logger=variables.logger );
+		var astMetadataPath = astMetadataGenerator.generate( variables.testData.COVERAGEDIR, parseResult.allFiles );
 		var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
 		lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
 
@@ -376,5 +379,22 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			arrayAppend(jsonFilePaths, jsonFilePath);
 		}
 		return jsonFilePaths;
+	}
+
+	/**
+	 * Filter out results that have no coverage data
+	 * Helper function for testing merge logic
+	 */
+	private struct function filterValidResults(required struct results) {
+		var validResults = structNew( "regular" );
+		cfloop( collection=arguments.results, item="local.exlPath" ) {
+			var result = arguments.results[exlPath];
+			var coverageData = result.getCoverage();
+			if (!isStruct(coverageData) || structIsEmpty(coverageData)) {
+				continue;
+			}
+			validResults[exlPath] = result;
+		}
+		return validResults;
 	}
 }

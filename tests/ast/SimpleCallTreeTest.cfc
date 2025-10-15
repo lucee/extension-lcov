@@ -33,10 +33,12 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 					// Phase 1: Parse .exl file
 					var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: variables.logLevel} );
-					var jsonFilePaths = processor.parseExecutionLogs( variables.testDir );
+					var parseResult = processor.parseExecutionLogs( variables.testDir );
+		var jsonFilePaths = parseResult.jsonFilePaths;
 
 					// Phase 2: Extract AST metadata
-					var astMetadataPath = processor.extractAstMetadata( variables.testDir, jsonFilePaths );
+					var astMetadataGenerator = new lucee.extension.lcov.ast.AstMetadataGenerator( logger=variables.logger );
+				var astMetadataPath = astMetadataGenerator.generate( variables.testDir, parseResult.allFiles );
 
 					// Phase 3: Build line coverage
 					var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );

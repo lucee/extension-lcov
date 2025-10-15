@@ -13,16 +13,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				aggregatedBlocks[ "0" & chr(9) & "300" & chr(9) & "400" ] = [0, 300, 400, 3, 500];
 				aggregatedBlocks[ "1" & chr(9) & "50" & chr(9) & "150" ] = [1, 50, 150, 2, 250];
 
-				// Create call tree blocks (same keys, with isChildTime flags)
-				var callTreeBlocks = {};
-				callTreeBlocks[ "0" & chr(9) & "100" & chr(9) & "200" ] = { isChildTime: false };
-				callTreeBlocks[ "0" & chr(9) & "300" & chr(9) & "400" ] = { isChildTime: true };
-				callTreeBlocks[ "1" & chr(9) & "50" & chr(9) & "150" ] = { isChildTime: true };
+				// Convert to storage format (isChild flags added later in Phase 4 if needed)
+				var blocks = aggregator.convertAggregatedToBlocks( aggregatedBlocks );
 
-				// Convert to storage format
-				var blocks = aggregator.convertAggregatedToBlocks( aggregatedBlocks, callTreeBlocks );
-
-				// Check structure: blocks[fileIdx]["startPos-endPos"] = {hitCount, execTime, isChild}
+				// Check structure: blocks[fileIdx]["startPos-endPos"] = {hitCount, execTime}
 				expect( blocks ).toBeStruct();
 				expect( structKeyExists( blocks, "0" ) ).toBeTrue( "Should have file 0" );
 				expect( structKeyExists( blocks, "1" ) ).toBeTrue( "Should have file 1" );
@@ -33,36 +27,30 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect( structKeyExists( file0Blocks, "100-200" ) ).toBeTrue();
 				expect( file0Blocks["100-200"].hitCount ).toBe( 5 );
 				expect( file0Blocks["100-200"].execTime ).toBe( 1000 );
-				expect( file0Blocks["100-200"].isChild ).toBe( false );
 
 				expect( structKeyExists( file0Blocks, "300-400" ) ).toBeTrue();
 				expect( file0Blocks["300-400"].hitCount ).toBe( 3 );
 				expect( file0Blocks["300-400"].execTime ).toBe( 500 );
-				expect( file0Blocks["300-400"].isChild ).toBe( true );
 
 				// Check file 1 blocks
 				var file1Blocks = blocks["1"];
 				expect( structCount( file1Blocks ) ).toBe( 1 );
 				expect( structKeyExists( file1Blocks, "50-150" ) ).toBeTrue();
-				expect( file1Blocks["50-150"].isChild ).toBe( true );
+				expect( file1Blocks["50-150"].hitCount ).toBe( 2 );
+				expect( file1Blocks["50-150"].execTime ).toBe( 250 );
 			});
 
-			it( "should handle missing call tree data gracefully", function() {
+			it( "should handle empty aggregated blocks", function() {
 				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 
-				// Aggregated blocks
+				// Empty aggregated blocks
 				var aggregatedBlocks = {};
-				aggregatedBlocks[ "0" & chr(9) & "100" & chr(9) & "200" ] = [0, 100, 200, 5, 1000];
 
-				// Empty call tree blocks (no matching data)
-				var callTreeBlocks = {};
+				var blocks = aggregator.convertAggregatedToBlocks( aggregatedBlocks );
 
-				var blocks = aggregator.convertAggregatedToBlocks( aggregatedBlocks, callTreeBlocks );
-
-				// Should still create blocks, but with isChild=false (default)
+				// Should return empty struct
 				expect( blocks ).toBeStruct();
-				expect( structKeyExists( blocks, "0" ) ).toBeTrue();
-				expect( blocks["0"]["100-200"].isChild ).toBe( false );
+				expect( structCount( blocks ) ).toBe( 0 );
 			});
 
 			it( "should aggregate blocks to line coverage", function() {

@@ -39,7 +39,7 @@ component {
 	 * @return Struct with line numbers as keys and function names as values
 	 */
 	public struct function buildLineFunctionMap(required struct callTree) {
-		var lineMap = {};
+		var lineMap = structNew("regular");
 
 		for (var blockKey in arguments.callTree) {
 			var block = arguments.callTree[blockKey];

@@ -312,8 +312,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// Phase 1-3: Generate line coverage (no CallTree yet)
 				var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: "info"} );
-				var jsonFilePaths = processor.parseExecutionLogs( testData.coverageDir );
-				var astMetadataPath = processor.extractAstMetadata( testData.coverageDir, jsonFilePaths );
+				var parseResult = processor.parseExecutionLogs( testData.coverageDir );
+		var jsonFilePaths = parseResult.jsonFilePaths;
+				var astMetadataGenerator = new lucee.extension.lcov.ast.AstMetadataGenerator( logger=variables.logger );
+				var astMetadataPath = astMetadataGenerator.generate( testData.coverageDir, parseResult.allFiles );
 				var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
 				lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
 

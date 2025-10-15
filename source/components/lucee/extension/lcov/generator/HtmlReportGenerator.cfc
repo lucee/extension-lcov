@@ -30,7 +30,7 @@ component extends="ReportGenerator" {
 
 			arguments.htmlReporter.generateHtmlReport( sourceResult );
 		}
-		arguments.logger.commitEvent( fileEvent );
+		arguments.logger.commitEvent( fileEvent, 0, "info" );
 	}
 
 	/**
@@ -58,7 +58,7 @@ component extends="ReportGenerator" {
 				arguments.htmlReporter.generateHtmlReport( result );
 			}
 		}
-		arguments.logger.commitEvent( reqEvent );
+		arguments.logger.commitEvent( reqEvent, 0, "info" );
 	}
 
 }

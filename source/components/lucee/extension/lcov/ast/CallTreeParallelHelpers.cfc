@@ -41,8 +41,8 @@ component {
 		var functions = astCallAnalyzer.extractFunctions( file.ast );
 
 		// Collect all calls from all functions (excluding built-in functions)
-		for ( var func in functions ) {
-			for ( var call in func.calls ) {
+		cfloop( array=functions, item="local.func" ) {
+			cfloop( array=func.calls, item="local.call" ) {
 				// Skip built-in functions - they're part of normal execution, not child time
 				if ( !( call.isBuiltIn ?: false ) && call.position > 0 ) {
 					arrayAppend( fileCalls, {
@@ -69,14 +69,15 @@ component {
 
 	/**
 	 * Process a chunk of blocks - for parallel execution
-	 * chunkInfo is: [blocks array, callsByFile]
+	 * chunkInfo is: [blocks array, callsMap]
+	 * callsMap is nested: {fileIdx: {position: {isChildTime, isBuiltIn, functionName}}}
 	 */
 	public function processBlockChunk( required array chunkInfo ) localmode="modern" {
 		var blocks = chunkInfo[ 1 ];
-		var callsByFile = chunkInfo[ 2 ];
-		var result = {};
+		var callsMap = chunkInfo[ 2 ];
+		var result = structNew( "regular" );
 
-		for ( var blockInfo in blocks ) {
+		cfloop( array=blocks, item="local.blockInfo" ) {
 			var blockKey = blockInfo[ 1 ];
 			var blockData = blockInfo[ 2 ];
 
@@ -95,12 +96,13 @@ component {
 			var isChildTime = false;
 			var isBuiltIn = false;
 
-			// Only check calls from the same file
-			var fileCalls = callsByFile[ fileIdx ] ?: [];
-			for ( var call in fileCalls ) {
-				if ( call.position >= startPos && call.position <= endPos ) {
-					isChildTime = true;
-					isBuiltIn = call.isBuiltIn ?: false;
+			// Check calls from this file using nested struct lookup
+			var fileCalls = callsMap[ fileIdx ] ?: {};
+			cfloop( collection=fileCalls, item="local.position" ) {
+				if ( position >= startPos && position <= endPos ) {
+					var callInfo = fileCalls[ position ];
+					isChildTime = callInfo.isChildTime ?: true;
+					isBuiltIn = callInfo.isBuiltIn ?: false;
 					break;
 				}
 			}
@@ -166,7 +168,7 @@ component {
 						    isArray( node.arguments ) &&
 						    arrayLen( node.arguments ) > 0 ) {
 							var firstArg = node.arguments[ 1 ];
-							if ( isStruct( firstArg ) && structKeyExists( firstArg, "value" ) ) {
+							if ( isStruct( firstArg ) && structKeyExists( firstArg, "value" ) && isSimpleValue( firstArg.value ) ) {
 								callName = "new " & firstArg.value;
 							}
 						}
@@ -218,14 +220,14 @@ component {
 			}
 
 			// Recursively search children
-			for ( var key in node ) {
+			cfloop( collection=node, item="local.key" ) {
 				if ( !arrayContains( variables.SKIP_KEYS, key ) && !isNull( node[ key ] ) ) {
 					this.extractCFMLTagsAndCalls( node[ key ], fileCalls );
 				}
 			}
 		}
 		else if ( isArray( node ) ) {
-			for ( var item in node ) {
+			cfloop( array=node, item="local.item" ) {
 				this.extractCFMLTagsAndCalls( item, fileCalls );
 			}
 		}

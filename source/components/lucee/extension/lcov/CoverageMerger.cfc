@@ -37,15 +37,14 @@ component {
 	 * @logLevel Log level for verbose logging
 	 * @return Array of written file paths
 	 */
-	public struct function mergeResults(required array jsonFilePaths, required string outputDir, string logLevel="none") {
+	public struct function mergeResults(required array jsonFilePaths, required string outputDir, string logLevel="none") localmode="modern" {
 		// Progressive loading - process one file at a time to minimize memory usage
 		var resultFactory = new lucee.extension.lcov.model.result();
-		var mergedResults = {};
-		var fileMappings = {};
+		var mergedResults = structNew( "regular" );
+		var fileMappings = structNew( "regular" );
 		var isFirstFile = true;
 
-		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
-			var filePath = arguments.jsonFilePaths[i];
+		cfloop( array=arguments.jsonFilePaths, index="local.i", item="local.filePath" ) {
 			variables.logger.debug( "Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath );
 
 			if (!fileExists(filePath)) {
@@ -84,29 +83,8 @@ component {
 	}
 
 	/**
-	 * Private: Merges all result structs into a single mergedResults struct
-	 * @results Struct of results keyed by .exl file path
-	 * @logLevel Log level for verbose logging
-	 * @return mergedResults struct
-	 */
-	public struct function mergeResultStructs(required struct results, required string logLevel) {
-		var validResults = lucee.extension.lcov.CoverageMergerUtils::filterValidResults(arguments.results);
-		var mappings = lucee.extension.lcov.CoverageMergerUtils::buildFileIndexMappings(validResults);
-		variables.logger.debug( "File Mappings: " & serializeJSON(var=mappings, compact=false) );
-		variables.logger.debug( "Source Results: " & serializeJSON(var=validResults, compact=false) );
-		var mergedResults = lucee.extension.lcov.CoverageMergerUtils::initializeMergedResults(validResults, mappings.filePathToIndex, mappings.indexToFilePath);
-		var sourceFileStats = createSourceFileStats(mappings.indexToFilePath);
-		var totalMergeOperations = 0;
-		mergedResults = mergeAllCoverageDataFromResults(validResults, mergedResults, mappings, sourceFileStats, totalMergeOperations);
-
-		variables.logger.debug( "Total merge operations: " & totalMergeOperations );
-		variables.logger.debug( "Merged Results before calc Stats: " & serializeJSON(var=mergedResults, compact=false) );
-		return mergedResults;
-	}
-
-	/**
 	* Public: Merges all coverage data from validResults into mergedResults using mappings and sourceFileStats.
-	* Extracted from mergeResultStructs for clarity and testability.
+	* Used by ReportGenerator for generating separate file reports.
 	* @validResults Struct of filtered valid results keyed by exlPath
 	* @mergedResults Struct of initialized merged results (by canonical index)
 	* @mappings Struct with filePathToIndex and indexToFilePath
@@ -122,18 +100,18 @@ component {
 		numeric totalMergeOperations = 0
 	) {
 		// Track which exlPath was used to initialize each merged entry (by filePath, not fileIndex)
-		var initializedBy = {};
-		for (var canonicalIndex in arguments.mergedResults) {
+		var initializedBy = structNew( "regular" );
+		cfloop( collection=arguments.mergedResults, item="local.canonicalIndex" ) {
 			var mergedEntry = arguments.mergedResults[canonicalIndex];
 			var files = mergedEntry.getFiles();
-			for (var fileIndex in files) {
+			cfloop( collection=files, item="local.fileIndex" ) {
 				var filePath = files[fileIndex].path;
 				// Find the result that was used to initialize this merged entry
 				// Match by filePath since fileIndex can differ between .exl files
-				for (var exlPath in arguments.validResults) {
+				cfloop( collection=arguments.validResults, item="local.exlPath" ) {
 					var result = arguments.validResults[exlPath];
 					var resultFiles = result.getFiles();
-					for (var resultFileIndex in resultFiles) {
+					cfloop( collection=resultFiles, item="local.resultFileIndex" ) {
 						if (resultFiles[resultFileIndex].path == filePath) {
 							initializedBy[canonicalIndex] = { exlPath: exlPath, filePath: filePath };
 							break;
@@ -146,11 +124,11 @@ component {
 			}
 		}
 
-		for (var exlPath in arguments.validResults) {
+		cfloop( collection=arguments.validResults, item="local.exlPath" ) {
 			var result = arguments.validResults[exlPath];
 			var exlFileName = listLast(exlPath, "/\\");
 			var coverageData = result.getCoverage();
-			for (var fileIndex in coverageData) {
+			cfloop( collection=coverageData, item="local.fileIndex" ) {
 				var sourceFilePath = result.getFileItem(fileIndex).path;
 				var canonicalIndex = arguments.mappings.filePathToIndex[sourceFilePath];
 				var sourceFileCoverage = coverageData[fileIndex];
@@ -173,15 +151,14 @@ component {
 	 * @logLevel Log level for verbose logging
 	 * @return Struct with mergedCoverage and sorted files array
 	 */
-	public struct function mergeResultsByFile(required array jsonFilePaths, string logLevel="none") {
+	public struct function mergeResultsByFile(required array jsonFilePaths, string logLevel="none") localmode="modern" {
 		// Progressive loading - process one file at a time to minimize memory usage
 		var resultFactory = new lucee.extension.lcov.model.result();
-		var merged = { "files": {}, "coverage": {}, "blocks": {} };
-		var fileMappings = {};
+		var merged = { "files": structNew( "regular" ), "coverage": structNew( "regular" ), "blocks": structNew( "regular" ) };
+		var fileMappings = structNew( "regular" );
 		var isFirstFile = true;
 
-		for (var i = 1; i <= arrayLen(arguments.jsonFilePaths); i++) {
-			var filePath = arguments.jsonFilePaths[i];
+		cfloop( array=arguments.jsonFilePaths, index="local.i", item="local.filePath" ) {
 			variables.logger.trace( "mergeResultsByFile: Processing file " & i & " of " & arrayLen(arguments.jsonFilePaths) & ": " & filePath );
 
 			if (!fileExists(filePath)) {
@@ -215,13 +192,13 @@ component {
 		};
 	}
 
-	public struct function buildFileMappingsAndInitMerged(required struct results) {
-		var merged = { files: {}, coverage: {} };
-		var fileMappings = {};
-		for (var src in arguments.results) {
+	public struct function buildFileMappingsAndInitMerged(required struct results) localmode="modern" {
+		var merged = { files: structNew( "regular" ), coverage: structNew( "regular" ) };
+		var fileMappings = structNew( "regular" );
+		cfloop( collection=arguments.results, item="local.src" ) {
 			var files = arguments.results[src].getFiles();
-			fileMappings[src] = {};
-			for (var fKey in files) {
+			fileMappings[src] = structNew( "regular" );
+			cfloop( collection=files, item="local.fKey" ) {
 				if (!structKeyExists(merged.files, files[fKey].path)) {
 					merged.files[files[fKey].path] = files[fKey];
 				}
@@ -233,9 +210,9 @@ component {
 	}
 
 
-	public struct function createSourceFileStats(required struct indexToFilePath) {
-		var sourceFileStats = {};
-		for (var canonicalIndex in indexToFilePath) {
+	public struct function createSourceFileStats(required struct indexToFilePath) localmode="modern" {
+		var sourceFileStats = structNew( "regular" );
+		cfloop( collection=indexToFilePath, item="local.canonicalIndex" ) {
 			sourceFileStats[canonicalIndex] = {"exlFiles": [], "totalLines": 0};
 		}
 		return sourceFileStats;
@@ -252,20 +229,20 @@ component {
 		required struct mergedResults,
 		required struct sourceResults
 	) {
-		for (var canonicalIndex in arguments.mergedResults) {
+		cfloop( collection=arguments.mergedResults, item="local.canonicalIndex" ) {
 			var mergedResult = arguments.mergedResults[canonicalIndex];
 			var filePath = mergedResult.getFileItem(0).path;
 			var totalChildTime = 0;
 
 			// Sum up call tree metrics from source results that contain this file
-			for (var sourcePath in arguments.sourceResults) {
+			cfloop( collection=arguments.sourceResults, item="local.sourcePath" ) {
 				var sourceResult = arguments.sourceResults[sourcePath];
 				var resultFiles = sourceResult.getFiles();
 
 				// Check if this result contains the file we're merging
 				var containsFile = false;
 				var targetFileIdx = "";
-				for (var fileIdx in resultFiles) {
+				cfloop( collection=resultFiles, item="local.fileIdx" ) {
 					if (resultFiles[fileIdx].path == filePath) {
 						containsFile = true;
 						targetFileIdx = fileIdx;
@@ -277,7 +254,7 @@ component {
 					// Get blocks for this file - blocks have execTime and isChild properties
 					var blocks = sourceResult.getBlocksForFile(targetFileIdx);
 					// Sum up child times for blocks in this file
-					for (var blockKey in blocks) {
+					cfloop( collection=blocks, item="local.blockKey" ) {
 						var block = blocks[blockKey];
 						// Check if this block has isChild flag (only present after CallTree annotation)
 						if (structKeyExists(block, "isChild") && block.isChild) {
@@ -309,16 +286,16 @@ component {
 			required string sourceFilePath, numeric mergedFileIndex = 0) {
 		var coverageData = arguments.targetResult.getCoverage();
 		// Ensure coverageData is a struct, not an array
-		if (!isStruct(coverageData)) coverageData = {};
+		if (!isStruct(coverageData)) coverageData = structNew( "regular" );
 		var fileIndex = toString(arguments.mergedFileIndex);
-		var targetCoverage = structKeyExists(coverageData, fileIndex) ? coverageData[fileIndex] : {};
+		var targetCoverage = structKeyExists(coverageData, fileIndex) ? coverageData[fileIndex] : structNew( "regular" );
 		var linesMerged = 0;
 		if ( structIsEmpty( targetCoverage ) ) {
 			coverageData[fileIndex] = duplicate( arguments.sourceFileCoverage );
 			arguments.targetResult.setCoverage(coverageData);
 			return structCount( arguments.sourceFileCoverage );
 		}
-		for (var lineNumber in arguments.sourceFileCoverage) {
+		cfloop( collection=arguments.sourceFileCoverage, item="local.lineNumber" ) {
 			var sourceLine = arguments.sourceFileCoverage[lineNumber];
 			if ( !structKeyExists( targetCoverage, lineNumber ) ) {
 				targetCoverage[ lineNumber ] = duplicate( sourceLine );
@@ -345,11 +322,11 @@ component {
 
 
 	private struct function initializeMergedStructure(required any firstResult) localmode="modern" {
-		var merged = {};
+		var merged = structNew( "regular" );
 		var files = arguments.firstResult.getFiles();
 
 		// Create the first merged result based on the first file
-		for (var fileIndex in files) {
+		cfloop( collection=files, item="local.fileIndex" ) {
 			if (!structKeyExists(merged, fileIndex)) {
 				var resultCopy = duplicate(arguments.firstResult);
 				resultCopy.setCoverage({});
@@ -361,10 +338,10 @@ component {
 	}
 
 	private struct function buildFileIndexMappingsForResult(required any result) localmode="modern" {
-		var mappings = {};
+		var mappings = structNew( "regular" );
 		var files = arguments.result.getFiles();
 
-		for (var fileIndex in files) {
+		cfloop( collection=files, item="local.fileIndex" ) {
 			var filePath = files[fileIndex].path;
 			if (!structKeyExists(mappings, filePath)) {
 				mappings[filePath] = fileIndex;
@@ -379,7 +356,7 @@ component {
 		var currentCoverage = arguments.currentResult.getCoverage();
 
 		// For each file in the current result
-		for (var fileIndex in currentFiles) {
+		cfloop( collection=currentFiles, item="local.fileIndex" ) {
 			var filePath = currentFiles[fileIndex].path;
 
 			// Find or assign target index for this file path
@@ -420,7 +397,7 @@ component {
 		var coverage = arguments.firstResult.getCoverage();
 
 		// Initialize merged structure based on first file - only include files that have coverage data
-		for (var fileIndex in files) {
+		cfloop( collection=files, item="local.fileIndex" ) {
 			var filePath = files[fileIndex].path;
 			// Only add file if it has coverage data
 			if (structKeyExists(coverage, fileIndex)) {
@@ -443,7 +420,7 @@ component {
 		//systemOutput("Coverage Files for current result: " & serializeJSON(var=structKeyArray(currentFiles)), true);
 
 		// Process each file in current result
-		for (var fileIndex in currentFiles) {
+		cfloop( collection=currentFiles, item="local.fileIndex" ) {
 			var filePath = currentFiles[fileIndex].path;
 			var hasCoverage = structKeyExists(currentCoverage, fileIndex);
 
@@ -463,14 +440,14 @@ component {
 
 			// Merge coverage data
 			if (!structKeyExists(arguments.merged.coverage, filePath)) {
-				arguments.merged.coverage[filePath] = {};
+				arguments.merged.coverage[filePath] = structNew( "regular" );
 			}
 
 			var sourceCoverage = currentCoverage[fileIndex];
 			var targetCoverage = arguments.merged.coverage[filePath];
 
 			// Merge line coverage
-			for (var lineNum in sourceCoverage) {
+			cfloop( collection=sourceCoverage, item="local.lineNum" ) {
 				if (!structKeyExists(targetCoverage, lineNum)) {
 					targetCoverage[lineNum] = duplicate(sourceCoverage[lineNum]);
 				} else {
@@ -485,14 +462,14 @@ component {
 			var hasBlocks = structKeyExists(currentBlocks, fileIndex);
 			if (hasBlocks) {
 				if (!structKeyExists(arguments.merged.blocks, filePath)) {
-					arguments.merged.blocks[filePath] = {};
+					arguments.merged.blocks[filePath] = structNew( "regular" );
 				}
 
 				var sourceBlocks = currentBlocks[fileIndex];
 				var targetBlocks = arguments.merged.blocks[filePath];
 
 				// Merge each block
-				for (var blockKey in sourceBlocks) {
+				cfloop( collection=sourceBlocks, item="local.blockKey" ) {
 					var sourceBlock = sourceBlocks[blockKey];
 					if (!structKeyExists(targetBlocks, blockKey)) {
 						targetBlocks[blockKey] = duplicate(sourceBlock);

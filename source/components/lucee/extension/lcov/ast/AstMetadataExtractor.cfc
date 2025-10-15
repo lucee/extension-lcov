@@ -29,19 +29,19 @@ component {
 	 * @filePath The file path (for logging/debugging)
 	 * @return Struct with {callTree, executableLineCount, executableLines}
 	 */
-	public struct function extractMetadata(required any ast, required string filePath) {
+	public struct function extractMetadata(required any ast, required string filePath) localmode="modern" {
 		var startTime = getTickCount();
 
 		// 1. Extract CallTree positions using AstCallAnalyzer
 		var functions = variables.astCallAnalyzer.extractFunctions( arguments.ast );
-		var callTree = {};
+		var callTree = structNew( "regular" );
 
 		// Extract all calls from all functions
 		// Key by position only (no fileIdx yet - that's determined per-request in Phase 4)
-		for (var func in functions) {
+		cfloop( array=functions, item="local.func" ) {
 			// Add calls from this function's body
 			if ( structKeyExists( func, "calls" ) && isArray( func.calls ) ) {
-				for (var call in func.calls) {
+				cfloop( array=func.calls, item="local.call" ) {
 					if ( structKeyExists( call, "position" ) ) {
 						// Store by position only - CallTreeAnnotator will add fileIdx prefix in Phase 4
 						var key = call.position;
@@ -62,7 +62,7 @@ component {
 		helper.extractCFMLTagsAndCalls( arguments.ast, topLevelCalls );
 
 		// Add top-level calls to callTree
-		for (var call in topLevelCalls) {
+		cfloop( array=topLevelCalls, item="local.call" ) {
 			if ( structKeyExists( call, "position" ) && call.position > 0 ) {
 				callTree[call.position] = {
 					"isChildTime": true,
@@ -91,13 +91,13 @@ component {
 	 * @files Struct of {fileIdx: {path: "..."}} or array of file paths
 	 * @return Struct keyed by file path with metadata for each
 	 */
-	public struct function extractMetadataForFiles(required any files) {
-		var metadata = {};
+	public struct function extractMetadataForFiles(required any files) localmode="modern" {
+		var metadata = structNew( "regular" );
 		var filePaths = [];
 
 		// Normalize input to array of paths
 		if ( isStruct( arguments.files ) ) {
-			for (var idx in arguments.files) {
+			cfloop( collection=arguments.files, item="local.idx" ) {
 				arrayAppend( filePaths, arguments.files[idx].path );
 			}
 		} else if ( isArray( arguments.files ) ) {
@@ -107,17 +107,14 @@ component {
 		}
 
 		// Extract metadata for each unique file
-		for (var filePath in filePaths) {
+		cfloop( array=filePaths, item="local.filePath" ) {
 			if ( !fileExists( filePath ) ) {
 				variables.logger.warn( "Skipping metadata extraction for missing file: #filePath#" );
 				continue;
 			}
 
-			// Read file content (needed for AstParserHelper fallback)
-			var fileContent = fileRead( filePath );
-
 			// Parse AST using AstParserHelper (has fallback logic for .cfm files)
-			var ast = variables.astParserHelper.parseFileAst( filePath, fileContent );
+			var ast = variables.astParserHelper.parseFileAst( filePath, fileRead( filePath ) );
 			metadata[filePath] = extractMetadata( ast, filePath );
 		}
 

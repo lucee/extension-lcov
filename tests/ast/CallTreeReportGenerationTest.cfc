@@ -146,8 +146,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 
 				// Run full pipeline to generate CallTree
 				var processor = new lucee.extension.lcov.ExecutionLogProcessor( options={logLevel: variables.logLevel} );
-				var jsonFilePaths = processor.parseExecutionLogs( variables.testDir );
-				var astMetadataPath = processor.extractAstMetadata( variables.testDir, jsonFilePaths );
+				var parseResult = processor.parseExecutionLogs( variables.testDir );
+		var jsonFilePaths = parseResult.jsonFilePaths;
+				var astMetadataGenerator = new lucee.extension.lcov.ast.AstMetadataGenerator( logger=variables.logger );
+				var astMetadataPath = astMetadataGenerator.generate( variables.testDir, parseResult.allFiles );
 				var lineCoverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
 				lineCoverageBuilder.buildCoverage( jsonFilePaths, astMetadataPath );
 				var callTreeAnnotator = new lucee.extension.lcov.coverage.CallTreeAnnotator( logger=variables.logger );

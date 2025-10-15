@@ -23,7 +23,7 @@ component {
 	 * @files File information including AST data
 	 * @return Struct containing blocks marked as child time
 	 */
-	public struct function analyzeCallTree(required struct aggregated, required struct files) {
+	public struct function analyzeCallTree(required struct aggregated, required struct files) localmode="modern" {
 		var startTime = getTickCount();
 
 		variables.logger.trace( "CallTreeAnalyzer: Starting analysis with " & structCount( arguments.aggregated ) & " blocks and " & structCount( arguments.files ) & " files" );
@@ -62,7 +62,7 @@ component {
 	 * @return Struct mapping call positions to call info
 	 */
 	private struct function extractAllCalls(required struct files, required any astCallAnalyzer) localmode="modern" {
-		var callsMap = {};
+		var callsMap = structNew( "regular" );
 		var totalFiles = structCount( arguments.files );
 		var cacheHits = 0;
 		var cacheMisses = 0;
@@ -71,7 +71,7 @@ component {
 
 		// Build array of file data for parallel processing: [fileIdx, file, filePath, cached, fileCallCache]
 		var fileArray = [];
-		for ( var fileIdx in arguments.files ) {
+		cfloop( collection=arguments.files, item="local.fileIdx" ) {
 			var file = arguments.files[ fileIdx ];
 
 			// Fail fast if no AST available
@@ -99,7 +99,7 @@ component {
 		var helper = new CallTreeParallelHelpers();
 
 		// Add helper to each file info array
-		for ( var fileInfo in fileArray ) {
+		cfloop( array=fileArray, item="local.fileInfo" ) {
 			arrayAppend( fileInfo, helper );
 		}
 
@@ -107,7 +107,7 @@ component {
 		var fileResults = arrayMap( fileArray, helper.processFileForCalls, true );  // parallel=true
 
 		// Merge results and update cache
-		for ( var fileResult in fileResults ) {
+		cfloop( array=fileResults, item="local.fileResult" ) {
 			var fileIdx = fileResult.fileIdx;
 			var filePath = fileResult.filePath;
 			var fileCalls = fileResult.calls;
@@ -117,15 +117,15 @@ component {
 				variables.fileCallCache[ filePath ] = fileCalls;
 			}
 
-			// Add file calls to callsMap
-			for ( var call in fileCalls ) {
-				var key = arrayToList( [ fileIdx, call.position ], chr(9) );
-				callsMap[ key ] = {
-					fileIdx: fileIdx,
-					position: call.position,
-					type: call.type,
-					name: call.name,
-					isBuiltIn: call.isBuiltIn
+			// Add file calls to callsMap (nested struct: {fileIdx: {position: callInfo}})
+			if ( !structKeyExists( callsMap, fileIdx ) ) {
+				callsMap[fileIdx] = {};
+			}
+			cfloop( array=fileCalls, item="local.call" ) {
+				callsMap[fileIdx][call.position] = {
+					isChildTime: true,
+					isBuiltIn: call.isBuiltIn,
+					functionName: call.name
 				};
 			}
 		}
@@ -139,41 +139,34 @@ component {
 	 * Mark execution blocks that represent child time (function calls)
 	 */
 	public struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) localmode="modern" {
-		var markedBlocks = {};
+		var markedBlocks = structNew( "regular" );
 
-		// Build index of calls by fileIdx to avoid O(n²) nested loop
-		var callsByFile = {};
-		for ( var callKey in arguments.callsMap ) {
-			var call = arguments.callsMap[ callKey ];
-			if ( !structKeyExists( callsByFile, call.fileIdx ) ) {
-				callsByFile[ call.fileIdx ] = [];
-			}
-			arrayAppend( callsByFile[ call.fileIdx ], call );
-		}
+		// callsMap is now nested: {fileIdx: {position: {isChildTime, isBuiltIn, functionName}}}
+		// No need to rebuild callsByFile - it's already indexed by fileIdx!
 
 		// Convert aggregated struct to array for chunking
 		var blockArray = [];
-		for ( var blockKey in arguments.aggregated ) {
+		cfloop( collection=arguments.aggregated, item="local.blockKey" ) {
 			arrayAppend( blockArray, [ blockKey, arguments.aggregated[ blockKey ] ] );
 		}
 
 		// Use fixed chunk size - arrayMap's thread pool handles optimal parallelism
 		var totalBlocks = arrayLen( blockArray );
-		var chunkSize = 500;  // Balance between thread overhead and parallelism
+		var chunkSize = 500;
 
 		// Split into chunks using arraySlice
 		var chunks = [];
 		for ( var i = 1; i <= totalBlocks; i += chunkSize ) {
 			var length = min( chunkSize, totalBlocks - i + 1 );
 			var chunk = arraySlice( blockArray, i, length );
-			arrayAppend( chunks, [ chunk, callsByFile ] );
+			arrayAppend( chunks, [ chunk, arguments.callsMap ] );
 		}
 
 		// Process chunks in parallel
-		var chunkResults = arrayMap( chunks, new CallTreeParallelHelpers().processBlockChunk, true );  // parallel=true
+		var chunkResults = arrayMap( chunks, new CallTreeParallelHelpers().processBlockChunk, true );
 
 		// Merge results
-		for ( var chunkResult in chunkResults ) {
+		cfloop( array=chunkResults, item="local.chunkResult" ) {
 			structAppend( markedBlocks, chunkResult, true );
 		}
 
@@ -190,7 +183,7 @@ component {
 			"builtInBlocks": 0
 		};
 
-		for (var blockKey in arguments.markedBlocks) {
+		cfloop( collection=arguments.markedBlocks, item="local.blockKey" ) {
 			var block = arguments.markedBlocks[blockKey];
 
 			if (block.isChildTime) {
@@ -208,9 +201,9 @@ component {
 	/**
 	 * Get summary metrics for marked blocks
 	 */
-	public struct function getCallTreeMetrics(required struct result) {
+	public struct function getCallTreeMetrics(required struct result) localmode="modern" {
 		if (!structKeyExists(arguments.result, "blocks") ||
-		    !structKeyExists(arguments.result, "metrics")) {
+			!structKeyExists(arguments.result, "metrics")) {
 			return {
 				"totalBlocks": 0,
 				"childTimeBlocks": 0,

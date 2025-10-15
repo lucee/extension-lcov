@@ -28,9 +28,8 @@ component accessors="true" {
 	* @nodes Array of AST nodes to traverse
 	* @executableLines Struct to populate with executable line numbers (passed by reference)
 	*/
-	private void function traverseNodes(required array nodes, required struct executableLines) {
-		for (var i = 1; i <= arrayLen(arguments.nodes); i++) {
-			var node = arguments.nodes[i];
+	private void function traverseNodes(nodes, executableLines) localmode="modern" {
+		cfloop( array=arguments.nodes, item="local.node" ) {
 			if (!isStruct(node)) continue;
 
 			// If this AST node has a line number, Lucee will track it
@@ -42,7 +41,7 @@ component accessors="true" {
 
 			// Recursively traverse ALL properties in the node
 			// This ensures we find all executable lines regardless of AST structure
-			for (var key in node) {
+			cfloop( collection=node, item="local.key" ) {
 				// Skip metadata properties that don't contain executable code
 				if (key == "start" || key == "end" || key == "type" || key == "sourceLines") {
 					continue;
@@ -89,10 +88,10 @@ component accessors="true" {
 	* @throwOnError If true, throw on out-of-range or excess lines; if false, clamp.
 	* @return Struct with count and executableLines map
 	*/
-	public struct function countExecutableLinesFromAst(required struct ast, boolean throwOnError = true) {
+	public struct function countExecutableLinesFromAst(required struct ast, boolean throwOnError = true) localmode="modern" {
 		var event = variables.logger.beginEvent("ExecutableLineCounter");
 
-		var executableLines = {};
+		var executableLines = structNew( "regular" );
 		var sourceLines = [];
 		if (structKeyExists(arguments.ast, "sourceLines")) {
 			sourceLines = arguments.ast.sourceLines;
@@ -108,8 +107,8 @@ component accessors="true" {
 		// Validate or clamp
 		var maxLine = arrayLen(sourceLines);
 		var invalidLines = [];
-		var filteredLines = {};
-		for (var n in executableLines) {
+		var filteredLines = structNew( "regular" );
+		cfloop( collection=executableLines, item="local.n" ) {
 			if (n > 0 && (maxLine == 0 || n <= maxLine)) {
 				filteredLines[n] = true;
 			} else {
@@ -157,8 +156,8 @@ component accessors="true" {
 		var instrumentedLineCount = 0;
 		var executableLines = [=];
 
-		for (var i = 1; i <= arrayLen(arguments.sourceLines); i++) {
-			var line = trim(arguments.sourceLines[i]);
+		cfloop( array=arguments.sourceLines, index="local.i", item="local.sourceLine" ) {
+			var line = trim(sourceLine);
 
 			// Skip empty lines
 			if (len(line) == 0) {

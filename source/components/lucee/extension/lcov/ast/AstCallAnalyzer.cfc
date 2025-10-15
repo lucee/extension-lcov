@@ -27,7 +27,7 @@ component {
 	 * @ast The abstract syntax tree from Lucee
 	 * @return Array of function information structs
 	 */
-	public array function extractFunctions(required struct ast) {
+	public array function extractFunctions(required struct ast) localmode="modern" {
 		var functions = [];
 
 		if (structKeyExists(arguments.ast, "body")) {
@@ -78,7 +78,7 @@ component {
 				else if (nodeType === "component" && structKeyExists(arguments.node, "body")) {
 					var componentName = arguments.node.name ?: "Component";
 
-					for (var member in arguments.node.body) {
+					cfloop( array=arguments.node.body, item="local.member" ) {
 						if (isStruct(member) && structKeyExists(member, "type") &&
 						    (member.type === "function" || member.type === "FunctionDeclaration")) {
 
@@ -100,7 +100,7 @@ component {
 			}
 
 			// Recursively traverse all child nodes
-			for (var key in arguments.node) {
+			cfloop( collection=arguments.node, item="local.key" ) {
 				if (!arrayContains(variables.SKIP_KEYS_TRAVERSE, key)) {
 					// Skip null values (e.g., ReturnStatement with no argument)
 					if (!isNull(arguments.node[key])) {
@@ -114,7 +114,7 @@ component {
 			}
 		}
 		else if (isArray(arguments.node)) {
-			for (var item in arguments.node) {
+			cfloop( array=arguments.node, item="local.item" ) {
 				traverseForFunctions(item, arguments.functions, arguments.parentScope);
 			}
 		}
@@ -123,7 +123,7 @@ component {
 	/**
 	 * Extract detailed information from a function node
 	 */
-	private struct function extractFunctionInfo(required struct functionNode, required string parentScope) {
+	private struct function extractFunctionInfo(required struct functionNode, required string parentScope) localmode="modern" {
 		var info = {
 			name: "",
 			fullName: "",
@@ -152,8 +152,8 @@ component {
 				info.name = "anonymous";
 			}
 		} else if (structKeyExists(arguments.functionNode, "id") &&
-		           isStruct(arguments.functionNode.id) &&
-		           structKeyExists(arguments.functionNode.id, "name")) {
+					isStruct(arguments.functionNode.id) &&
+					structKeyExists(arguments.functionNode.id, "name")) {
 			info.name = arguments.functionNode.id.name;
 		} else {
 			info.name = "anonymous";
@@ -195,7 +195,7 @@ component {
 
 		// Extract parameters
 		if (structKeyExists(arguments.functionNode, "params") && isArray(arguments.functionNode.params)) {
-			for (var param in arguments.functionNode.params) {
+			cfloop( array=arguments.functionNode.params, item="local.param" ) {
 				arrayAppend(info.parameters, {
 					name: param.name ?: "unnamed",
 					type: param.type ?: "any",
@@ -215,7 +215,7 @@ component {
 	/**
 	 * Recursively find call expressions
 	 */
-	private void function findCallsRecursive(required any node, required array calls) {
+	private void function findCallsRecursive(required any node, required array calls) localmode="modern" {
 		var node = arguments.node;  // Cache for performance
 		var calls = arguments.calls;
 
@@ -252,7 +252,7 @@ component {
 						    isArray(node.arguments) &&
 						    arrayLen(node.arguments) > 0) {
 							var firstArg = node.arguments[1];
-							if (isStruct(firstArg) && structKeyExists(firstArg, "value")) {
+							if (isStruct(firstArg) && structKeyExists(firstArg, "value") && isSimpleValue(firstArg.value)) {
 								callInfo.name = "new " & firstArg.value;
 							}
 						}
@@ -289,7 +289,7 @@ component {
 
 					// Extract the target (template, name, component, etc.) for specific tags
 					if (structKeyExists(node, "attributes") && isArray(node.attributes)) {
-						for (var attr in node.attributes) {
+						cfloop( array=node.attributes, item="local.attr" ) {
 							if (isStruct(attr) && structKeyExists(attr, "name")) {
 								if (attr.name === "template" || attr.name === "name" || attr.name === "component") {
 									// attr.value might be a struct (complex expression) - only use if simple string
@@ -349,14 +349,14 @@ component {
 			}
 
 			// Traverse children
-			for (var key in node) {
+			cfloop( collection=node, item="local.key" ) {
 				if (!arrayContains(variables.SKIP_KEYS_EXTRACT, key) && !isNull(node[key])) {
 					findCallsRecursive(node[key], calls);
 				}
 			}
 		}
 		else if (isArray(node)) {
-			for (var item in node) {
+			cfloop( array=node, item="local.item" ) {
 				findCallsRecursive(item, calls);
 			}
 		}
@@ -365,7 +365,7 @@ component {
 	/**
 	 * Extract the name of the function being called
 	 */
-	private string function extractCallName(required struct callNode) {
+	private string function extractCallName(required struct callNode) localmode="modern" {
 		var callNode = arguments.callNode;  // Cache for performance
 
 		// Direct function call
@@ -415,10 +415,10 @@ component {
 	 * @functions Array of function info structs
 	 * @return Struct keyed by "startPos-endPos" with function info as values
 	 */
-	public struct function buildFunctionMap(required array functions) {
-		var map = {};
+	public struct function buildFunctionMap(required array functions) localmode="modern" {
+		var map = structNew( "regular" );
 
-		for (var func in arguments.functions) {
+		cfloop( array=arguments.functions, item="local.func" ) {
 			var key = func.startPos & "-" & func.endPos;
 			map[key] = func;
 		}
@@ -432,11 +432,11 @@ component {
 	 * @functions Array of function info structs
 	 * @return Function info struct or empty struct if not found
 	 */
-	public struct function findContainingFunction(required numeric position, required array functions) {
-		var bestMatch = {};
+	public struct function findContainingFunction(required numeric position, required array functions) localmode="modern" {
+		var bestMatch = structNew( "regular" );
 		var smallestRange = 999999999;
 
-		for (var func in arguments.functions) {
+		cfloop( array=arguments.functions, item="local.func" ) {
 			// Check if position is within this function
 			if (arguments.position >= func.startPos && arguments.position <= func.endPos) {
 				var range = func.endPos - func.startPos;

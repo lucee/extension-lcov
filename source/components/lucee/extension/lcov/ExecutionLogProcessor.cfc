@@ -22,19 +22,21 @@ component {
 	 * @return Struct of parsed results keyed by .exl file path
 	 */
 
-	public array function parseExecutionLogs(required string executionLogDir, struct options = {}) {
+	public struct function parseExecutionLogs(required string executionLogDir, struct options = {}) {
 		// add an exclusive cflock here
 		cflock(name="lcov-parse:#arguments.executionLogDir#", timeout=0, type="exclusive", throwOnTimeout=true) {
 			return _parseExecutionLogs(arguments.executionLogDir, arguments.options);
 		}
 	}
 
-	private array function _parseExecutionLogs(required string executionLogDir, struct options = {}) {
+	private struct function _parseExecutionLogs(required string executionLogDir, struct options = {}) {
+		var phase1StartTime = getTickCount();
+
 		if (!directoryExists(arguments.executionLogDir)) {
 			throw(message="Execution log directory does not exist: " & arguments.executionLogDir);
 		}
 
-		variables.logger.debug("Processing execution logs from: " & arguments.executionLogDir);
+		variables.logger.info("Phase 1: Processing execution logs from: " & arguments.executionLogDir);
 
 		// Create shared AST cache for all parsers to avoid re-parsing same files 179+ times
 		var sharedAstCache = {};
@@ -62,40 +64,87 @@ component {
 		variables.logger.debug("Small files (parallel): " & arrayLen(smallFiles) & ", Large files (sequential): " & arrayLen(largeFiles));
 
 		var jsonFilePaths = [];
+		var allFiles = {}; // Collect all files from all results
 		var options = arguments.options; // Cache for closure access
 
 		// Process small files in parallel
 		if (arrayLen(smallFiles) > 0) {
+			var smallTotalSizeMb = 0;
+			for (var f in smallFiles) {
+				smallTotalSizeMb += f.sizeMb;
+			}
+			var smallStartTime = getTickCount();
+			variables.logger.info("Phase 1: Processing " & arrayLen(smallFiles) & " small .exl files (" & numberFormat(smallTotalSizeMb) & "MB) in parallel");
 			var smallFileResults = arrayMap(smallFiles, function(fileInfo) {
 				return processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, options, sharedAstCache);
 			}, true);  // parallel=true
 
-			for (var result in smallFileResults) {
-				arrayAppend(jsonFilePaths, result);
+			cfloop( array=smallFileResults, item="local.parsingResult" ) {
+				arrayAppend(jsonFilePaths, parsingResult.jsonPath);
+				// Merge files into allFiles struct
+				for (var fileIdx in parsingResult.files) {
+					var fileInfo = parsingResult.files[fileIdx];
+					if (structKeyExists(fileInfo, "path")) {
+						allFiles[fileInfo.path] = fileInfo;
+					}
+				}
 			}
+			var smallElapsedTime = getTickCount() - smallStartTime;
+			variables.logger.info("Phase 1: Completed " & arrayLen(smallFiles) & " small .exl files in " & numberFormat(smallElapsedTime) & "ms");
 		}
 
 		// Process large files sequentially (they use internal parallelism)
-		for (var fileInfo in largeFiles) {
-			var jsonPath = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, sharedAstCache);
-			arrayAppend(jsonFilePaths, jsonPath);
+		if (arrayLen(largeFiles) > 0) {
+			var largeTotalSizeMb = 0;
+			for (var f in largeFiles) {
+				largeTotalSizeMb += f.sizeMb;
+			}
+			var largeStartTime = getTickCount();
+			var largeFileCount = arrayLen(largeFiles);
+			variables.logger.info("Phase 1: Processing " & largeFileCount & " large .exl files (" & numberFormat(largeTotalSizeMb) & "MB) sequentially");
+			var largeFileIndex = 0;
+			for (var fileInfo in largeFiles) {
+				largeFileIndex++;
+				variables.logger.info("Phase 1: Processing large file " & largeFileIndex & "/" & largeFileCount & ": " & fileInfo.name & " (" & numberFormat(fileInfo.sizeMb) & "MB)");
+				var parsingResult = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, sharedAstCache);
+				arrayAppend(jsonFilePaths, parsingResult.jsonPath);
+				// Merge files into allFiles struct
+				for (var fileIdx in parsingResult.files) {
+					var fileInfo = parsingResult.files[fileIdx];
+					if (structKeyExists(fileInfo, "path")) {
+						allFiles[fileInfo.path] = fileInfo;
+					}
+				}
+			}
+			var largeElapsedTime = getTickCount() - largeStartTime;
+			variables.logger.info("Phase 1: Completed " & largeFileCount & " large .exl files in " & numberFormat(largeElapsedTime) & "ms");
 		}
 
-		variables.logger.debug("Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files");
-		return jsonFilePaths;
+		var phase1ElapsedTime = getTickCount() - phase1StartTime;
+		variables.logger.info("Phase 1: Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files in " & numberFormat(phase1ElapsedTime) & "ms");
+
+		return {
+			jsonFilePaths: jsonFilePaths,
+			allFiles: allFiles
+		};
 	}
 
-	private string function processExlFile(required string exlPath, required string fileName, required numeric sizeMb, required struct options, required struct sharedAstCache) {
+	private struct function processExlFile(required string exlPath, required string fileName, required numeric sizeMb, required struct options, required struct sharedAstCache) {
 		var logger = new lucee.extension.lcov.Logger( level=arguments.options.logLevel ?: "none" );
 		var exlParser = new lucee.extension.lcov.ExecutionLogParser( options=arguments.options, sharedAstCache=arguments.sharedAstCache );
 
 		variables.logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
 
+		// includeSourceCode: false for separateFiles=true (we hydrate later), true for separateFiles=false (HTML needs it now)
+		var includeSourceCode = !(arguments.options.separateFiles ?: false);
+
 		var result = exlParser.parseExlFile(
 			arguments.exlPath,
 			arguments.options.allowList ?: [],
 			arguments.options.blocklist ?: [],
-			false  // writeJsonCache - we handle JSON writing after stats
+			false,  // writeJsonCache - we handle JSON writing after stats
+			false,  // includeCallTree - not needed for Phase 1 minimal JSONs
+			includeSourceCode  // CRITICAL: false for separateFiles=true to reduce JSON from 2MB to ~1KB
 		);
 
 		var statsComponent = new lucee.extension.lcov.CoverageStats( logger=logger );
@@ -114,83 +163,10 @@ component {
 		var jsonPath = reReplace(arguments.exlPath, "\.exl$", ".json");
 		fileWrite(jsonPath, result.toJson(pretty=false, excludeFileCoverage=true));
 
-		return jsonPath;
-	}
-
-	/**
-	 * Phase 2: Extract AST metadata (CallTree + executable lines) from unique source files.
-	 * Deduplicates files across all minimal JSONs and extracts metadata once per unique file.
-	 *
-	 * @executionLogDir Directory containing .exl files and minimal JSONs
-	 * @jsonFilePaths Array of minimal JSON file paths from Phase 1
-	 * @options Processing options
-	 * @return Path to ast-metadata.json file
-	 */
-	public string function extractAstMetadata(required string executionLogDir, required array jsonFilePaths, struct options = {}) {
-		var startTime = getTickCount();
-		variables.logger.debug( "Phase 2: Extracting AST metadata from unique source files" );
-
-		// 1. Load all minimal JSONs and find unique source files
-		var uniqueFiles = {};
-		for (var jsonPath in arguments.jsonFilePaths) {
-			if ( !fileExists( jsonPath ) ) {
-				variables.logger.warn( "Skipping missing JSON file: #jsonPath#" );
-				continue;
-			}
-
-			var jsonContent = fileRead( jsonPath );
-			var data = deserializeJSON( jsonContent );
-
-			// Extract file paths from files section
-			if ( structKeyExists( data, "files" ) && isStruct( data.files ) ) {
-				for (var fileIdx in data.files) {
-					var fileInfo = data.files[fileIdx];
-					if ( structKeyExists( fileInfo, "path" ) ) {
-						uniqueFiles[fileInfo.path] = true;
-					}
-				}
-			}
-		}
-
-		var uniqueFileCount = structCount( uniqueFiles );
-		variables.logger.debug( "Found #uniqueFileCount# unique source files across #arrayLen(arguments.jsonFilePaths)# minimal JSONs" );
-
-		// 2. Extract metadata for each unique file
-		var metadataExtractor = new lucee.extension.lcov.ast.AstMetadataExtractor( logger=variables.logger );
-		var metadata = metadataExtractor.extractMetadataForFiles( structKeyArray( uniqueFiles ) );
-
-		// 3. Build ast-metadata.json structure with checksums and timestamps
-		var metadataData = {
-			"cacheVersion": 1,
-			"files": {}
+		return {
+			jsonPath: jsonPath,
+			files: result.getFiles()
 		};
-
-		for (var filePath in metadata) {
-			if ( !fileExists( filePath ) ) {
-				variables.logger.warn( "Skipping metadata for missing file: #filePath#" );
-				continue;
-			}
-
-			var fileInfo = getFileInfo( filePath );
-			var fileContent = fileRead( filePath );
-
-			metadataData.files[filePath] = {
-				"checksum": hash( fileContent, "MD5" ),
-				"lastModified": fileInfo.lastModified,
-				"callTree": metadata[filePath].callTree,
-				"executableLineCount": metadata[filePath].executableLineCount,
-				"executableLines": metadata[filePath].executableLines
-			};
-		}
-
-		// 4. Write ast-metadata.json
-		var metadataJsonPath = arguments.executionLogDir & "/ast-metadata.json";
-		fileWrite( metadataJsonPath, serializeJSON( metadataData, false ) );
-
-		var elapsedTime = getTickCount() - startTime;
-		variables.logger.debug( "Phase 2: Wrote ast-metadata.json with #structCount(metadataData.files)# files in #elapsedTime#ms" );
-
-		return metadataJsonPath;
 	}
 
 }

@@ -17,8 +17,8 @@ component {
 
 	/**
 	 * Builds a file entry struct for inclusion in result.files[].
-	 * IMPORTANT: includeSourceCode parameter controls cache file size.
-	 * Set to false for minimal caching (20KB), true for full report generation (261KB).
+	 * IMPORTANT: includeSourceCode and includeAst parameters control cache file size.
+	 * Defaults (false/false) create minimal ~1KB JSONs. Set to true for full report generation (261KB+).
 	 *
 	 * @fileIndex File index from .exl file
 	 * @path File path
@@ -26,7 +26,8 @@ component {
 	 * @lineMapping Line mapping array
 	 * @fileContent Full file content string
 	 * @sourceLines Array of source lines
-	 * @includeSourceCode Whether to include source code in the result (default true for backwards compatibility)
+	 * @includeSourceCode Whether to include source code in the result (default false for minimal JSONs)
+	 * @includeAst Whether to include AST in the result (default false for minimal JSONs)
 	 * @return struct File entry struct
 	 */
 	public struct function buildFileEntry(
@@ -36,7 +37,8 @@ component {
 		required array lineMapping,
 		required string fileContent,
 		required array sourceLines,
-		boolean includeSourceCode = true
+		boolean includeSourceCode = false,
+		boolean includeAst = false
 	) {
 		// Count executable lines using AST
 		var lineInfo = variables.executableLineCounter.countExecutableLinesFromAst(arguments.ast);
@@ -45,9 +47,13 @@ component {
 			"path": arguments.path,
 			"linesSource": arrayLen(arguments.lineMapping),
 			"linesFound": lineInfo.count,
-			"ast": arguments.ast,  // Store AST for call tree analysis
 			"executableLines": lineInfo.executableLines  // Temporary - used for zero-count population then removed
 		};
+
+		// Include AST if requested (needed for CallTree analysis)
+		if (arguments.includeAst) {
+			fileEntry.ast = arguments.ast;
+		}
 
 		// CRITICAL DECISION POINT: Include source code or not?
 		if (arguments.includeSourceCode) {
