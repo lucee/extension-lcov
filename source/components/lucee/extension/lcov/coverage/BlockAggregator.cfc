@@ -27,7 +27,7 @@ component {
 	/**
 	 * Convert aggregated blocks (tab-delimited format) to storage format.
 	 * This is a format conversion utility - takes blocks from CoverageAggregator.
-	 * Note: isChild flags are NOT set here - they are added later in Phase 4 (CallTreeAnnotator) if needed.
+	 * Note: isChild flags are NOT set here - they are added later in annotateCallTree if needed.
 	 * @aggregatedBlocks Struct with tab-delimited keys: "fileIdx\tstartPos\tendPos", values: [fileIdx, startPos, endPos, hitCount, execTime]
 	 * @return Struct keyed by fileIdx, containing blocks keyed by "startPos-endPos": {hitCount, execTime}
 	 */
@@ -70,7 +70,7 @@ component {
 
 		var lineMappingLen = arrayLen( arguments.lineMapping );
 
-		// Check once if blocks have isChild flag (set in Phase 4, missing in Phase 3)
+		// Check once if blocks have isChild flag (set in annotateCallTree, missing in buildLineCoverage)
 		var hasIsChildFlag = 0;
 
 		for ( var blockKey in fileBlocks ) {
@@ -79,7 +79,7 @@ component {
 			var startPos = parts[ 1 ];
 			var originalStartPos = startPos;
 
-			// Check once if blocks have isChild flag (set in Phase 4, missing in Phase 3)
+			// Check once if blocks have isChild flag (set in annotateCallTree, missing in buildLineCoverage)
 			if (hasIsChildFlag == 0){
 				hasIsChildFlag = structKeyExists( block, "isChild" ) ? 1 : -1;
 			}
@@ -114,7 +114,7 @@ component {
 			lineData[ 1 ] += block.hitCount;
 
 			// Separate own time vs child time based on isChild flag
-			// isChild may not exist if Phase 4 (CallTreeAnnotator) hasn't run yet
+			// isChild may not exist if annotateCallTree hasn't run yet
 			if ( hasIsChildFlag === 1 && block.isChild ) {
 				lineData[ 3 ] += block.execTime;  // Child time
 			} else {
@@ -194,7 +194,7 @@ component {
 				var block = fileBlocks[ blockKey ];
 				var parts = listToArray( blockKey, "-" );
 				var startPos = parts[ 1 ];
-				// Check once if blocks have isChild flag (set in Phase 4, missing in Phase 3)
+				// Check once if blocks have isChild flag (set in annotateCallTree, missing in buildLineCoverage)
 				if (hasIsChildFlag == 0){
 					hasIsChildFlag = structKeyExists( block, "isChild" ) ? 1 : -1;
 				}

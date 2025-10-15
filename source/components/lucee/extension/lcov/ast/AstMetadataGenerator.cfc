@@ -1,5 +1,5 @@
 /**
- * Component responsible for generating AST metadata files (Phase 2).
+ * Component responsible for generating AST metadata files (extractAstMetadata phase).
  *
  * Extracts AST metadata (CallTree, executable lines, lineMapping) from source files
  * and writes individual metadata files plus an index for fast lookup.
@@ -19,12 +19,12 @@ component {
 	 * Generate AST metadata for all unique files referenced in minimal JSONs.
 	 *
 	 * @executionLogDir Directory containing .exl files and minimal JSONs
-	 * @allFiles Struct of all files from Phase 1 (avoids re-reading JSONs)
+	 * @allFiles Struct of all files from parseExecutionLogs (avoids re-reading JSONs)
 	 * @return Path to ast-metadata.json index file
 	 */
 	public string function generate(required string executionLogDir, required struct allFiles) localmode="modern" {
 		var startTime = getTickCount();
-		variables.logger.info( "Phase 2: Extracting AST metadata from unique source files" );
+		variables.logger.info( "Phase extractAstMetadata: Extracting AST metadata from unique source files" );
 
 		// 1. Extract unique file paths from allFiles struct
 		var uniqueFiles = {};
@@ -34,7 +34,7 @@ component {
 				uniqueFiles[fileInfo.path] = true;
 			}
 		}
-		variables.logger.info( "Phase 2: Found #structCount(uniqueFiles)# unique source files" );
+		variables.logger.info( "Phase extractAstMetadata: Found #structCount(uniqueFiles)# unique source files" );
 
 		// 2. Create ast directory for individual metadata files
 		var metadataDir = arguments.executionLogDir & "/ast";
@@ -50,7 +50,7 @@ component {
 		fileWrite( indexJsonPath, serializeJSON( index, false ) );
 
 		var elapsedTime = getTickCount() - startTime;
-		variables.logger.info( "Phase 2: Wrote ast-metadata.json index and #structCount(index.files)# individual metadata files in #elapsedTime#ms" );
+		variables.logger.info( "Phase extractAstMetadata: Wrote ast-metadata.json index and #structCount(index.files)# individual metadata files in #elapsedTime#ms" );
 
 		return indexJsonPath;
 	}
@@ -130,7 +130,7 @@ component {
 		}
 
 		var extractElapsedTime = getTickCount() - extractStartTime;
-		variables.logger.info( "Phase 2: Extracted and wrote #filesWritten# metadata files in #extractElapsedTime#ms (parallel processing)" );
+		variables.logger.info( "Phase extractAstMetadata: Extracted and wrote #filesWritten# metadata files in #extractElapsedTime#ms (parallel processing)" );
 
 		return index;
 	}

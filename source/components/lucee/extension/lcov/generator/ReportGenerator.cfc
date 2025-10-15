@@ -63,9 +63,9 @@ component {
 	}
 
 	/**
-	 * Phase 2: Extract AST metadata from unique source files
+	 * Phase extractAstMetadata: Extract AST metadata from unique source files
 	 * @executionLogDir Directory containing .exl files and minimal JSONs
-	 * @allFiles Struct of all files from Phase 1 (from parseExecutionLogs)
+	 * @allFiles Struct of all files from parseExecutionLogs phase
 	 * @options Processing options
 	 * @return Path to ast-metadata.json
 	 */
@@ -75,19 +75,19 @@ component {
 	}
 
 	/**
-	 * Phase 3: Build line coverage from aggregated blocks
+	 * Phase buildLineCoverage: Build line coverage from aggregated blocks
 	 * @jsonFilePaths Array of JSON file paths
 	 * @astMetadataPath Path to ast-metadata.json (optional)
 	 * @options Processing options
 	 * @return Array of JSON file paths
 	 */
-	public array function buildLineCoverage( required array jsonFilePaths, string astMetadataPath, required struct options ) {
+	public array function buildLineCoverage( required array jsonFilePaths, string astMetadataPath, required struct options, boolean buildWithCallTree = false ) {
 		var coverageBuilder = new lucee.extension.lcov.coverage.LineCoverageBuilder( logger=variables.logger );
-		return coverageBuilder.buildCoverage( arguments.jsonFilePaths, arguments.astMetadataPath );
+		return coverageBuilder.buildCoverage( arguments.jsonFilePaths, arguments.astMetadataPath, arguments.buildWithCallTree );
 	}
 
 	/**
-	 * Phase 4: Annotate CallTree (mark blocks with isChildTime flags)
+	 * Phase annotateCallTree: Annotate CallTree (mark blocks with isChildTime flags)
 	 * @jsonFilePaths Array of JSON file paths
 	 * @astMetadataPath Path to ast-metadata.json
 	 * @options Processing options
@@ -191,9 +191,9 @@ component {
 		var utils = new lucee.extension.lcov.CoverageMergerUtils();
 
 		// Load files one-at-a-time to build mappings without loading all into memory
+		var loadEvent = arguments.logger.beginEvent( "Merge: Load #arrayLen(arguments.jsonFilePaths)# JSON files" );
 		var resultFactory = new lucee.extension.lcov.model.result();
 		var validResults = {};
-		arguments.logger.debug( "Loading #arrayLen(arguments.jsonFilePaths)# files for merge (streaming mode)" );
 
 		for ( var jsonPath in arguments.jsonFilePaths ) {
 			var result = resultFactory.fromJson( fileRead( jsonPath ), false );
@@ -202,47 +202,51 @@ component {
 			}
 			result = nullValue(); // Allow GC
 		}
+		arguments.logger.commitEvent( loadEvent, 0, "info" );
 
+		var mappingEvent = arguments.logger.beginEvent( "Merge: Build file mappings for #structCount(validResults)# results" );
 		var mappings = utils.buildFileIndexMappings( validResults );
 		var mergedResults = utils.initializeMergedResults( validResults, mappings.filePathToIndex, mappings.indexToFilePath );
+		arguments.logger.commitEvent( mappingEvent, 0, "info" );
+
+		var mergeEvent = arguments.logger.beginEvent( "Merge: Merge coverage for #structCount(mappings.indexToFilePath)# unique files" );
 		var sourceFileStats = merger.createSourceFileStats( mappings.indexToFilePath );
 		merger.mergeAllCoverageDataFromResults( validResults, mergedResults, mappings, sourceFileStats );
+		arguments.logger.commitEvent( mergeEvent, 0, "info" );
 
-		// Clear validResults to free memory before aggregation
+		// Clear validResults to free memory
+		// Note: CallTree aggregation now happens during merge (above), no need to reload files!
 		validResults = {};
 
-		if ( arguments.aggregateCallTree ) {
-			// Reload results one-at-a-time for CallTree aggregation
-			for ( var jsonPath in arguments.jsonFilePaths ) {
-				var result = resultFactory.fromJson( fileRead( jsonPath ), false );
-				validResults[jsonPath] = result;
-			}
-			merger.aggregateCallTreeMetricsForMergedResults( mergedResults, validResults );
-			validResults = {};
-		}
-
+		var statsEvent = arguments.logger.beginEvent( "Merge: Calculate stats for #structCount(mergedResults)# files" );
 		new lucee.extension.lcov.CoverageStats( logger=arguments.logger ).calculateStatsForMergedResults( mergedResults );
+		arguments.logger.commitEvent( statsEvent, 0, "info" );
 
 		// Hydrate source code back into mergedResults before writing per-file JSONs
-		// This is needed because Phase 1 minimal JSONs don't include source code/AST
+		// This is needed because parseExecutionLogs minimal JSONs don't include source code/AST
+		var hydrateEvent = arguments.logger.beginEvent( "Merge: Hydrate source code for #structCount(mergedResults)# files" );
 		hydrateSourceCodeForMergedResults( mergedResults, arguments.logger );
+		arguments.logger.commitEvent( hydrateEvent, 0, "info" );
 
 		// Write per-file JSONs
+		var writeEvent = arguments.logger.beginEvent( "Merge: Write #structCount(mergedResults)# per-file JSONs" );
 		var sourceFileJsons = new lucee.extension.lcov.CoverageMergerWriter().writeMergedResultsToFiles( mergedResults, arguments.outputDir, arguments.logLevel );
+		arguments.logger.commitEvent( writeEvent, 0, "info" );
 
 		// Also write merged.json that contains all coverage aggregated together
 		// This is needed by tests and for overall coverage reporting
-		var mergedByFile = merger.mergeResultsByFile( arguments.jsonFilePaths, arguments.logLevel );
+		var mergedJsonEvent = arguments.logger.beginEvent( "Merge: Build merged.json from memory" );
+		var mergedByFile = merger.buildMergedJsonFromMergedResults( mergedResults );
 		var mergedFile = arguments.outputDir & "/merged.json";
 		fileWrite( mergedFile, serializeJSON( var=mergedByFile, compact=false ) );
-		arguments.logger.debug( "Wrote merged.json with #structCount(mergedByFile.mergedCoverage.files)# files" );
+		arguments.logger.commitEvent( mergedJsonEvent, 0, "info" );
 
 		return sourceFileJsons;
 	}
 
 	/**
 	 * Hydrate source code back into merged results
-	 * Phase 1 minimal JSONs exclude source code/AST to save space (~2MB → ~1KB)
+	 * parseExecutionLogs minimal JSONs exclude source code/AST to save space (~2MB → ~1KB)
 	 * This function loads source code from disk using the file path
 	 * @mergedResults Struct of merged result objects (modified in place)
 	 * @logger Logger instance

@@ -30,13 +30,13 @@ component {
 	}
 
 	private struct function _parseExecutionLogs(required string executionLogDir, struct options = {}) {
-		var phase1StartTime = getTickCount();
+		var parseStartTime = getTickCount();
 
 		if (!directoryExists(arguments.executionLogDir)) {
 			throw(message="Execution log directory does not exist: " & arguments.executionLogDir);
 		}
 
-		variables.logger.info("Phase 1: Processing execution logs from: " & arguments.executionLogDir);
+		variables.logger.info("parseExecutionLogs: Processing execution logs from: " & arguments.executionLogDir);
 
 		// Create shared AST cache for all parsers to avoid re-parsing same files 179+ times
 		var sharedAstCache = {};
@@ -74,7 +74,7 @@ component {
 				smallTotalSizeMb += f.sizeMb;
 			}
 			var smallStartTime = getTickCount();
-			variables.logger.info("Phase 1: Processing " & arrayLen(smallFiles) & " small .exl files (" & numberFormat(smallTotalSizeMb) & "MB) in parallel");
+			variables.logger.info("parseExecutionLogs: Processing " & arrayLen(smallFiles) & " small .exl files (" & numberFormat(smallTotalSizeMb) & "MB) in parallel");
 			var smallFileResults = arrayMap(smallFiles, function(fileInfo) {
 				return processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, options, sharedAstCache);
 			}, true);  // parallel=true
@@ -90,7 +90,7 @@ component {
 				}
 			}
 			var smallElapsedTime = getTickCount() - smallStartTime;
-			variables.logger.info("Phase 1: Completed " & arrayLen(smallFiles) & " small .exl files in " & numberFormat(smallElapsedTime) & "ms");
+			variables.logger.info("parseExecutionLogs: Completed " & arrayLen(smallFiles) & " small .exl files in " & numberFormat(smallElapsedTime) & "ms");
 		}
 
 		// Process large files sequentially (they use internal parallelism)
@@ -101,11 +101,11 @@ component {
 			}
 			var largeStartTime = getTickCount();
 			var largeFileCount = arrayLen(largeFiles);
-			variables.logger.info("Phase 1: Processing " & largeFileCount & " large .exl files (" & numberFormat(largeTotalSizeMb) & "MB) sequentially");
+			variables.logger.info("Phase parseExecutionLogs: Processing " & largeFileCount & " large .exl files (" & numberFormat(largeTotalSizeMb) & "MB) sequentially in parallel chunks");
 			var largeFileIndex = 0;
 			for (var fileInfo in largeFiles) {
 				largeFileIndex++;
-				variables.logger.info("Phase 1: Processing large file " & largeFileIndex & "/" & largeFileCount & ": " & fileInfo.name & " (" & numberFormat(fileInfo.sizeMb) & "MB)");
+				variables.logger.info("Phase parseExecutionLogs: Processing large file " & largeFileIndex & "/" & largeFileCount & ": " & fileInfo.name & " (" & numberFormat(fileInfo.sizeMb) & "MB)");
 				var parsingResult = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, sharedAstCache);
 				arrayAppend(jsonFilePaths, parsingResult.jsonPath);
 				// Merge files into allFiles struct
@@ -117,11 +117,11 @@ component {
 				}
 			}
 			var largeElapsedTime = getTickCount() - largeStartTime;
-			variables.logger.info("Phase 1: Completed " & largeFileCount & " large .exl files in " & numberFormat(largeElapsedTime) & "ms");
+			variables.logger.info("Phase parseExecutionLogs: Completed " & largeFileCount & " large .exl files in " & numberFormat(largeElapsedTime) & "ms");
 		}
 
-		var phase1ElapsedTime = getTickCount() - phase1StartTime;
-		variables.logger.info("Phase 1: Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files in " & numberFormat(phase1ElapsedTime) & "ms");
+		var phase1ElapsedTime = getTickCount() - parseStartTime;
+		variables.logger.info("Phase parseExecutionLogs: Completed processing " & arrayLen(jsonFilePaths) & " valid .exl files in " & numberFormat(phase1ElapsedTime) & "ms");
 
 		return {
 			jsonFilePaths: jsonFilePaths,
@@ -143,7 +143,7 @@ component {
 			arguments.options.allowList ?: [],
 			arguments.options.blocklist ?: [],
 			false,  // writeJsonCache - we handle JSON writing after stats
-			false,  // includeCallTree - not needed for Phase 1 minimal JSONs
+			false,  // includeCallTree - not needed for parseExecutionLogs minimal JSONs
 			includeSourceCode  // CRITICAL: false for separateFiles=true to reduce JSON from 2MB to ~1KB
 		);
 

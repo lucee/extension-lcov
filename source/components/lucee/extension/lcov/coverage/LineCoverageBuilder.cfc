@@ -1,11 +1,11 @@
 /**
- * Phase 3: Build Line Coverage from aggregated blocks.
+ * buildLineCoverage: Build Line Coverage from aggregated blocks.
  *
  * Converts character-position-based aggregated blocks to line-based coverage.
  * This phase is LAZY - only runs if flags.hasCoverage is false.
  *
  * Does NOT need CallTree data - just converts positions to lines.
- * LCOV format only needs this phase, not Phase 4 (CallTree annotation).
+ * LCOV format only needs this phase, not annotateCallTree.
  */
 component {
 
@@ -27,15 +27,16 @@ component {
 	 *
 	 * @jsonFilePaths Array of JSON file paths
 	 * @astMetadataPath Path to ast-metadata.json
+	 * @buildWithCallTree If true, marks blocks with isChild flags before building coverage (combines buildLineCoverage+annotateCallTree)
 	 * @return Array of processed JSON file paths
 	 */
-	public array function buildCoverage(required array jsonFilePaths, required string astMetadataPath) localmode="modern" {
+	public array function buildCoverage(required array jsonFilePaths, required string astMetadataPath, boolean buildWithCallTree = false) localmode="modern" {
 		var startTime = getTickCount();
 		var totalFiles = arrayLen(arguments.jsonFilePaths);
-		variables.logger.info( "Phase 3: Building line coverage for #totalFiles# files" );
+		variables.logger.info( "Phase buildLineCoverage: Building line coverage for #totalFiles# files" );
 
-		// Phase 3 doesn't actually need AST metadata - it just converts blocks to lines
-		// AST metadata is only needed in Phase 4 for CallTree annotation
+		// buildLineCoverage doesn't actually need AST metadata - it just converts blocks to lines
+		// AST metadata is only needed in annotateCallTree for CallTree annotation
 
 		// Load AST index once for all files (shared across parallel processing)
 		var astLoader = new lucee.extension.lcov.parser.AstMetadataLoader( logger=variables.logger );
@@ -44,6 +45,7 @@ component {
 		// Cache for closure access
 		var self = this;
 		var astMetadataPath = arguments.astMetadataPath;
+		var buildWithCallTree = arguments.buildWithCallTree;
 
 		var results = arrayMap( arguments.jsonFilePaths, function( jsonPath, index ) {
 			if ( !fileExists( jsonPath ) ) {
@@ -71,7 +73,7 @@ component {
 			}
 
 			// Build coverage - pass AST loader for lineMapping
-			self.buildCoverageForResult( result, astMetadataPath, astLoader, astIndex );
+			self.buildCoverageForResult( result, astMetadataPath, astLoader, astIndex, buildWithCallTree );
 
 			// Write back to JSON
 			fileWrite( jsonPath, result.toJson( pretty=false ) );
@@ -87,7 +89,7 @@ component {
 		}
 
 		var elapsedTime = getTickCount() - startTime;
-		variables.logger.info( "Phase 3: Processed #processedCount# files, skipped #skippedCount# in #elapsedTime#ms" );
+		variables.logger.info( "Phase buildLineCoverage: Processed #processedCount# files, skipped #skippedCount# in #elapsedTime#ms" );
 
 		return arguments.jsonFilePaths;
 	}
@@ -102,7 +104,7 @@ component {
 	 * @astIndex Loaded AST index (shared across parallel processing)
 	 * @return The result object with coverage added
 	 */
-	public any function buildCoverageForResult(required any result, string astMetadataPath, any astLoader, struct astIndex) localmode="modern" {
+	public any function buildCoverageForResult(required any result, string astMetadataPath, any astLoader, struct astIndex, boolean buildWithCallTree = false) localmode="modern" {
 		// Check if already done
 		var flags = arguments.result.getFlags();
 		if ( structKeyExists( flags, "hasCoverage" ) && flags.hasCoverage ) {
@@ -117,14 +119,52 @@ component {
 		var aggregated = arguments.result.getAggregated();
 		var files = arguments.result.getFiles();
 
-		// Convert aggregated to blocks (WITHOUT CallTree - that's Phase 4)
-		// This just splits the aggregated entries into block format
-		var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
+		// If buildWithCallTree, mark blocks with isChild flags BEFORE converting (buildLineCoverage+annotateCallTree combined)
+		if ( arguments.buildWithCallTree ) {
+			// Build callTreeMap: nested struct keyed by fileIdx, then position
+			var callTreeMap = structNew( "regular" );
+			for ( var fileIdx in files ) {
+				var astData = arguments.astLoader.loadMetadataForFileWithIndex(
+					arguments.astMetadataPath,
+					arguments.astIndex,
+					files[fileIdx].path
+				);
+				callTreeMap[fileIdx] = astData.callTree;
+			}
+
+			// Mark blocks with CallTree flags using CallTreeAnalyzer
+			var callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
+			var markedBlocks = callTreeAnalyzer.markChildTimeBlocks( aggregated, callTreeMap );
+
+			// Calculate metrics
+			var metrics = callTreeAnalyzer.calculateChildTimeMetrics( markedBlocks );
+
+			// Store CallTree data and metrics
+			arguments.result.setCallTree( callTreeMap );
+			arguments.result.setCallTreeMetrics( metrics );
+
+			// Convert aggregated to blocks WITH CallTree isChild flags already set
+			var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
+
+			// Update blocks with isChild flags from markedBlocks
+			for (var flatKey in markedBlocks) {
+				var markedBlock = markedBlocks[flatKey];
+				var fileIdx = markedBlock.fileIdx;
+				var blockKey = markedBlock.startPos & "-" & markedBlock.endPos;
+
+				if (structKeyExists(blocks, fileIdx) && structKeyExists(blocks[fileIdx], blockKey)) {
+					blocks[fileIdx][blockKey].isChild = markedBlock.isChildTime ?: false;
+				}
+			}
+		} else {
+			// Convert aggregated to blocks WITHOUT CallTree (LCOV/Summary format)
+			var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
+		}
 
 		// Store blocks in result
 		arguments.result.setBlocks( blocks );
 
-		// Build line mappings cache from AST JSON files (calculated once in Phase 2)
+		// Build line mappings cache from AST JSON files (calculated once in extractAstMetadata)
 		// This eliminates 53,080 redundant file reads!
 		var lineMappingsCache = {};
 		for (var fileIdx in files) {
@@ -165,9 +205,15 @@ component {
 		// Store coverage in result
 		arguments.result.setCoverage( coverage );
 
+		// Recalculate stats if we built with CallTree (to pick up childTime values)
+		if ( arguments.buildWithCallTree ) {
+			var coverageStats = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
+			coverageStats.calculateCoverageStats( arguments.result );
+		}
+
 		// Update flags
 		arguments.result.setFlags({
-			"hasCallTree": false, // Still no CallTree
+			"hasCallTree": arguments.buildWithCallTree, // Has CallTree if built with it
 			"hasBlocks": true,
 			"hasCoverage": true
 		});

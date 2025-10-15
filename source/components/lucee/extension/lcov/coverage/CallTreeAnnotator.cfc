@@ -1,10 +1,10 @@
 /**
- * Phase 4: Annotate CallTree (mark blocks with isChildTime flags).
+ * annotateCallTree: Annotate CallTree (mark blocks with isChildTime flags).
  *
  * Marks blocks with CallTree metadata (isChildTime, isBuiltIn flags).
  * This phase is OPTIONAL - only needed for detailed HTML reports.
  *
- * LCOV format does NOT need this phase - it can skip straight to Phase 5.
+ * LCOV format does NOT need this phase - it can skip straight to generateReports.
  * HTML format DOES need this phase to display child time information.
  */
 component {
@@ -40,7 +40,7 @@ component {
 		// Comment out to avoid log spam - only the summary at the end is useful
 		// variables.logger.debug( "Annotating blocks with CallTree metadata" );
 
-		// Get existing blocks (from Phase 3)
+		// Get existing blocks (from buildLineCoverage)
 		var blocks = arguments.result.getBlocks();
 
 		// Get aggregated to build call map
@@ -71,12 +71,12 @@ component {
 		arguments.result.setCallTreeMetrics( metrics );
 
 		// Rebuild coverage from blocks now that they have isChild flags
-		// This is essential - coverage was built in Phase 3 before blocks had isChild flags
+		// This is essential - coverage was built in buildLineCoverage before blocks had isChild flags
 		// Now we need to rebuild it so child time is properly separated from own time
 		var blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		var files = arguments.result.getFiles();
 
-		// Ensure each file has lineMapping from AST JSON (calculated once in Phase 2)
+		// Ensure each file has lineMapping from AST JSON (calculated once in extractAstMetadata)
 		// This eliminates 53,080 redundant file reads!
 		for (var fileIdx in files) {
 			var fileInfo = files[fileIdx];
@@ -95,7 +95,7 @@ component {
 		arguments.result.setCoverage( newCoverage );
 
 		// Recalculate stats from the rebuilt coverage to pick up childTime values
-		// This is critical - stats were calculated in Phase 3 before blocks had isChild flags
+		// This is critical - stats were calculated in buildLineCoverage before blocks had isChild flags
 		var coverageStats = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 		coverageStats.calculateCoverageStats( arguments.result );
 
@@ -124,7 +124,7 @@ component {
 	 */
 	public array function annotate(required array jsonFilePaths, required string astMetadataPath) localmode="modern" {
 		var startTime = getTickCount();
-		variables.logger.info( "Phase 4: Annotating CallTree for #arrayLen(arguments.jsonFilePaths)# files" );
+		variables.logger.info( "Phase annotateCallTree: Annotating CallTree for #arrayLen(arguments.jsonFilePaths)# files" );
 
 		// Load index once and share across all threads
 		var loader = new lucee.extension.lcov.parser.AstMetadataLoader( logger=variables.logger );
@@ -183,7 +183,7 @@ component {
 		}
 
 		var elapsedTime = getTickCount() - startTime;
-		variables.logger.info( "Phase 4: Processed #processedCount# files, skipped #skippedCount# in #elapsedTime#ms" );
+		variables.logger.info( "Phase annotateCallTree: Processed #processedCount# files, skipped #skippedCount# in #elapsedTime#ms" );
 
 		return arguments.jsonFilePaths;
 	}

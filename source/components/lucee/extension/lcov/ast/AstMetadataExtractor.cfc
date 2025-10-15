@@ -37,13 +37,13 @@ component {
 		var callTree = structNew( "regular" );
 
 		// Extract all calls from all functions
-		// Key by position only (no fileIdx yet - that's determined per-request in Phase 4)
+		// Key by position only (no fileIdx yet - that's determined per-request in annotateCallTree)
 		cfloop( array=functions, item="local.func" ) {
 			// Add calls from this function's body
 			if ( structKeyExists( func, "calls" ) && isArray( func.calls ) ) {
 				cfloop( array=func.calls, item="local.call" ) {
 					if ( structKeyExists( call, "position" ) ) {
-						// Store by position only - CallTreeAnnotator will add fileIdx prefix in Phase 4
+						// Store by position only - CallTreeAnnotator will add fileIdx prefix in annotateCallTree
 						var key = call.position;
 						callTree[key] = {
 							"isChildTime": true,

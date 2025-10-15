@@ -85,6 +85,7 @@ component {
 	/**
 	* Public: Merges all coverage data from validResults into mergedResults using mappings and sourceFileStats.
 	* Used by ReportGenerator for generating separate file reports.
+	* Also aggregates childTime from blocks during the merge (eliminates need for separate reload).
 	* @validResults Struct of filtered valid results keyed by exlPath
 	* @mergedResults Struct of initialized merged results (by canonical index)
 	* @mappings Struct with filePathToIndex and indexToFilePath
@@ -101,6 +102,9 @@ component {
 	) {
 		// Track which exlPath was used to initialize each merged entry (by filePath, not fileIndex)
 		var initializedBy = structNew( "regular" );
+		// Track childTime per canonical index
+		var childTimeByFile = structNew( "regular" );
+
 		cfloop( collection=arguments.mergedResults, item="local.canonicalIndex" ) {
 			var mergedEntry = arguments.mergedResults[canonicalIndex];
 			var files = mergedEntry.getFiles();
@@ -128,20 +132,94 @@ component {
 			var result = arguments.validResults[exlPath];
 			var exlFileName = listLast(exlPath, "/\\");
 			var coverageData = result.getCoverage();
+			var blocks = result.getBlocks();
+
 			cfloop( collection=coverageData, item="local.fileIndex" ) {
 				var sourceFilePath = result.getFileItem(fileIndex).path;
 				var canonicalIndex = arguments.mappings.filePathToIndex[sourceFilePath];
 				var sourceFileCoverage = coverageData[fileIndex];
+
 				// Only merge if this exlPath was NOT used to initialize the merged entry
 				// Compare by exlPath only since the same file can have different fileIndex values
 				if (!(structKeyExists(initializedBy, canonicalIndex) && initializedBy[canonicalIndex].exlPath == exlPath)) {
 					var mergedLines = mergeCoverageData(arguments.mergedResults[canonicalIndex], sourceFileCoverage, sourceFilePath, 0);
 					arguments.totalMergeOperations += mergedLines;
 				}
+
+				// Accumulate childTime from blocks while we have them in memory
+				if (structKeyExists(blocks, fileIndex)) {
+					if (!structKeyExists(childTimeByFile, canonicalIndex)) {
+						childTimeByFile[canonicalIndex] = 0;
+					}
+
+					var fileBlocks = blocks[fileIndex];
+					cfloop( collection=fileBlocks, item="local.blockKey" ) {
+						var block = fileBlocks[blockKey];
+						if (structKeyExists(block, "isChild") && block.isChild) {
+							childTimeByFile[canonicalIndex] += block.execTime;
+						}
+					}
+				}
+
 				arrayAppend(arguments.sourceFileStats[canonicalIndex].exlFiles, exlFileName);
 			}
 		}
+
+		// Set aggregated childTime on merged results
+		cfloop( collection=childTimeByFile, item="local.canonicalIndex" ) {
+			var mergedResult = arguments.mergedResults[canonicalIndex];
+			mergedResult.setCallTreeMetrics({ totalChildTime: childTimeByFile[canonicalIndex] });
+
+			// Also set in stats so HTML reporter can display it
+			var stats = mergedResult.getStats();
+			stats.totalChildTime = childTimeByFile[canonicalIndex];
+			mergedResult.setStats(stats);
+		}
+
 		return arguments.mergedResults;
+	}
+
+	/**
+	 * Build merged.json structure from already-merged results in memory
+	 * This is much faster than reloading and re-merging all JSONs
+	 * @mergedResults Struct of merged result objects keyed by canonical index
+	 * @return Struct with mergedCoverage and files (same format as mergeResultsByFile)
+	 */
+	public struct function buildMergedJsonFromMergedResults(required struct mergedResults) localmode="modern" {
+		var merged = {
+			"files": structNew( "regular" ),
+			"coverage": structNew( "regular" ),
+			"blocks": structNew( "regular" )
+		};
+
+		cfloop( collection=arguments.mergedResults, item="local.canonicalIndex" ) {
+			var mergedResult = arguments.mergedResults[canonicalIndex];
+			var files = mergedResult.getFiles();
+			var coverage = mergedResult.getCoverage();
+			var blocks = mergedResult.getBlocks();
+
+			// Each merged result has exactly one file (at index 0)
+			var fileInfo = files[0];
+			var filePath = fileInfo.path;
+
+			// Copy file metadata
+			merged.files[filePath] = fileInfo;
+
+			// Copy coverage data (keyed by file path instead of index)
+			if (structKeyExists(coverage, 0)) {
+				merged.coverage[filePath] = coverage[0];
+			}
+
+			// Copy block data (keyed by file path instead of index)
+			if (structKeyExists(blocks, 0)) {
+				merged.blocks[filePath] = blocks[0];
+			}
+		}
+
+		return {
+			"mergedCoverage": merged,
+			"files": merged.files
+		};
 	}
 
 	/**
@@ -219,6 +297,9 @@ component {
 	}
 
 	/**
+	 * @deprecated This function is no longer needed - CallTree metrics are aggregated during merge.
+	 * Kept for backward compatibility only.
+	 *
 	 * Aggregate call tree metrics from source results into merged results
 	 * This is needed when creating file-level results from request-level results
 	 * @mergedResults Struct of merged result objects keyed by canonical index
@@ -229,52 +310,8 @@ component {
 		required struct mergedResults,
 		required struct sourceResults
 	) {
-		cfloop( collection=arguments.mergedResults, item="local.canonicalIndex" ) {
-			var mergedResult = arguments.mergedResults[canonicalIndex];
-			var filePath = mergedResult.getFileItem(0).path;
-			var totalChildTime = 0;
-
-			// Sum up call tree metrics from source results that contain this file
-			cfloop( collection=arguments.sourceResults, item="local.sourcePath" ) {
-				var sourceResult = arguments.sourceResults[sourcePath];
-				var resultFiles = sourceResult.getFiles();
-
-				// Check if this result contains the file we're merging
-				var containsFile = false;
-				var targetFileIdx = "";
-				cfloop( collection=resultFiles, item="local.fileIdx" ) {
-					if (resultFiles[fileIdx].path == filePath) {
-						containsFile = true;
-						targetFileIdx = fileIdx;
-						break;
-					}
-				}
-
-				if (containsFile) {
-					// Get blocks for this file - blocks have execTime and isChild properties
-					var blocks = sourceResult.getBlocksForFile(targetFileIdx);
-					// Sum up child times for blocks in this file
-					cfloop( collection=blocks, item="local.blockKey" ) {
-						var block = blocks[blockKey];
-						// Check if this block has isChild flag (only present after CallTree annotation)
-						if (structKeyExists(block, "isChild") && block.isChild) {
-							totalChildTime += block.execTime;
-						}
-					}
-				}
-			}
-
-			// Set aggregated metrics on the merged result
-			var mergedMetrics = {
-				totalChildTime: totalChildTime
-			};
-			mergedResult.setCallTreeMetrics(mergedMetrics);
-
-			// Also set totalChildTime in stats so HTML reporter can display it
-			var stats = mergedResult.getStats();
-			stats.totalChildTime = totalChildTime;
-			mergedResult.setStats(stats);
-		}
+		// No-op - aggregation now happens in mergeAllCoverageDataFromResults()
+		variables.logger.debug("aggregateCallTreeMetricsForMergedResults: Skipped (aggregation now done during merge)");
 	}
 
 	/**

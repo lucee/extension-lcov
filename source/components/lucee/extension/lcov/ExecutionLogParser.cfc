@@ -160,7 +160,7 @@ component accessors="true" {
 			lineMappingsCache
 		);
 
-		// Store aggregated format (Phase 1 - minimal JSON)
+		// Store aggregated format (parseExecutionLogs - minimal JSON)
 		arguments.coverageData.setAggregated( aggregationResult.aggregated );
 
 		// Set flags to indicate no enrichment has been done yet
@@ -185,9 +185,9 @@ component accessors="true" {
 			"parallelProcessing": false
 		});
 
-		// Phase 1 complete - STOP HERE
+		// parseExecutionLogs complete - STOP HERE
 		// No CallTree, no blocks, no coverage yet
-		// Those happen later in Phase 3/4
+		// Those happen later in buildLineCoverage/annotateCallTree
 		return arguments.coverageData;
 	}
 
