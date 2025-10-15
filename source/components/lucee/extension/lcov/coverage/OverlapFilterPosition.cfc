@@ -16,18 +16,18 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	 * Filter overlapping position-based blocks
 	 * Returns filtered blocks still in character position format
 	 */
-	public struct function filter(aggregatedOrBlocksByFile, files, lineMappingsCache) {
+	public struct function filter(aggregatedOrBlocksByFile, files, lineMappingsCache) localmode="modern" {
 		var event = variables.logger.beginEvent("OverlapFilterPosition");
 		event["inputEntries"] = structCount(arguments.aggregatedOrBlocksByFile);
 		var startTime = getTickCount();
-		var result = {};
-		var blocksByFile = {};
+		var result = structNew( "regular" );
+		var blocksByFile = structNew( "regular" );
 
 		// Detect input format and convert if needed
 		var isAggregatedFormat = false;
 
 		// Check if this is aggregated format (has tab-delimited keys) or blocks format (numeric keys with array values)
-		for (var key in arguments.aggregatedOrBlocksByFile) {
+		cfloop( collection=arguments.aggregatedOrBlocksByFile, item="local.key" ) {
 			var value = arguments.aggregatedOrBlocksByFile[key];
 			if (isArray(value) && arrayLen(value) > 0) {
 				if (isArray(value[1])) {
@@ -44,7 +44,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 
 		if (isAggregatedFormat) {
 			// Convert aggregated structure to blocks by file
-			for (var key in arguments.aggregatedOrBlocksByFile) {
+			cfloop( collection=arguments.aggregatedOrBlocksByFile, item="local.key" ) {
 				var block = arguments.aggregatedOrBlocksByFile[key];
 				// Block format from aggregator: [fileIdx, startPos, endPos, count, totalTime]
 				var fileIdx = toString(block[1]);
@@ -62,7 +62,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		var filesProcessed = 0;
 		var filesWithChanges = 0;
 
-		for ( var fileIdx in blocksByFile ) {
+		cfloop( collection=blocksByFile, item="local.fileIdx" ) {
 			var fileStart = getTickCount();
 			var blocks = blocksByFile[ fileIdx ];
 			var blockCountBefore = arrayLen( blocks );
@@ -100,9 +100,9 @@ component displayname="OverlapFilterPosition" accessors="true" {
 
 			if (isAggregatedFormat) {
 				// Convert back to aggregated format for each filtered block
-				for (var fBlock in filteredBlocks) {
+				cfloop( array=filteredBlocks, item="local.fBlock" ) {
 					// Create key in same format as aggregator (fileIdx\tstartPos\tendPos)
-					var key = fileIdx & chr(9) & fBlock[2] & chr(9) & fBlock[3];
+					var key = "#fileIdx#	#fBlock[2]#	#fBlock[3]#";
 					// Find original aggregated entry to preserve count information
 					if (structKeyExists(arguments.aggregatedOrBlocksByFile, key)) {
 						result[key] = arguments.aggregatedOrBlocksByFile[key];
@@ -153,8 +153,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 
 		// Sort blocks by span size (smallest first)
 		var blockRanges = [];
-		for (var i = 1; i <= arrayLen(blocks); i++) {
-			var block = blocks[i];
+		cfloop( array=blocks, index="local.i", item="local.block" ) {
 			blockRanges.append({
 				index: i,
 				startPos: block[2],
@@ -173,15 +172,14 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		var keptBlocks = [];
 		var blockRangesLen = arrayLen(blockRanges);
 
-		for (var i = 1; i <= blockRangesLen; i++) {
-			var current = blockRanges[i];
+		cfloop( array=blockRanges, item="local.current" ) {
 			var currentStart = current.startPos;
 			var currentEnd = current.endPos;
 			var shouldKeep = true;
 
 			// Check both containment conditions in single loop
 			var keptLen = arrayLen(keptBlocks);
-			for (var j = 1; j <= keptLen; j++) {
+			cfloop( from=1, to=keptLen, index="local.j" ) {
 				var kept = keptBlocks[j];
 				var keptStart = kept.startPos;
 				var keptEnd = kept.endPos;
@@ -204,8 +202,8 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		}
 
 		// Convert back to blocks array
-		for (var i = 1; i <= arrayLen(keptBlocks); i++) {
-			filteredBlocks.append(keptBlocks[i].block);
+		cfloop( array=keptBlocks, item="local.kept" ) {
+			filteredBlocks.append(kept.block);
 		}
 
 		return filteredBlocks;

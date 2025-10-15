@@ -7,6 +7,7 @@ component {
 
 	public function init(any logger) {
 		variables.logger = arguments.logger ?: new lucee.extension.lcov.Logger( level="none" );
+		variables.metadataCache = {}; // In-memory cache for AST metadata
 		return this;
 	}
 
@@ -68,15 +69,31 @@ component {
 	 * @return Struct with callTree, executableLineCount, executableLines (or empty struct if not found)
 	 */
 	public struct function loadMetadataForFileWithIndex(required string indexPath, required struct index, required string filePath) {
-		var indexDir = getDirectoryFromPath( arguments.indexPath );
+		// Double-checked locking pattern: check cache first (fast path)
+		if ( structKeyExists( variables.metadataCache, arguments.filePath ) ) {
+			return variables.metadataCache[arguments.filePath];
+		}
 
-		if ( structKeyExists( arguments.index.files, arguments.filePath ) ) {
-			var fileEntry = arguments.index.files[arguments.filePath];
-			var metadataFilePath = indexDir & "ast/" & fileEntry.metadataFile;
+		// Synchronize on this file path to prevent multiple threads loading same file
+		lock name="astMetadataCache_#hash(arguments.filePath)#" timeout="10" type="exclusive" {
+			// Check again inside lock - another thread might have loaded it
+			if ( structKeyExists( variables.metadataCache, arguments.filePath ) ) {
+				return variables.metadataCache[arguments.filePath];
+			}
 
-			if ( fileExists( metadataFilePath ) ) {
-				var content = fileRead( metadataFilePath );
-				return deserializeJSON( content );
+			var indexDir = getDirectoryFromPath( arguments.indexPath );
+
+			if ( structKeyExists( arguments.index.files, arguments.filePath ) ) {
+				var fileEntry = arguments.index.files[arguments.filePath];
+				var metadataFilePath = indexDir & "ast/" & fileEntry.metadataFile;
+
+				if ( fileExists( metadataFilePath ) ) {
+					var content = fileRead( metadataFilePath );
+					var metadata = deserializeJSON( content );
+					// Cache it for future use
+					variables.metadataCache[arguments.filePath] = metadata;
+					return metadata;
+				}
 			}
 		}
 
