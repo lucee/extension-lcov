@@ -102,7 +102,7 @@ component {
 		cfloop( array=chunkResults, item="local.chunkResult" ) {
 			totalLinesProcessed += chunkResult.linesProcessed;
 			var chunkAgg = chunkResult.aggregated;
-			for ( var k in chunkAgg ) {
+			cfloop( collection=chunkAgg, key="local.k" ) {
 				if ( structKeyExists( a, k ) ) {
 					var r = a[k];
 					var e = chunkAgg[k];
@@ -120,7 +120,7 @@ component {
 		// Calculate stats
 		var aggregatedEntries = structCount(a);
 		var totalHits = 0;
-		for (var key in a) {
+		cfloop( collection=a, key="local.key" ) {
 			totalHits += a[key][4];
 		}
 		var duplicateCount = totalHits - aggregatedEntries;
@@ -236,7 +236,7 @@ component {
 
 		// Copy validFileIds to local regular struct to avoid concurrent struct overhead
 		var v = structNew('regular');
-		for ( var key in arguments.validFileIds ) {
+		cfloop( collection=arguments.validFileIds, key="local.key" ) {
 			v[key] = true;
 		}
 

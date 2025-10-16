@@ -19,6 +19,7 @@ component {
 		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
 		variables.executableLineCounter = new lucee.extension.lcov.ast.ExecutableLineCounter( logger=variables.logger );
 		variables.astParserHelper = new lucee.extension.lcov.parser.AstParserHelper( logger=variables.logger );
+		variables.callTreeHelper = new lucee.extension.lcov.ast.CallTreeParallelHelpers();
 		return this;
 	}
 
@@ -58,8 +59,7 @@ component {
 		// 1b. ALSO extract top-level calls from AST body (for .cfm files and top-level scripts)
 		// This is essential for .cfm files which have code at the root level, not in functions
 		var topLevelCalls = [];
-		var helper = new lucee.extension.lcov.ast.CallTreeParallelHelpers();
-		helper.extractCFMLTagsAndCalls( arguments.ast, topLevelCalls );
+		variables.callTreeHelper.extractCFMLTagsAndCalls( arguments.ast, topLevelCalls );
 
 		// Add top-level calls to callTree
 		cfloop( array=topLevelCalls, item="local.call" ) {

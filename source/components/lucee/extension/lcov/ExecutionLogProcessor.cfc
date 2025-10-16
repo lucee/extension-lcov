@@ -89,8 +89,7 @@ component {
 			cfloop( array=smallFileResults, item="local.parsingResult" ) {
 				arrayAppend(jsonFilePaths, parsingResult.jsonPath);
 				// Merge files into allFiles struct
-				for (var fileIdx in parsingResult.files) {
-					var fileInfo = parsingResult.files[fileIdx];
+				cfloop( collection=parsingResult.files, key="local.fileIdx", value="local.fileInfo" ) {
 					if (structKeyExists(fileInfo, "path")) {
 						allFiles[fileInfo.path] = fileInfo;
 					}
@@ -110,16 +109,15 @@ component {
 			var largeFileCount = arrayLen(largeFiles);
 			variables.logger.info("Phase parseExecutionLogs: Processing " & largeFileCount & " large .exl files (" & numberFormat(largeTotalSizeMb) & "MB) sequentially in parallel chunks");
 			var largeFileIndex = 0;
-			for (var fileInfo in largeFiles) {
+			cfloop( array=largeFiles, item="local.fileInfo" ) {
 				largeFileIndex++;
 				variables.logger.info("Phase parseExecutionLogs: Processing large file " & largeFileIndex & "/" & largeFileCount & ": " & fileInfo.name & " (" & numberFormat(fileInfo.sizeMb) & "MB)");
 				var parsingResult = processExlFile(exlParser, fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options);
 				arrayAppend(jsonFilePaths, parsingResult.jsonPath);
 				// Merge files into allFiles struct
-				for (var fileIdx in parsingResult.files) {
-					var fileInfo = parsingResult.files[fileIdx];
-					if (structKeyExists(fileInfo, "path")) {
-						allFiles[fileInfo.path] = fileInfo;
+				cfloop( collection=parsingResult.files, key="local.fileIdx", value="local.fileInfo2" ) {
+					if (structKeyExists(fileInfo2, "path")) {
+						allFiles[fileInfo2.path] = fileInfo2;
 					}
 				}
 			}
