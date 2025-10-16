@@ -72,6 +72,7 @@ component {
 
 	/**
 	 * Reads a file as an array of lines, using cached content.
+	 * NOTE: Case-insensitive in Lucee, so readFileAsArrayBylines() also works (typo compatibility)
 	 * @path File path
 	 * @return array Array of lines
 	 */
@@ -86,6 +87,27 @@ component {
 	 */
 	public struct function getLineMappingsCache() {
 		return variables.lineMappingsCache;
+	}
+
+	/**
+	 * NEW API: Get all file data (content, lineMapping, sourceLines) in a single call.
+	 * Replaces the pattern of calling ensureFileCached, ensureLineMappingCached,
+	 * getFileContent, getLineMapping, and readFileAsArrayByLines separately.
+	 *
+	 * @path File path
+	 * @return struct { content: string, lineMapping: array, sourceLines: array }
+	 */
+	public struct function getFileData(required string path) {
+		// Ensure both file content and line mapping are cached
+		ensureFileCached(arguments.path);
+		ensureLineMappingCached(arguments.path);
+
+		// Return all data in a single struct
+		return {
+			"content": variables.fileContentsCache[arguments.path],
+			"lineMapping": variables.lineMappingsCache[arguments.path],
+			"sourceLines": listToArray(variables.fileContentsCache[arguments.path], chr(10), true, false)
+		};
 	}
 
 }

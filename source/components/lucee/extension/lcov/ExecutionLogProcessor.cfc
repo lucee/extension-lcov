@@ -12,6 +12,7 @@ component {
 		variables.options = arguments.options;
 		var logLevel = variables.options.logLevel ?: "none";
 		variables.logger = new lucee.extension.lcov.Logger(level=logLevel);
+		variables.coverageStats = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 		return this;
 	}
 
@@ -40,6 +41,12 @@ component {
 
 		// Create shared AST cache for all parsers to avoid re-parsing same files 179+ times
 		var sharedAstCache = {};
+
+		// OPTIMIZATION: Create ONE parser instance and reuse it across all .exl files
+		// The parser is stateless between parseExlFile() calls (caches are thread-safe structs)
+		// This avoids creating 5,308 parser instances + ~68,000 helper components
+		var exlParser = new lucee.extension.lcov.ExecutionLogParser( options=arguments.options, sharedAstCache=sharedAstCache );
+
 		var files = directoryList(arguments.executionLogDir, false, "query", "*.exl", "datecreated");
 
 		variables.logger.debug("Found " & files.recordCount & " .exl files to process");
@@ -76,7 +83,7 @@ component {
 			var smallStartTime = getTickCount();
 			variables.logger.info("parseExecutionLogs: Processing " & arrayLen(smallFiles) & " small .exl files (" & numberFormat(smallTotalSizeMb) & "MB) in parallel");
 			var smallFileResults = arrayMap(smallFiles, function(fileInfo) {
-				return processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, options, sharedAstCache);
+				return processExlFile(exlParser, fileInfo.path, fileInfo.name, fileInfo.sizeMb, options);
 			}, true);  // parallel=true
 
 			cfloop( array=smallFileResults, item="local.parsingResult" ) {
@@ -106,7 +113,7 @@ component {
 			for (var fileInfo in largeFiles) {
 				largeFileIndex++;
 				variables.logger.info("Phase parseExecutionLogs: Processing large file " & largeFileIndex & "/" & largeFileCount & ": " & fileInfo.name & " (" & numberFormat(fileInfo.sizeMb) & "MB)");
-				var parsingResult = processExlFile(fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options, sharedAstCache);
+				var parsingResult = processExlFile(exlParser, fileInfo.path, fileInfo.name, fileInfo.sizeMb, arguments.options);
 				arrayAppend(jsonFilePaths, parsingResult.jsonPath);
 				// Merge files into allFiles struct
 				for (var fileIdx in parsingResult.files) {
@@ -131,23 +138,20 @@ component {
 
 	/**
 	 * Process a single .exl file and return the parsed result with JSON path
+	 * @exlParser Shared parser instance (thread-safe, reused across all files)
 	 * @exlPath Full path to the .exl file
 	 * @fileName Name of the .exl file (with extension)
 	 * @sizeMb Size of the file in megabytes
 	 * @options Processing options struct (logLevel, separateFiles, allowList, blocklist, etc.)
-	 * @sharedAstCache Shared AST cache to avoid re-parsing same files
 	 * @return Struct containing jsonPath and files data
 	 */
-	private function processExlFile(exlPath, fileName, sizeMb, options, sharedAstCache) {
-		var logger = new lucee.extension.lcov.Logger( level=arguments.options.logLevel ?: "none" );
-		var exlParser = new lucee.extension.lcov.ExecutionLogParser( options=arguments.options, sharedAstCache=arguments.sharedAstCache );
-
-		logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
+	private function processExlFile(exlParser, exlPath, fileName, sizeMb, options) {
+		variables.logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
 
 		// includeSourceCode: false for separateFiles=true (we hydrate later), true for separateFiles=false (HTML needs it now)
 		var includeSourceCode = !(arguments.options.separateFiles ?: false);
 
-		var result = exlParser.parseExlFile(
+		var result = arguments.exlParser.parseExlFile(
 			arguments.exlPath,
 			arguments.options.allowList ?: [],
 			arguments.options.blocklist ?: [],
@@ -156,8 +160,7 @@ component {
 			includeSourceCode  // CRITICAL: false for separateFiles=true to reduce JSON from 2MB to ~1KB
 		);
 
-		var statsComponent = new lucee.extension.lcov.CoverageStats( logger=logger );
-		result = statsComponent.calculateCoverageStats( result );
+		result = variables.coverageStats.calculateCoverageStats( result );
 
 		// Set outputFilename (without extension) for downstream consumers (e.g., HTML reporter)
 		// Include unique identifier from .exl filename to avoid overlaps between multiple execution runs

@@ -227,14 +227,8 @@ component {
 				);
 			}
 
-			// Use FileCacheHelper to ensure file is cached and line mapping is built
-			variables.fileCacheHelper.ensureFileCached(path);
-			variables.fileCacheHelper.ensureLineMappingCached(path);
-
-			// Get cached content and line mapping
-			var fileContent = variables.fileCacheHelper.getFileContent(path);
-			var lineMapping = variables.fileCacheHelper.getLineMapping(path);
-			var sourceLines = variables.fileCacheHelper.readFileAsArrayByLines(path);
+			// Get all file data (content, lineMapping, sourceLines) in a single call
+			var fileData = variables.fileCacheHelper.getFileData(path);
 
 			// OPTIMIZATION: Skip AST parsing during parseExlFile phase
 			// AST metadata (including linesFound) is extracted later in batch via extractAstMetadata
@@ -244,9 +238,9 @@ component {
 			files[num] = variables.fileEntryBuilder.buildFileEntry(
 				fileIndex=num,
 				path=path,
-				lineMapping=lineMapping,
-				fileContent=fileContent,
-				sourceLines=sourceLines,
+				lineMapping=fileData.lineMapping,
+				fileContent=fileData.content,
+				sourceLines=fileData.sourceLines,
 				includeSourceCode=arguments.includeSourceCode
 			);
 		}

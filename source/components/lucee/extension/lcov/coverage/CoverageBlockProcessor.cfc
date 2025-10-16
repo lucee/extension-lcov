@@ -32,7 +32,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 			var lineMapping = arguments.lineMappingsCache[filePath];
 			var mappingLen = arrayLen(lineMapping);
 			var blocks = arguments.blocksByFile[fileIdx];
-			var f = {};
+			var f = structNew('regular');
 
 			// Get executable lines for this file
 			var executableLines = structKeyExists(arguments.files[fileIdx], "executableLines")
@@ -89,7 +89,7 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 			var lineMapping = arguments.lineMappingsCache[filePath];
 			var mappingLen = arrayLen(lineMapping);
 			var blocks = arguments.blocksByFile[fileIdx];
-			var f = {};
+			var f = structNew('regular');
 
 			// Get executable lines for this file
 			var executableLines = structKeyExists(arguments.files[fileIdx], "executableLines")
