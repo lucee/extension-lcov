@@ -49,15 +49,15 @@ component {
 		var largeFiles = [];  // >= 10MB: process sequentially (already internally parallel)
 		var fileSizeThresholdMb = 10;
 
-		for (var file in files) {
-			var exlPath = file.directory & "/" & file.name;
+		cfloop( query=files ) {
+			var exlPath = files.directory & "/" & files.name;
 			var info = getFileInfo(exlPath);
 			var fileSizeMb = info.size / 1024 / 1024;
 
 			if (fileSizeMb < fileSizeThresholdMb) {
-				arrayAppend(smallFiles, {path: exlPath, name: file.name, sizeMb: fileSizeMb});
+				arrayAppend(smallFiles, {path: exlPath, name: files.name, sizeMb: fileSizeMb});
 			} else {
-				arrayAppend(largeFiles, {path: exlPath, name: file.name, sizeMb: fileSizeMb});
+				arrayAppend(largeFiles, {path: exlPath, name: files.name, sizeMb: fileSizeMb});
 			}
 		}
 
@@ -70,9 +70,9 @@ component {
 		// Process small files in parallel
 		if (arrayLen(smallFiles) > 0) {
 			var smallTotalSizeMb = 0;
-			for (var f in smallFiles) {
-				smallTotalSizeMb += f.sizeMb;
-			}
+		cfloop( array=smallFiles, item="local.f" ) {
+			smallTotalSizeMb += f.sizeMb;
+		}
 			var smallStartTime = getTickCount();
 			variables.logger.info("parseExecutionLogs: Processing " & arrayLen(smallFiles) & " small .exl files (" & numberFormat(smallTotalSizeMb) & "MB) in parallel");
 			var smallFileResults = arrayMap(smallFiles, function(fileInfo) {
@@ -96,9 +96,9 @@ component {
 		// Process large files sequentially (they use internal parallelism)
 		if (arrayLen(largeFiles) > 0) {
 			var largeTotalSizeMb = 0;
-			for (var f in largeFiles) {
-				largeTotalSizeMb += f.sizeMb;
-			}
+		cfloop( array=largeFiles, item="local.f" ) {
+			largeTotalSizeMb += f.sizeMb;
+		}
 			var largeStartTime = getTickCount();
 			var largeFileCount = arrayLen(largeFiles);
 			variables.logger.info("Phase parseExecutionLogs: Processing " & largeFileCount & " large .exl files (" & numberFormat(largeTotalSizeMb) & "MB) sequentially in parallel chunks");
@@ -129,11 +129,20 @@ component {
 		};
 	}
 
-	private struct function processExlFile(required string exlPath, required string fileName, required numeric sizeMb, required struct options, required struct sharedAstCache) {
+	/**
+	 * Process a single .exl file and return the parsed result with JSON path
+	 * @exlPath Full path to the .exl file
+	 * @fileName Name of the .exl file (with extension)
+	 * @sizeMb Size of the file in megabytes
+	 * @options Processing options struct (logLevel, separateFiles, allowList, blocklist, etc.)
+	 * @sharedAstCache Shared AST cache to avoid re-parsing same files
+	 * @return Struct containing jsonPath and files data
+	 */
+	private function processExlFile(exlPath, fileName, sizeMb, options, sharedAstCache) {
 		var logger = new lucee.extension.lcov.Logger( level=arguments.options.logLevel ?: "none" );
 		var exlParser = new lucee.extension.lcov.ExecutionLogParser( options=arguments.options, sharedAstCache=arguments.sharedAstCache );
 
-		variables.logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
+		logger.debug("Processing " & arguments.fileName & " (" & decimalFormat(arguments.sizeMb) & " Mb)");
 
 		// includeSourceCode: false for separateFiles=true (we hydrate later), true for separateFiles=false (HTML needs it now)
 		var includeSourceCode = !(arguments.options.separateFiles ?: false);

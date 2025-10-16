@@ -104,7 +104,7 @@ component accessors="true" {
 		var filesData = arguments.result.getFiles();
 		if (structIsEmpty(filesData)) {
 			// Always return required canonical keys, even if no files present
-		arguments.result.setStats(totalStats);
+			arguments.result.setStats(totalStats);
 			arguments.result.validate();
 			return arguments.result;
 		}
@@ -268,27 +268,12 @@ component accessors="true" {
 				// Count coverage for this file using the proper file key mapping
 				cfloop( collection=filesData, key="local.fKey", value="local.fileInfo" ) {
 					if (fileInfo.path == filePath && structKeyExists(coverage, fKey)) {
-						var fileCoverage = coverage[fKey];
-						cfloop( collection=fileCoverage, key="local.lineNum", value="local.lineData" ) {
-							if (structKeyExists(allExecutableLines[filePath], lineNum)) {
-								var lineData = fileCoverage[lineNum];
-								var hitCount = int(lineData[1]);
-								if (!structKeyExists(fileStats[filePath].hitCounts, lineNum)) {
-									fileStats[filePath].hitCounts[lineNum] = 0;
-									// Only count as hit if this line has actual hits > 0
-									if (hitCount > 0) {
-										fileStats[filePath].linesHit++;
-									}
-								}
-								fileStats[filePath].hitCounts[lineNum] += hitCount;
-
-								// Track childTime from coverage data (lineData[3])
-								if (!structKeyExists(fileStats[filePath], "totalChildTime")) {
-									fileStats[filePath].totalChildTime = 0;
-								}
-								fileStats[filePath].totalChildTime += lineData[3];
-							}
-						}
+						processFileCoverage(
+							fileStats = fileStats,
+							filePath = filePath,
+							fileCoverage = coverage[fKey],
+							allExecutableLines = allExecutableLines
+						);
 						break; // Found the matching file, no need to continue loop
 					}
 				}
@@ -298,12 +283,74 @@ component accessors="true" {
 			result = nullValue();
 		}
 
-		// Calculate totals and per-file coverage percentages
+		return buildAggregatedStatsResult(
+			fileStats = fileStats,
+			executedFiles = executedFiles,
+			totalResults = totalResults,
+			startTime = startTime,
+			processingTimeMs = arguments.processingTimeMs
+		);
+	}
+
+	/**
+	 * Process coverage data for all lines in a file and update file stats
+	 * @fileStats Reference to the fileStats struct for all files
+	 * @filePath The file path being processed
+	 * @fileCoverage The coverage data struct keyed by line number
+	 * @allExecutableLines All executable lines across all runs
+	 */
+	private void function processFileCoverage(
+		required struct fileStats,
+		required string filePath,
+		required struct fileCoverage,
+		required struct allExecutableLines
+	) localmode=true {
+		cfloop( collection=arguments.fileCoverage, key="local.lineNum" ) {
+			if (!structKeyExists(allExecutableLines[filePath], lineNum)) {
+				continue;
+			}
+
+			var lineData = fileCoverage[lineNum];
+			var hitCount = int(lineData[1]);
+			if (!structKeyExists(fileStats[filePath].hitCounts, lineNum)) {
+				fileStats[filePath].hitCounts[lineNum] = 0;
+				// Only count as hit if this line has actual hits > 0
+				if (hitCount > 0) {
+					fileStats[filePath].linesHit++;
+				}
+			}
+			fileStats[filePath].hitCounts[lineNum] += hitCount;
+
+			// Track childTime from coverage data (lineData[3])
+			if (!structKeyExists(fileStats[filePath], "totalChildTime")) {
+				fileStats[filePath].totalChildTime = 0;
+			}
+			fileStats[filePath].totalChildTime += lineData[3];
+		}
+	}
+
+	/**
+	 * Build the final aggregated stats result structure
+	 * @fileStats The per-file stats struct
+	 * @executedFiles Number of files executed
+	 * @totalResults Total number of result files processed
+	 * @startTime Start time in milliseconds
+	 * @processingTimeMs Processing time in milliseconds
+	 * @return Final stats struct
+	 */
+	private struct function buildAggregatedStatsResult(
+		required struct fileStats,
+		required numeric executedFiles,
+		required numeric totalResults,
+		required numeric startTime,
+		required numeric processingTimeMs
+	) localmode=true {
 		var totalLinesFound = 0;
 		var totalLinesHit = 0;
 		var totalLinesSource = 0;
 		var totalChildTime = 0;
-		cfloop( collection=fileStats, key="local.filePath", value="local.stats" ) {
+
+		cfloop( collection=arguments.fileStats, key="local.filePath", value="local.stats" ) {
 			totalLinesFound += stats.linesFound;
 			totalLinesHit += stats.linesHit;
 			totalLinesSource += stats.linesSource;
@@ -317,21 +364,21 @@ component accessors="true" {
 		}
 
 		var coveragePercentage = totalLinesFound > 0 ? (totalLinesHit / totalLinesFound) * 100 : 0;
-		var calculationTime = getTickCount() - startTime;
+		var calculationTime = getTickCount() - arguments.startTime;
 
 		return {
-			"totalFiles": structCount(fileStats),
+			"totalFiles": structCount(arguments.fileStats),
 			"totalLinesFound": totalLinesFound,
 			"totalLinesHit": totalLinesHit,
 			"totalLinesSource": totalLinesSource,
 			"totalChildTime": totalChildTime,
 			"coveragePercentage": numberFormat(coveragePercentage, "0.0"),
-			"fileStats": fileStats,
-			"executedFiles": executedFiles,
-			"totalResults": totalResults,
+			"fileStats": arguments.fileStats,
+			"executedFiles": arguments.executedFiles,
+			"totalResults": arguments.totalResults,
 			"calculationTimeMs": calculationTime,
 			"processingTimeMs": arguments.processingTimeMs
 		};
 	}
-	
+
 }

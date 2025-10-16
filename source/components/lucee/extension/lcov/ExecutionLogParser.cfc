@@ -1,12 +1,4 @@
-component accessors="true" {
-	// Cache structures for performance optimization
-	property name="fileContentsCache" type="struct" default="#{}#";
-	property name="fileBlockIgnoreCache" type="struct" default="#{}#";
-	property name="lineMappingsCache" type="struct" default="#{}#";
-	property name="positionMappingsCache" type="struct" default="#{}#";
-	property name="fileExistsCache" type="struct" default="#{}#";
-	property name="fileIgnoreCache" type="struct" default="#{}#"; // files not allowed due to allow/block lists
-	property name="astCache" type="struct" default="#{}#"; // parsed AST cache to avoid re-parsing same files
+component {
 
 	/**
 	* Initialize the parser with cache structures
@@ -24,12 +16,15 @@ component accessors="true" {
 		variables.ast = new ast.ExecutableLineCounter( logger=variables.logger, options=arguments.options );
 		variables.callTreeAnalyzer = new ast.CallTreeAnalyzer( logger=variables.logger );
 
-		// Cache for file analysis (AST + executable lines) to avoid regenerating across .exl files
-		variables.fileAnalysisCache = {};
+		// Cache structures for performance optimization
+		variables.fileIgnoreCache = {}; // files not allowed due to allow/block lists
+		variables.fileAnalysisCache = {}; // cache for file analysis (AST + executable lines) to avoid regenerating across .exl files
 
 		// Use shared AST cache if provided (for parallel processing), otherwise use instance cache
 		if (structKeyExists(arguments, "sharedAstCache")) {
 			variables.astCache = arguments.sharedAstCache;
+		} else {
+			variables.astCache = {}; // parsed AST cache to avoid re-parsing same files
 		}
 
 		// Initialize parser helpers
@@ -53,19 +48,20 @@ component accessors="true" {
 	* @allowList Array of allowed file patterns/paths
 	* @blocklist Array of blocked file patterns/paths
 	* @writeJsonCache Whether to write a JSON cache file
+	* @includeCallTree Whether to include call tree analysis
+	* @includeSourceCode Whether to include source code in output
 	* @return Result object containing sections and fileCoverage data
 	*/
-	public result function parseExlFile(string exlPath,
-		array allowList=[], array blocklist=[], boolean writeJsonCache = false, boolean includeCallTree = false, boolean includeSourceCode = false) {
+	public function parseExlFile(exlPath, allowList=[], blocklist=[], writeJsonCache=false, includeCallTree=false, includeSourceCode=true) {
 
 		var startTime = getTickCount();
 
 		// Check for cached result
 		var cacheCheck = variables.cacheValidator.loadCachedResultIfValid(
-			arguments.exlPath,
-			arguments.allowList,
-			arguments.blocklist,
-			arguments.includeCallTree
+			exlPath=arguments.exlPath,
+			allowList=arguments.allowList,
+			blocklist=arguments.blocklist,
+			includeCallTree=arguments.includeCallTree
 		);
 		if (cacheCheck.valid) {
 			return cacheCheck.result;
@@ -137,9 +133,13 @@ component accessors="true" {
 	}
 
 	/**
-	* Combine identical coverage entries before line processing
-	*/
-	private struct function parseCoverage( result coverageData, required any callTreeAnalyzer, boolean includeCallTree = false) localmode=true {
+	 * Combine identical coverage entries before line processing
+	 * @coverageData The result object containing coverage data to parse
+	 * @callTreeAnalyzer The call tree analyzer component for AST analysis
+	 * @includeCallTree Whether to include call tree analysis (default: false)
+	 * @return The updated coverageData result object
+	 */
+	private function parseCoverage(coverageData, callTreeAnalyzer, includeCallTree) localmode=true {
 		var files = arguments.coverageData.getFiles();
 		var exlPath = arguments.coverageData.getExeLog();
 		var start = getTickCount();
@@ -147,7 +147,7 @@ component accessors="true" {
 		// Get line mappings cache from FileCacheHelper
 		var lineMappingsCache = variables.fileCacheHelper.getLineMappingsCache();
 		var validFileIds = {};
-		for (var fileIdx in files) {
+		cfloop( collection=files, key="local.fileIdx" ) {
 			validFileIds[fileIdx] = true;
 		}
 
@@ -192,16 +192,21 @@ component accessors="true" {
 
 	/**
 	* File parsing with early validation
+	* @filesLines Array of file lines from .exl file (format: "index:path")
+	* @exlPath Path to the .exl file being parsed
+	* @allowList Array of allowed file patterns/paths for filtering
+	* @blocklist Array of blocked file patterns/paths for filtering
+	* @includeSourceCode Whether to include source code in file entries (default: true)
+	* @return Struct containing "files" (valid parsed files) and "skipped" (filtered files)
 	*/
-	private struct function parseFiles(array filesLines, string exlPath,
-			array allowList, array blocklist, boolean includeSourceCode = true) localmode=true {
+	private function parseFiles(filesLines, exlPath, allowList, blocklist, includeSourceCode = true) localmode=true {
 
-		var files = {};
-		var skipped = {};
+		var files = structNew('regular');
+		var skipped = structNew('regular');
 		var startFiles = getTickCount();
 
-		for (var i = 1; i <= arrayLen(arguments.filesLines); i++) {
-			var line = trim(arguments.filesLines[i]);
+		cfloop( array=arguments.filesLines, index="local.i", item="local.line" ) {
+			line = trim(line);
 			if (line == "") break;
 			var num = listFirst(line, ":");
 			var path = listRest(line, ":");
