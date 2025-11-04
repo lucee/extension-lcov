@@ -13,8 +13,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// Set up blocks for file 0
 				var fileBlocks = {
-					"100-200": { hitCount: 5, execTime: 1000, isChild: false },
-					"300-400": { hitCount: 2, execTime: 500, isChild: true }
+					"100-200": { hitCount: 5, execTime: 1000, blockType: 0 },
+					"300-400": { hitCount: 2, execTime: 500, blockType: 1 }
 				};
 
 				result.setBlocksForFile( 0, fileBlocks );
@@ -23,8 +23,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect( retrieved ).toBeStruct();
 				expect( structCount( retrieved ) ).toBe( 2 );
 				expect( retrieved[ "100-200" ].hitCount ).toBe( 5 );
-				expect( retrieved[ "100-200" ].isChild ).toBe( false );
-				expect( retrieved[ "300-400" ].isChild ).toBe( true );
+				expect( retrieved[ "100-200" ].blockType ).toBe( 0 );
+				expect( retrieved[ "300-400" ].blockType ).toBe( 1 );
 			});
 
 			it( "should return empty struct for file with no blocks", function() {
@@ -37,8 +37,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			it( "should add individual blocks", function() {
 				var result = new lucee.extension.lcov.model.result();
 
-				result.addBlock( 0, 100, 200, { hitCount: 1, execTime: 100, isChild: false } );
-				result.addBlock( 0, 300, 400, { hitCount: 2, execTime: 200, isChild: true } );
+				result.addBlock( 0, 100, 200, { hitCount: 1, execTime: 100, blockType: 0 } );
+				result.addBlock( 0, 300, 400, { hitCount: 2, execTime: 200, blockType: 1 } );
 
 				var blocks = result.getBlocksForFile( 0 );
 				expect( structCount( blocks ) ).toBe( 2 );
@@ -88,7 +88,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					var block = fileBlocks[ blockKey ];
 					expect( block ).toHaveKey( "hitCount" );
 					expect( block ).toHaveKey( "execTime" );
-					// isChild is NOT added until Phase 4 (CallTreeAnnotator)
+					// blockType is NOT added until Phase 4 (CallTreeAnnotator)
 										break; // Just check first block
 				}
 			});

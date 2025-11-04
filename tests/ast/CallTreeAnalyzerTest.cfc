@@ -369,11 +369,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Debug: Check what type fileBlocks is
 				expect(isStruct(fileBlocks)).toBeTrue("fileBlocks should be a struct, got: " & getMetadata(fileBlocks).name);
 
-				// Count how many blocks have isChild=true
+				// Count how many blocks have blockType==1
 				var childTimeBlockCount = 0;
 				for (var blockKey in fileBlocks) {
 					var block = fileBlocks[blockKey];
-					if (structKeyExists(block, "isChild") && block.isChild) {
+					if (structKeyExists(block, "blockType") && block.blockType == 1) {
 						childTimeBlockCount++;
 					}
 				}

@@ -107,8 +107,9 @@ component {
 		// Only show log file link if exeLog exists (not in per-file mode)
 		var exeLog = result.getExeLog();
 		if (len(trim(exeLog)) > 0 && fileExists(exeLog)) {
-			var exeLogFilename = listLast(exeLog, "/\\");
-			html &= '<a href="' & variables.htmlEncoder.htmlAttributeEncode(exeLogFilename) & '" target="_blank" class="file-link">Log</a> &nbsp;|&nbsp; ';
+			// Use absolute file:// URL - normalize path separators to forward slashes for URL
+			var exeLogUrl = "file:///" & replace( exeLog, "\", "/", "all" );
+			html &= '<a href="' & variables.htmlEncoder.htmlAttributeEncode(exeLogUrl) & '" target="_blank" class="file-link">Log</a> &nbsp;|&nbsp; ';
 		}
 
 		// Add JSON and Markdown links

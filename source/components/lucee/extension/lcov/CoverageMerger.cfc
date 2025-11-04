@@ -155,7 +155,7 @@ component {
 					var fileBlocks = blocks[fileIndex];
 					cfloop( collection=fileBlocks, key="local.blockKey" ) {
 						var block = fileBlocks[blockKey];
-						if (structKeyExists(block, "isChild") && block.isChild) {
+						if (structKeyExists(block, "blockType") && block.blockType == 1) {
 							childTimeByFile[canonicalIndex] += block.execTime;
 						}
 					}
@@ -514,7 +514,7 @@ component {
 						// Add hit counts and execution times together
 						targetBlocks[blockKey].hitCount += sourceBlock.hitCount;
 						targetBlocks[blockKey].execTime += sourceBlock.execTime;
-						// isChild flag should be consistent across runs - keep first value
+						// blockType should be consistent across runs - keep first value
 					}
 				}
 			}

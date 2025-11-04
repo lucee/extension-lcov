@@ -26,10 +26,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Let's add blocks at positions we can verify
 
 				// Block at position 100-150 (should map to some early line)
-				result.addBlock( 0, 100, 150, { hitCount: 5, execTime: 100, isChild: false } );
+				result.addBlock( 0, 100, 150, { hitCount: 5, execTime: 100, blockType: 0 } );
 
 				// Block at position 500-550 (should map to some middle line)
-				result.addBlock( 0, 500, 550, { hitCount: 3, execTime: 200, isChild: true } );
+				result.addBlock( 0, 500, 550, { hitCount: 3, execTime: 200, blockType: 1 } );
 
 				// Use BlockAggregator to aggregate blocks
 				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();

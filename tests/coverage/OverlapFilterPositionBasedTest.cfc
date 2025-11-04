@@ -67,7 +67,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		});
 	}
 
-	// Test: Aggregated format with execution counts preservation
+	// Test: Aggregated format with execution counts preservation (Phase 2: NO DATA LOSS!)
 	private void function testAggregatedFormat() {
 		var processor = new lucee.extension.lcov.coverage.OverlapFilterPosition( logger=variables.logger );
 
@@ -81,35 +81,47 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var files = { "1": { "path": "test.cfm", "executableLines": {} } };
 		var lineMappingsCache = {};
 
-		// Filter overlapping blocks
+		// Mark overlapping blocks (Phase 2: keep all blocks!)
 		var result = processor.filter(aggregated, files, lineMappingsCache);
 
-		// Verify structure
-		expect(structCount(result)).toBe(2, "Should have 2 blocks after filtering out the large one");
+		// Phase 2: ALL blocks should be present (no data loss!)
+		expect(structCount(result)).toBe(3, "Should have ALL 3 blocks (Phase 2: no filtering, just marking)");
 
-		// Verify the small blocks are preserved with their counts and times
+		// Verify all blocks are preserved with their counts and times
+		var keyLarge = "1#chr(9)#1#chr(9)#10000";
 		var key1 = "1#chr(9)#1001#chr(9)#2000";
 		var key2 = "1#chr(9)#5001#chr(9)#6000";
 
+		expect(result).toHaveKey(keyLarge, "Should have large block (marked as overlapping)");
 		expect(result).toHaveKey(key1, "Should have first small block");
 		expect(result).toHaveKey(key2, "Should have second small block");
 
 		// Verify execution counts and times are preserved
+		if (structKeyExists(result, keyLarge)) {
+			var blockLarge = result[keyLarge];
+			expect(arrayLen(blockLarge)).toBe(6, "Block should have 6 elements [fileIdx, start, end, count, time, isOverlapping]");
+			expect(blockLarge[4]).toBe(5, "Large block should preserve count of 5");
+			expect(blockLarge[5]).toBe(500, "Large block should preserve total time of 500ms");
+			expect(blockLarge[6]).toBe(true, "Large block should be marked as overlapping");
+		}
+
 		if (structKeyExists(result, key1)) {
 			var block1 = result[key1];
-			expect(arrayLen(block1)).toBe(5, "Block should have 5 elements");
+			expect(arrayLen(block1)).toBe(6, "Block should have 6 elements");
 			expect(block1[4]).toBe(10, "First block should preserve count of 10");
 			expect(block1[5]).toBe(200, "First block should preserve total time of 200ms");
+			expect(block1[6]).toBe(false, "First block should NOT be marked as overlapping");
 		}
 
 		if (structKeyExists(result, key2)) {
 			var block2 = result[key2];
-			expect(arrayLen(block2)).toBe(5, "Block should have 5 elements");
+			expect(arrayLen(block2)).toBe(6, "Block should have 6 elements");
 			expect(block2[4]).toBe(3, "Second block should preserve count of 3");
 			expect(block2[5]).toBe(60, "Second block should preserve total time of 60ms");
+			expect(block2[6]).toBe(false, "Second block should NOT be marked as overlapping");
 		}
 
-		// Calculate total execution counts and times
+		// Calculate total execution counts and times - NO DATA LOSS!
 		var totalCount = 0;
 		var totalTime = 0;
 		for (var key in result) {
@@ -117,8 +129,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			totalTime += result[key][5];
 		}
 
-		expect(totalCount).toBe(13, "Total execution count should be 13 (10+3, excluding the 5 from large block)");
-		expect(totalTime).toBe(260, "Total execution time should be 260ms (200+60, excluding 500 from large block)");
+		expect(totalCount).toBe(18, "Total execution count should be 18 (5+10+3, NO DATA LOSS!)");
+		expect(totalTime).toBe(760, "Total execution time should be 760ms (500+200+60, NO DATA LOSS!)");
 	}
 
 	// Test: Basic large block exclusion with character positions
@@ -143,16 +155,26 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	private function testExcludeLargeBlocks(result, label) {
-		// Should only have the two small blocks, not the large encompassing block
+		// Phase 2: Should have ALL blocks, with the large one marked as overlapping
 		var filteredBlocks = result[1];
-		expect(arrayLen(filteredBlocks)).toBe(2, "Should have 2 blocks after filtering");
-		// Check that we have the small blocks [1001-2000] and [5001-6000]
+		expect(arrayLen(filteredBlocks)).toBe(3, "Should have ALL 3 blocks (Phase 2: no data loss)");
+
+		// Check that we have all blocks including the large one
+		var hasLargeBlock = false;
 		var hasFirstBlock = false;
 		var hasSecondBlock = false;
+		var largeBlockIsOverlapping = false;
+
 		for (var block in filteredBlocks) {
+			if (block[2] == 1 && block[3] == 10000) {
+				hasLargeBlock = true;
+				largeBlockIsOverlapping = (arrayLen(block) >= 5 && block[5]);
+			}
 			if (block[2] == 1001 && block[3] == 2000) hasFirstBlock = true;
 			if (block[2] == 5001 && block[3] == 6000) hasSecondBlock = true;
 		}
+		expect(hasLargeBlock).toBeTrue("Should have large block [1-10000] (marked as overlapping)");
+		expect(largeBlockIsOverlapping).toBeTrue("Large block should be marked as overlapping");
 		expect(hasFirstBlock).toBeTrue("Should have block [1001-2000]");
 		expect(hasSecondBlock).toBeTrue("Should have block [5001-6000]");
 	}
@@ -216,19 +238,23 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	private function testLoopsCfmPattern(result, label) {
-		// The large for-loop block [72-145] should be excluded
+		// Phase 2: The large for-loop block [72-145] should be KEPT but marked as overlapping
 		var filteredBlocks = result[1];
 		var hasLargeBlock = false;
+		var largeBlockIsOverlapping = false;
+
 		for (var block in filteredBlocks) {
 			if (block[2] == 72 && block[3] == 145) {
 				hasLargeBlock = true;
+				largeBlockIsOverlapping = (arrayLen(block) >= 5 && block[5]);
 				break;
 			}
 		}
-		expect(hasLargeBlock).toBeFalse("Large block [72-145] should be excluded");
+		expect(hasLargeBlock).toBeTrue("Large block [72-145] should be present (Phase 2: no data loss)");
+		expect(largeBlockIsOverlapping).toBeTrue("Large block [72-145] should be marked as overlapping");
 
-		// Should have the smaller, more specific blocks
-		expect(arrayLen(filteredBlocks)).toBeGT(0, "Should have some blocks remaining");
+		// Should have ALL blocks
+		expect(arrayLen(filteredBlocks)).toBe(8, "Should have all 8 blocks (Phase 2: no data loss)");
 	}
 
 	// Test: Multi-line blocks
@@ -302,18 +328,28 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	private function testNestedBlocks(result, label) {
-		// Should keep only the two smallest blocks [200-250] and [300-350]
+		// Phase 2: Should keep ALL blocks, with overlapping ones marked
 		var filteredBlocks = result[1];
-		expect(arrayLen(filteredBlocks)).toBe(2, "Should have only 2 smallest blocks");
+		expect(arrayLen(filteredBlocks)).toBe(4, "Should have all 4 blocks (Phase 2: no data loss)");
 
 		var hasSmallBlock1 = false;
 		var hasSmallBlock2 = false;
+		var hasLargeBlocks = 0;
+		var largeBlocksMarkedAsOverlapping = 0;
+
 		for (var block in filteredBlocks) {
 			if (block[2] == 200 && block[3] == 250) hasSmallBlock1 = true;
 			if (block[2] == 300 && block[3] == 350) hasSmallBlock2 = true;
+			// Large and medium blocks should be marked as overlapping
+			if ((block[2] == 100 && block[3] == 500) || (block[2] == 150 && block[3] == 450)) {
+				hasLargeBlocks++;
+				if (arrayLen(block) >= 5 && block[5]) largeBlocksMarkedAsOverlapping++;
+			}
 		}
 		expect(hasSmallBlock1).toBeTrue("Should have block [200-250]");
 		expect(hasSmallBlock2).toBeTrue("Should have block [300-350]");
+		expect(hasLargeBlocks).toBe(2, "Should have both large blocks");
+		expect(largeBlocksMarkedAsOverlapping).toBe(2, "Large blocks should be marked as overlapping");
 	}
 
 	// Test: Dense code with multiple blocks on same line
@@ -351,31 +387,36 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	private function testDenseCodeBlocks(result, label) {
-		// Should filter out the larger encompassing blocks
-		// Keep the smaller, more specific blocks
+		// Phase 2: Should keep ALL blocks, with large ones marked as overlapping
 		var filteredBlocks = result[1];
 
-		// Should not have the large function block [20-120]
+		// Should HAVE the large function block [20-120] but marked as overlapping
 		var hasLargeFunctionBlock = false;
+		var largeFunctionBlockIsOverlapping = false;
 		for (var block in filteredBlocks) {
 			if (block[2] == 20 && block[3] == 120) {
 				hasLargeFunctionBlock = true;
+				largeFunctionBlockIsOverlapping = (arrayLen(block) >= 5 && block[5]);
 				break;
 			}
 		}
-		expect(hasLargeFunctionBlock).toBeFalse("Large function block [20-120] should be excluded");
+		expect(hasLargeFunctionBlock).toBeTrue("Large function block [20-120] should be present (Phase 2)");
+		expect(largeFunctionBlockIsOverlapping).toBeTrue("Large function block should be marked as overlapping");
 
-		// Should not have the whole for loop [125-180]
+		// Should HAVE the whole for loop [125-180] but marked as overlapping
 		var hasLargeForBlock = false;
+		var largeForBlockIsOverlapping = false;
 		for (var block in filteredBlocks) {
 			if (block[2] == 125 && block[3] == 180) {
 				hasLargeForBlock = true;
+				largeForBlockIsOverlapping = (arrayLen(block) >= 5 && block[5]);
 				break;
 			}
 		}
-		expect(hasLargeForBlock).toBeFalse("Large for loop block [125-180] should be excluded");
+		expect(hasLargeForBlock).toBeTrue("Large for loop block [125-180] should be present (Phase 2)");
+		expect(largeForBlockIsOverlapping).toBeTrue("Large for loop block should be marked as overlapping");
 
-		// Should keep the specific inner blocks
-		expect(arrayLen(filteredBlocks)).toBeGT(5, "Should have multiple specific blocks remaining");
+		// Should have ALL blocks (no data loss!)
+		expect(arrayLen(filteredBlocks)).toBe(13, "Should have all 13 blocks (Phase 2: no data loss)");
 	}
 }

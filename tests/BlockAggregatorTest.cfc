@@ -13,7 +13,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				aggregatedBlocks[ "0" & chr(9) & "300" & chr(9) & "400" ] = [0, 300, 400, 3, 500];
 				aggregatedBlocks[ "1" & chr(9) & "50" & chr(9) & "150" ] = [1, 50, 150, 2, 250];
 
-				// Convert to storage format (isChild flags added later in Phase 4 if needed)
+				// Convert to storage format (blockType added later in Phase 4 if needed)
 				var blocks = aggregator.convertAggregatedToBlocks( aggregatedBlocks );
 
 				// Check structure: blocks[fileIdx]["startPos-endPos"] = {hitCount, execTime}
@@ -61,9 +61,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var lineMapping = [ 1, 101, 201, 301 ];
 
 				// Add blocks at different positions
-				result.addBlock( 0, 50, 90, { hitCount: 2, execTime: 100, isChild: false } );  // Line 1 (pos 50 is in range 1-100)
-				result.addBlock( 0, 120, 180, { hitCount: 3, execTime: 200, isChild: true } );  // Line 2 (pos 120 is in range 101-200)
-				result.addBlock( 0, 190, 199, { hitCount: 1, execTime: 50, isChild: false } );  // Line 2 (pos 190 is in range 101-200)
+				result.addBlock( 0, 50, 90, { hitCount: 2, execTime: 100, blockType: 0 } );  // Line 1 (pos 50 is in range 1-100)
+				result.addBlock( 0, 120, 180, { hitCount: 3, execTime: 200, blockType: 1 } );  // Line 2 (pos 120 is in range 101-200)
+				result.addBlock( 0, 190, 199, { hitCount: 1, execTime: 50, blockType: 0 } );  // Line 2 (pos 190 is in range 101-200)
 
 				// Use BlockAggregator to aggregate blocks to lines
 				var aggregator = new lucee.extension.lcov.coverage.BlockAggregator();
@@ -79,8 +79,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// Line 2: two blocks aggregated (one child, one own)
 				expect( lineCoverage[ "2" ][ 1 ] ).toBe( 4 ); // hitCount: 3 + 1
-				expect( lineCoverage[ "2" ][ 2 ] ).toBe( 50 ); // ownTime: block with isChild=false
-				expect( lineCoverage[ "2" ][ 3 ] ).toBe( 200 ); // childTime: block with isChild=true
+				expect( lineCoverage[ "2" ][ 2 ] ).toBe( 50 ); // ownTime: block with blockType==0
+				expect( lineCoverage[ "2" ][ 3 ] ).toBe( 200 ); // childTime: block with blockType==1
 			});
 
 			it( "should aggregate all blocks to line coverage for all files", function() {
@@ -93,11 +93,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var lineMapping2 = [ 1, 151 ];
 
 				// Add blocks for file 0
-				result.addBlock( 0, 50, 90, { hitCount: 2, execTime: 100, isChild: false } );  // Line 1
-				result.addBlock( 0, 120, 180, { hitCount: 3, execTime: 200, isChild: true } );  // Line 2
+				result.addBlock( 0, 50, 90, { hitCount: 2, execTime: 100, blockType: 0 } );  // Line 1
+				result.addBlock( 0, 120, 180, { hitCount: 3, execTime: 200, blockType: 1 } );  // Line 2
 
 				// Add blocks for file 1
-				result.addBlock( 1, 100, 140, { hitCount: 5, execTime: 300, isChild: false } );  // Line 1
+				result.addBlock( 1, 100, 140, { hitCount: 5, execTime: 300, blockType: 0 } );  // Line 1
 
 				// Create files struct with line mappings
 				var files = {
@@ -132,11 +132,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// 0-5: "line 1", 6: \n, 7-12: "line 2", 13: \n, 14-19: "line 3"
 				var mergedBlocks = {
 					"/path/to/file1.cfm": {
-						"0-5": { hitCount: 2, execTime: 100, isChild: false },    // "line 1" (pos 0-5) - line 1
-						"14-19": { hitCount: 3, execTime: 200, isChild: true }    // "line 3" (pos 14-19) - line 3
+						"0-5": { hitCount: 2, execTime: 100, blockType: 0 },    // "line 1" (pos 0-5) - line 1
+						"14-19": { hitCount: 3, execTime: 200, blockType: 1 }    // "line 3" (pos 14-19) - line 3
 					},
 					"/path/to/file2.cfm": {
-						"0-9": { hitCount: 1, execTime: 50, isChild: false }      // "first line" (pos 0-9) - line 1
+						"0-9": { hitCount: 1, execTime: 50, blockType: 0 }      // "first line" (pos 0-9) - line 1
 					}
 				};
 

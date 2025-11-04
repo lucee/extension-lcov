@@ -1,4 +1,4 @@
-echo off
+rem echo off
 echo Running LCOV Extension Tests
 
 echo.
@@ -21,7 +21,7 @@ if "%1"=="" (
 ) else (
     set testFilter=%1
 )
-set LUCEE_LOGGING_FORCE_APPENDER=console
+set LUCEE_LOGGING_FORCE_APPENDER=
 set LUCEE_LOGGING_FORCE_LEVEL=info
 set LUCEE_BUILD_ENV=
 set testLabels=lcov
@@ -36,8 +36,10 @@ REM D:\work\lucee7\loader\target\lucee-7.0.1.7-SNAPSHOT.jar
 
 if exist tests\generated-artifacts rmdir /s /q tests\generated-artifacts
 
+echo -----------------------------------------------------
+
 rem Run tests using script-runner (use proper ant syntax)
-ant -buildfile="d:\work\script-runner\build.xml" -Dwebroot="d:\work\lucee7\test" -Dexecute="bootstrap-tests.cfm" -DtestHideJavaStack="true" -DextensionDir="D:\work\lucee-extensions\extension-lcov\target" -DluceeVersionQuery="7/all/light" -DtestAdditional="d:\work\lucee-extensions\extension-lcov\tests" -DluceeJar="%LUCEE_JAR%"
+ant -buildfile="d:\work\script-runner\build.xml" -Dwebroot="d:\work\lucee7\test" -Dexecute="bootstrap-tests.cfm" -DtestHideJavaStack="true" -DextensionDir="D:\work\lucee-extensions\extension-lcov\target" -DluceeVersionQuery="7.0/snapshot/jar" -DtestAdditional="d:\work\lucee-extensions\extension-lcov\tests" -DluceeJar="%LUCEE_JAR%"
 
 echo.
 echo Test run complete!

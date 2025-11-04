@@ -85,8 +85,8 @@ component displayname="OverlapFilterPosition" accessors="true" {
 				variables.logger.trace( "  OverlapFilter: File [" & filePath & "] took " & fileTime & "ms (" & blockCountBefore & " -> " & blockCountAfter & " blocks)" );
 			}
 
-			// VALIDATION: Overlap filtering must not result in zero coverage for a file
-			if (blockCountBefore > 0 && blockCountAfter == 0) {
+			// VALIDATION: Since Phase 2, we keep ALL blocks (just mark overlaps), count should never change
+			if (blockCountBefore > 0 && blockCountAfter != blockCountBefore) {
 				// Get file path for better error message
 				var filePath = "unknown";
 				if (structKeyExists(arguments.files, fileIdx) && structKeyExists(arguments.files[fileIdx], "path")) {
@@ -94,22 +94,26 @@ component displayname="OverlapFilterPosition" accessors="true" {
 				}
 				throw(
 					type = "OverlapFilterPosition.InvalidResult",
-					message = "Overlap filtering removed ALL coverage blocks for file index " & fileIdx,
-					detail = "File: " & filePath & ", Blocks before: " & blockCountBefore & ", Blocks after: " & blockCountAfter & ". This should never happen - overlap filtering should only remove nested/duplicate blocks, not all blocks."
+					message = "Overlap marking changed block count for file index " & fileIdx,
+					detail = "File: " & filePath & ", Blocks before: " & blockCountBefore & ", Blocks after: " & blockCountAfter & ". This should never happen - overlap marking should preserve all blocks."
 				);
 			}
 
 			if (isAggregatedFormat) {
-				// Convert back to aggregated format for each filtered block
+				// Convert back to aggregated format for each filtered block (including overlapping ones)
 				cfloop( array=filteredBlocks, item="local.fBlock" ) {
 					// Create key in same format as aggregator (fileIdx\tstartPos\tendPos)
 					var key = "#fileIdx#	#fBlock[2]#	#fBlock[3]#";
 					// Find original aggregated entry to preserve count information
 					if (structKeyExists(arguments.aggregatedOrBlocksByFile, key)) {
-						result[key] = arguments.aggregatedOrBlocksByFile[key];
+						var originalBlock = arguments.aggregatedOrBlocksByFile[key];
+						// Add overlap flag as 6th element: [fileIdx, startPos, endPos, hitCount, execTime, isOverlapping]
+						var isOverlapping = arrayLen(fBlock) >= 5 ? fBlock[5] : false;
+						result[key] = [originalBlock[1], originalBlock[2], originalBlock[3], originalBlock[4], originalBlock[5], isOverlapping];
 					} else {
 						// Fallback: reconstruct entry (shouldn't happen normally)
-						result[key] = [fileIdx, fBlock[2], fBlock[3], 1, fBlock[4]];
+						var isOverlapping = arrayLen(fBlock) >= 5 ? fBlock[5] : false;
+						result[key] = [fileIdx, fBlock[2], fBlock[3], 1, fBlock[4], isOverlapping];
 					}
 				}
 			} else {
@@ -117,40 +121,58 @@ component displayname="OverlapFilterPosition" accessors="true" {
 				result[fileIdx] = filteredBlocks;
 			}
 
-			// Log per-file filtering details
-			if (blockCountBefore != blockCountAfter) {
+			// Count how many blocks are marked as overlapping (for logging)
+			var overlappingCount = 0;
+			cfloop( array=filteredBlocks, item="local.fBlock" ) {
+				if (arrayLen(fBlock) >= 5 && fBlock[5]) {
+					overlappingCount++;
+				}
+			}
+
+			// Log per-file overlap marking details
+			if (overlappingCount > 0) {
 				var filePath = structKeyExists(arguments.files, fileIdx) && structKeyExists(arguments.files[fileIdx], "path")
 					? arguments.files[fileIdx].path
 					: "file index " & fileIdx;
-				variables.logger.debug("  Filtered file [" & filePath & "]: " & blockCountBefore & " blocks -> " & blockCountAfter & " blocks (removed " & (blockCountBefore - blockCountAfter) & ")");
+				variables.logger.debug("  Marked overlaps in file [" & filePath & "]: " & blockCountAfter & " blocks total (" & overlappingCount & " marked as overlapping)");
 			}
 		}
 
 		var totalTime = getTickCount() - startTime;
 		event["outputEntries"] = structCount( result );
-		event["removedEntries"] = event["inputEntries"] - event["outputEntries"];
+		event["markedEntries"] = 0; // Count of blocks marked as overlapping
 		event["filesProcessed"] = filesProcessed;
-		event["filesWithChanges"] = filesWithChanges;
+		event["filesWithOverlaps"] = filesWithChanges;
+
+		// Count total marked overlaps
+		cfloop( collection=result, key="local.key" ) {
+			var entry = result[key];
+			if (isAggregatedFormat && isArray(entry) && arrayLen(entry) >= 6 && entry[6]) {
+				event["markedEntries"]++;
+			}
+		}
+
 		variables.logger.commitEvent( event );
 
-		variables.logger.trace( "OverlapFilterPosition: Processed " & filesProcessed & " files (" & filesWithChanges & " with changes) in " & totalTime & "ms" );
+		variables.logger.trace( "OverlapFilterPosition: Processed " & filesProcessed & " files (" & filesWithChanges & " with overlaps) in " & totalTime & "ms" );
 
 		if ( isAggregatedFormat ) {
-			variables.logger.debug( "OverlapFilterPosition: Filtered " & structCount( arguments.aggregatedOrBlocksByFile )
-				& " entries to " & structCount( result ) & " entries in " & totalTime & "ms" );
+			variables.logger.debug( "OverlapFilterPosition: Marked overlaps in " & structCount( arguments.aggregatedOrBlocksByFile )
+				& " entries (" & event["markedEntries"] & " marked as overlapping) in " & totalTime & "ms" );
 		} else {
-			variables.logger.debug( "OverlapFilterPosition: Filtered " & structCount( result )
+			variables.logger.debug( "OverlapFilterPosition: Processed " & structCount( result )
 				& " files in " & totalTime & "ms" );
 		}
 		return result;
 	}
 
 	/**
-	 * Filter overlapping blocks for position-based (character offset) data
+	 * Detect overlapping blocks for position-based (character offset) data
 	 * Blocks are defined by character positions [fileIdx, startPos, endPos, execTime]
+	 * Returns ALL blocks with overlap information marked
 	 */
 	private array function filterOverlappingBlocks(blocks) localmode=true {
-		var filteredBlocks = [];
+		var allBlocks = [];
 
 		// Sort blocks by span size (smallest first)
 		var blockRanges = [];
@@ -160,7 +182,8 @@ component displayname="OverlapFilterPosition" accessors="true" {
 				startPos: block[2],
 				endPos: block[3],
 				span: block[3] - block[2],
-				block: block
+				block: block,
+				isOverlapping: false
 			});
 		}
 
@@ -169,45 +192,50 @@ component displayname="OverlapFilterPosition" accessors="true" {
 			return a.span - b.span;
 		});
 
-		// Keep only the most specific blocks (smallest that aren't contained within other blocks)
-		var keptBlocks = [];
+		// Mark overlapping blocks (contained within or containing other blocks)
+		var nonOverlappingBlocks = [];
 		var blockRangesLen = arrayLen(blockRanges);
 
 		cfloop( array=blockRanges, item="local.current" ) {
 			var currentStart = current.startPos;
 			var currentEnd = current.endPos;
-			var shouldKeep = true;
+			var isOverlapping = false;
 
 			// Check both containment conditions in single loop
-			var keptLen = arrayLen(keptBlocks);
-			cfloop( from=1, to=keptLen, index="local.j" ) {
-				var kept = keptBlocks[j];
-				var keptStart = kept.startPos;
-				var keptEnd = kept.endPos;
+			var nonOverlappingLen = arrayLen(nonOverlappingBlocks);
+			cfloop( from=1, to=nonOverlappingLen, index="local.j" ) {
+				var nonOverlapping = nonOverlappingBlocks[j];
+				var nonOverlappingStart = nonOverlapping.startPos;
+				var nonOverlappingEnd = nonOverlapping.endPos;
 
-				// If an existing block fully contains this block, skip it
-				if (keptStart <= currentStart && keptEnd >= currentEnd) {
-					shouldKeep = false;
+				// If an existing block fully contains this block, mark as overlapping
+				if (nonOverlappingStart <= currentStart && nonOverlappingEnd >= currentEnd) {
+					isOverlapping = true;
 					break;
 				}
-				// If this block would fully contain an existing block, skip it
-				if (currentStart <= keptStart && currentEnd >= keptEnd) {
-					shouldKeep = false;
+				// If this block would fully contain an existing block, mark as overlapping
+				if (currentStart <= nonOverlappingStart && currentEnd >= nonOverlappingEnd) {
+					isOverlapping = true;
 					break;
 				}
 			}
 
-			if (shouldKeep) {
-				keptBlocks.append(current);
+			current.isOverlapping = isOverlapping;
+			if (!isOverlapping) {
+				nonOverlappingBlocks.append(current);
 			}
 		}
 
-		// Convert back to blocks array
-		cfloop( array=keptBlocks, item="local.kept" ) {
-			filteredBlocks.append(kept.block);
+		// Return ALL blocks with overlap information
+		// Add isOverlapping flag as 5th element: [fileIdx, startPos, endPos, execTime, isOverlapping]
+		cfloop( array=blockRanges, item="local.blockRange" ) {
+			var markedBlock = duplicate(blockRange.block);
+			// Append overlap flag to the block array
+			arrayAppend(markedBlock, blockRange.isOverlapping);
+			allBlocks.append(markedBlock);
 		}
 
-		return filteredBlocks;
+		return allBlocks;
 	}
 
 }

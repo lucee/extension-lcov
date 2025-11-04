@@ -5,7 +5,7 @@ component accessors=true {
 	property name="metadata" type="struct" default="#{}#";
 	property name="stats" type="struct" default="#{}#"; // overall stats for all files
 	property name="coverage" type="struct" default="#{}#"; // per file coverage data (line-based, derived from blocks)
-	property name="blocks" type="struct" default="#{}#"; // per file block-level execution data: {fileIdx: {"startPos-endPos": {hitCount, execTime, isChild}}}
+	property name="blocks" type="struct" default="#{}#"; // per file block-level execution data: {fileIdx: {"startPos-endPos": {hitCount, execTime, blockType}}}
 	property name="files" type="struct" default="#{}#"; // contains per file stats, source and info 
 	property name="exeLog" type="string" default=""; // file path of the .exl used to generate this result
 	property name="exlChecksum" type="string" default=""; // checksum of the .exl file to detect reprocessing
@@ -267,7 +267,7 @@ component accessors=true {
 	 * @fileIndex The file index (numeric)
 	 * @startPos Block start position
 	 * @endPos Block end position
-	 * @blockData Struct containing hitCount, execTime, isChild
+	 * @blockData Struct containing hitCount, execTime, blockType
 	 */
 	public void function addBlock(required numeric fileIndex, required numeric startPos, required numeric endPos, required struct blockData) {
 		if (!isStruct(variables.blocks)) {

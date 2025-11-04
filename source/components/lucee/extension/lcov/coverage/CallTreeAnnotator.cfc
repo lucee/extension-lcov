@@ -1,7 +1,7 @@
 /**
- * annotateCallTree: Annotate CallTree (mark blocks with isChildTime flags).
+ * annotateCallTree: Annotate CallTree (mark blocks with blockType values).
  *
- * Marks blocks with CallTree metadata (isChildTime, isBuiltIn flags).
+ * Marks blocks with CallTree metadata (blockType, isBuiltIn flags).
  * This phase is OPTIONAL - only needed for detailed HTML reports.
  *
  * LCOV format does NOT need this phase - it can skip straight to generateReports.
@@ -114,17 +114,21 @@ component {
 		var aggregated = arguments.result.getAggregated();
 		var markedBlocks = variables.callTreeAnalyzer.markChildTimeBlocks( aggregated, arguments.callTreeMap );
 
-		// Update existing blocks with isChild flags from markedBlocks
+		// Update existing blocks with blockType from markedBlocks
 		// markedBlocks has flat structure: {fileIdx\tstartPos\tendPos: {fileIdx, startPos, endPos, isChildTime, isBuiltIn}}
-		// blocks has nested structure: {fileIdx: {startPos-endPos: {hitCount, execTime, isChild}}}
+		// blocks has nested structure: {fileIdx: {startPos-endPos: {hitCount, execTime, blockType, isOverlapping (optional)}}}
 		for (var flatKey in markedBlocks) {
 			var markedBlock = markedBlocks[flatKey];
 			var fileIdx = markedBlock.fileIdx;
 			var blockKey = markedBlock.startPos & "-" & markedBlock.endPos;
 
 			if (structKeyExists(blocks, fileIdx) && structKeyExists(blocks[fileIdx], blockKey)) {
-				// Update isChild flag in the existing block
-				blocks[fileIdx][blockKey].isChild = markedBlock.isChildTime ?: false;
+				var block = blocks[fileIdx][blockKey];
+				// Base blockType: 1 if child time, 0 if own time
+				var baseType = (markedBlock.isChildTime ?: false) ? 1 : 0;
+				// Add 2 if overlapping (Phase 2): blockType 2 = own+overlap, 3 = child+overlap
+				var isOverlapping = structKeyExists(block, "isOverlapping") && block.isOverlapping;
+				block.blockType = baseType + (isOverlapping ? 2 : 0);
 			}
 		}
 
@@ -150,7 +154,7 @@ component {
 		arguments.result.setCoverage( variables.blockAggregator.aggregateAllBlocksToLines( arguments.result, files ) );
 
 		// Recalculate stats from the rebuilt coverage to pick up childTime values
-		// This is critical - stats were calculated in buildLineCoverage before blocks had isChild flags
+		// This is critical - stats were calculated in buildLineCoverage before blocks had blockType set
 		variables.coverageStats.calculateCoverageStats( arguments.result );
 
 		// Update flags

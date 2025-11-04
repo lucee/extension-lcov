@@ -81,9 +81,10 @@ component {
 			var blockKey = blockInfo[ 1 ];
 			var blockData = blockInfo[ 2 ];
 
-			// Validate array format: [fileIdx, startPos, endPos, count, totalTime]
-			if ( !isArray( blockData ) || arrayLen( blockData ) != 5 ) {
-				throw "Aggregated block must be array with exactly 5 elements [fileIdx, startPos, endPos, count, totalTime], got: " & serializeJSON( blockData );
+			// Validate array format: [fileIdx, startPos, endPos, count, totalTime, isOverlapping (optional)]
+			var blockDataLen = arrayLen( blockData );
+			if ( !isArray( blockData ) || (blockDataLen != 5 && blockDataLen != 6) ) {
+				throw "Aggregated block must be array with 5 or 6 elements [fileIdx, startPos, endPos, count, totalTime, isOverlapping (optional)], got: " & serializeJSON( blockData );
 			}
 
 			var fileIdx = blockData[ 1 ];

@@ -30,7 +30,7 @@ component {
 	 *
 	 * @jsonFilePaths Array of JSON file paths
 	 * @astMetadataPath Path to ast-metadata.json
-	 * @buildWithCallTree If true, marks blocks with isChild flags before building coverage (combines buildLineCoverage+annotateCallTree)
+	 * @buildWithCallTree If true, marks blocks with blockType before building coverage (combines buildLineCoverage+annotateCallTree)
 	 * @return Array of processed JSON file paths
 	 */
 	public array function buildCoverage(required array jsonFilePaths, required string astMetadataPath, boolean buildWithCallTree = false) localmode=true {
@@ -103,7 +103,7 @@ component {
 	 *
 	 * @mergedResults Struct of merged result objects keyed by canonical index
 	 * @astMetadataPath Path to ast-metadata.json
-	 * @buildWithCallTree If true, marks blocks with isChild flags before building coverage
+	 * @buildWithCallTree If true, marks blocks with blockType before building coverage
 	 * @return Struct of result objects with coverage added
 	 */
 	public struct function buildCoverageFromResults(
@@ -181,7 +181,7 @@ component {
 		var aggregated = arguments.result.getAggregated();
 		var files = arguments.result.getFiles();
 
-		// If buildWithCallTree, build CallTree data and mark blocks with isChild flags
+		// If buildWithCallTree, build CallTree data and mark blocks with blockType
 		if ( arguments.buildWithCallTree ) {
 			var callTreeMap = structNew( "regular" );
 			cfloop( collection=files, key="local.fileIdx", value="local.fileInfo" ) {
@@ -259,7 +259,7 @@ component {
 	}
 
 	/**
-	 * Apply isChild flags from markedBlocks to blocks struct.
+	 * Apply blockType from markedBlocks to blocks struct.
 	 * @blocks Blocks struct keyed by fileIdx -> blockKey
 	 * @markedBlocks Flat struct of marked blocks from CallTreeAnalyzer
 	 */
@@ -268,7 +268,7 @@ component {
 			var fileIdx = markedBlock.fileIdx;
 			var blockKey = markedBlock.startPos & "-" & markedBlock.endPos;
 
-			arguments.blocks[fileIdx][blockKey].isChild = markedBlock.isChildTime ?: false;
+			arguments.blocks[fileIdx][blockKey].blockType = (markedBlock.isChildTime ?: false) ? 1 : 0;
 		}
 	}
 

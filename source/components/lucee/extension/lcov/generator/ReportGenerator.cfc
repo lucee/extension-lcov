@@ -113,7 +113,7 @@ component {
 	 * @mergedResults Struct of merged result objects keyed by canonical index
 	 * @astMetadataPath Path to ast-metadata.json
 	 * @options Processing options
-	 * @buildWithCallTree Whether to mark blocks with isChild flags
+	 * @buildWithCallTree Whether to mark blocks with blockType
 	 * @return Struct of results with coverage added
 	 */
 	public struct function buildLineCoverageFromResults(
@@ -127,7 +127,7 @@ component {
 	}
 
 	/**
-	 * Phase annotateCallTree: Annotate CallTree (mark blocks with isChildTime flags)
+	 * Phase annotateCallTree: Annotate CallTree (mark blocks with blockType)
 	 * @jsonFilePaths Array of JSON file paths
 	 * @astMetadataPath Path to ast-metadata.json
 	 * @options Processing options

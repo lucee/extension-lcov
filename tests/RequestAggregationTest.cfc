@@ -9,7 +9,7 @@
 
 	It then checks that 
 		- the execution counts in the resulting JSON files match
-		- the isChild boolean flag, 3 element in the coverage is the same
+		- the blockType value, 3rd element in the coverage is the same
 
 	For both the json output per file, used to render HTML and and the JSON merged.json file
 */

@@ -106,4 +106,52 @@ component {
 			return arguments.filePath;
 		}
 	}
+
+	/**
+	* Calculate relative path from one directory to another
+	* @fromPath Absolute path to the directory to calculate from (e.g., HTML output dir)
+	* @toPath Absolute path to the target file or directory
+	* @return Relative path from fromPath to toPath
+	*/
+	public string function calculateRelativePath(required string fromPath, required string toPath) {
+		// Normalize paths - replace backslashes with forward slashes
+		var from = replace( arguments.fromPath, "\", "/", "all" );
+		var to = replace( arguments.toPath, "\", "/", "all" );
+
+		// Remove trailing slashes
+		from = reReplace( from, "/$", "" );
+		to = reReplace( to, "/$", "" );
+
+		// Split paths into parts
+		var fromParts = listToArray( from, "/" );
+		var toParts = listToArray( to, "/" );
+
+		// Find common base path
+		var commonLength = 0;
+		var minLength = min( arrayLen( fromParts ), arrayLen( toParts ) );
+		for ( var i = 1; i <= minLength; i++ ) {
+			if ( fromParts[ i ] == toParts[ i ] ) {
+				commonLength = i;
+			} else {
+				break;
+			}
+		}
+
+		// Build relative path
+		var relativeParts = [];
+
+		// Add ".." for each remaining directory in fromPath
+		var upLevels = arrayLen( fromParts ) - commonLength;
+		for ( var i = 1; i <= upLevels; i++ ) {
+			arrayAppend( relativeParts, ".." );
+		}
+
+		// Add remaining parts from toPath
+		for ( var i = commonLength + 1; i <= arrayLen( toParts ); i++ ) {
+			arrayAppend( relativeParts, toParts[ i ] );
+		}
+
+		// Join with forward slashes
+		return arrayLen( relativeParts ) > 0 ? arrayToList( relativeParts, "/" ) : ".";
+	}
 }
