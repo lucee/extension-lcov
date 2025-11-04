@@ -8,6 +8,9 @@ component {
 	import java.lang.reflect.Array;
 	import java.lang.String;
 
+	/**
+	 * @logger Logger - Logger instance
+	 */
 	public function init(required Logger logger) {
 		variables.logger = arguments.logger;
 		return this;

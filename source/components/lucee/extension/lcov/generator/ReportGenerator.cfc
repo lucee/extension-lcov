@@ -6,6 +6,11 @@
  */
 component {
 
+	/**
+	 * Initialize report generator with logger and dependencies
+	 * @logger Logger instance for debugging and tracing
+	 * @return This instance
+	 */
 	public function init(required any logger) {
 		variables.logger = arguments.logger;
 		variables.blockProcessor = new lucee.extension.lcov.coverage.CoverageBlockProcessor( logger=variables.logger );

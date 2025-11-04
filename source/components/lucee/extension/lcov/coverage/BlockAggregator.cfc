@@ -18,6 +18,10 @@
  */
 component {
 
+	/**
+	 * Initialize the block aggregator with cached utilities
+	 * @return This instance
+	 */
 	public function init() {
 		// Cache LinePositionUtils instance for 14.55% performance gain vs static :: syntax
 		variables.linePositionUtils = new lucee.extension.lcov.LinePositionUtils();

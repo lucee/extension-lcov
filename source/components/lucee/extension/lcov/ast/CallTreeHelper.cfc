@@ -15,10 +15,8 @@ component {
 	 * @lineNumber Line number to look up
 	 * @return Function name or empty string if not in a function
 	 */
-	public string function getFunctionAtLine(required struct callTree, required numeric lineNumber) {
-		for (var blockKey in arguments.callTree) {
-			var block = arguments.callTree[blockKey];
-
+	public function getFunctionAtLine( callTree, lineNumber ) localmode=true {
+		cfloop( collection=arguments.callTree, key="local.blockKey", value="local.block" ) {
 			// Check if line is within this block's line range
 			if (structKeyExists(block, "lineRange") && isArray(block.lineRange) && arrayLen(block.lineRange) >= 2) {
 				if (arguments.lineNumber >= block.lineRange[1] && arguments.lineNumber <= block.lineRange[2]) {
@@ -38,12 +36,10 @@ component {
 	 * @callTree Call tree data (can be full or filtered by file)
 	 * @return Struct with line numbers as keys and function names as values
 	 */
-	public struct function buildLineFunctionMap(required struct callTree) {
+	public function buildLineFunctionMap( callTree ) localmode=true {
 		var lineMap = structNew("regular");
 
-		for (var blockKey in arguments.callTree) {
-			var block = arguments.callTree[blockKey];
-
+		cfloop( collection=arguments.callTree, key="local.blockKey", value="local.block" ) {
 			if (structKeyExists(block, "lineRange") && isArray(block.lineRange) &&
 				arrayLen(block.lineRange) >= 2 &&
 				structKeyExists(block, "function") &&

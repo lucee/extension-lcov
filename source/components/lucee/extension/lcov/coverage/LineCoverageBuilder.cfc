@@ -14,6 +14,9 @@ component {
 	property name="blockToLineAggregator";
 	property name="blockProcessor";
 
+	/**
+	 * @logger Logger instance (optional)
+	 */
 	public function init(any logger) {
 		variables.logger = arguments.logger ?: new lucee.extension.lcov.Logger( logLevel="ERROR" );
 		variables.blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator( logger=variables.logger );

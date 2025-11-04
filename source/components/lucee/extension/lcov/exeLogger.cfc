@@ -1,9 +1,20 @@
 component  {
 
+	/**
+	 * Initialize execution logger with admin password
+	 * @adminPassword Lucee server admin password
+	 * @return This instance
+	 */
 	function init(required string adminPassword){
 		variables.adminPassword = arguments.adminPassword;
 	};
 
+	/**
+	 * Enable execution logging with specified class and configuration
+	 * @class Execution log class name
+	 * @args Configuration arguments for the execution log
+	 * @maxLogs Maximum number of logs to retain
+	 */
 	function enableExecutionLog( string class, struct args, numeric maxLogs ){
 		// Validate unit is supported by Lucee ExecutionLogSupport
 		var processedArgs = structCopy(arguments.args);
@@ -21,6 +32,10 @@ component  {
 		admin action="updateDebugSetting" type="server" password="#variables.adminPassword#" maxLogs="#arguments.maxLogs#";
 	}
 
+	/**
+	 * Disable execution logging
+	 * @class Execution log class to disable
+	 */
 	function disableExecutionLog(class="lucee.runtime.engine.ConsoleExecutionLog"){
 		admin action="updateDebug" type="server" password="#variables.adminPassword#" debug="false";
 
@@ -29,16 +44,29 @@ component  {
 		purgeExecutionLog();
 	}
 
+	/**
+	 * Purge all logged debug data from the debug pool
+	 */
 	function purgeExecutionLog(){
 		admin action="PurgeDebugPool" type="server" password="#variables.adminPassword#";
 	}
 
+	/**
+	 * Retrieve all logged debug data from Lucee
+	 * @return Array of logged debug data entries
+	 */
 	function getLoggedDebugData(){
 		var logs = [];
 		admin action="getLoggedDebugData" type="server" password="#variables.adminPassword#" returnVariable="logs";
 		return logs;
 	}
 
+	/**
+	 * Get combined debug logs from all requests, cleaned up and aggregated
+	 * @baseDir Base directory for path normalization
+	 * @raw If true, return raw query without aggregation
+	 * @return Query containing combined debug log data
+	 */
 	function getDebugLogsCombined( string baseDir, boolean raw=false ){
 		var logs = getLoggedDebugData();
 		var parts = QueryNew( "ID,COUNT,MIN,MAX,AVG,TOTAL,PATH,START,END,STARTLINE,ENDLINE,SNIPPET,KEY" );
@@ -72,7 +100,12 @@ component  {
 		return q;
 	}
 
-
+	/**
+	 * Clean up execution log data by normalizing paths and adding keys
+	 * @pageParts Query containing raw page part data
+	 * @baseDir Base directory to strip from file paths
+	 * @return Cleaned query with normalized paths and added key column
+	 */
 	function cleanUpExeLog( query pageParts, string baseDir ){
 		var parts = duplicate( pageParts );
 		queryAddColumn( parts, "key" ); //  this is synchronized 
@@ -86,6 +119,10 @@ component  {
 		return parts;
 	}
 
+	/**
+	 * Get debug logs for a specific request (cached within request scope)
+	 * @return Array of debug log entries
+	 */
 	function getDebugLogs() cachedwithin="request" {
 		disableExecutionLog();
 		enableExecutionLog( "lucee.runtime.engine.DebugExecutionLog",{

@@ -17,6 +17,9 @@ component {
 	variables.SKIP_KEYS_TRAVERSE = [ "type", "name", "start", "end", "line" ];
 	variables.SKIP_KEYS_EXTRACT = [ "type", "name", "start", "end" ];
 
+	/**
+	 * @logger Logger - Logger instance
+	 */
 	public function init(required Logger logger) {
 		variables.logger = arguments.logger;
 		return this;

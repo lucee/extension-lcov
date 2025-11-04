@@ -3,6 +3,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 	/**
 	 * Initialize the position-based overlap filter
 	 * @options Configuration options struct (optional)
+	 * @return This instance
 	 */
 	public function init(struct options = {}) {
 		variables.options = arguments.options;

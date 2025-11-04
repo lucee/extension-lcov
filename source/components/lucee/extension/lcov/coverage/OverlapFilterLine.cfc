@@ -3,6 +3,7 @@ component displayname="OverlapFilterLine" accessors="true" {
 	/**
 	 * Initialize the line-based overlap filter
 	 * @options Configuration options struct (optional)
+	 * @return This instance
 	 */
 	public function init(struct options = {}) {
 		variables.options = arguments.options;

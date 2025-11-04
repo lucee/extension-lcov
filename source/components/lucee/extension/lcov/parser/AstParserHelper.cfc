@@ -9,6 +9,12 @@ component {
 	property name="logger" type="any";
 	property name="astCache" type="struct" default="#{}#";
 
+	/**
+	 * Initialize AST parser helper with logger and optional shared cache
+	 * @logger Logger instance for debugging and tracing
+	 * @sharedAstCache Optional shared AST cache for parallel processing
+	 * @return This instance
+	 */
 	public function init(required any logger, struct sharedAstCache) {
 		variables.logger = arguments.logger;
 		// Use shared AST cache if provided (for parallel processing), otherwise use instance cache

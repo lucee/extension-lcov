@@ -12,6 +12,11 @@ component {
 	property name="logger";
 	property name="callTreeAnalyzer";
 
+	/**
+	 * Initialize call tree annotator with dependencies
+	 * @logger Logger instance for debugging and tracing
+	 * @return This instance
+	 */
 	public function init(any logger) {
 		variables.logger = arguments.logger ?: new lucee.extension.lcov.Logger( logLevel="ERROR" );
 		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );

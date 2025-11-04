@@ -34,6 +34,8 @@ component {
 
 	/**
 	 * Validates metadata struct
+	 * @resultObject The result object to validate
+	 * @return Array of problem messages
 	 */
 	private array function validateMetadata(required any resultObject) {
 		var problems = [];
@@ -48,6 +50,8 @@ component {
 
 	/**
 	 * Validates stats struct and required fields
+	 * @resultObject The result object to validate
+	 * @return Array of problem messages
 	 */
 	private array function validateStats(required any resultObject) {
 		var problems = [];
@@ -70,6 +74,8 @@ component {
 
 	/**
 	 * Validates files struct and each file entry
+	 * @resultObject The result object to validate
+	 * @return Array of problem messages
 	 */
 	private array function validateFiles(required any resultObject) {
 		var problems = [];
@@ -122,6 +128,8 @@ component {
 
 	/**
 	 * Validates isFile business rule: if isFile=true, files must have only one entry with key "0"
+	 * @resultObject The result object to validate
+	 * @return Array of problem messages
 	 */
 	private array function validateIsFileBusinessRule(required any resultObject) {
 		var problems = [];
@@ -139,6 +147,8 @@ component {
 
 	/**
 	 * Validates execution time consistency in coverage data.
+	 * @resultObject The result object to validate
+	 * @return Array of problem messages
 	 */
 	private array function validateExecutionTime(required any resultObject) {
 		var problems = [];

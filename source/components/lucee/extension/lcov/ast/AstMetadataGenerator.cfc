@@ -6,6 +6,11 @@
  */
 component {
 
+	/**
+	 * Initialize AST metadata generator
+	 * @logger Logger instance for debugging and tracing
+	 * @return This instance
+	 */
 	public function init(any logger) {
 		variables.logger = arguments.logger;
 		// Create components once in init, not in every function call

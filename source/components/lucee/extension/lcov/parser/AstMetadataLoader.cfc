@@ -5,6 +5,11 @@ component {
 
 	property name="logger";
 
+	/**
+	 * Initialize AST metadata loader with logger and cache
+	 * @logger Logger instance for debugging and tracing
+	 * @return This instance
+	 */
 	public function init(any logger) {
 		variables.logger = arguments.logger ?: new lucee.extension.lcov.Logger( level="none" );
 		variables.metadataCache = {}; // In-memory cache for AST metadata
@@ -102,6 +107,8 @@ component {
 
 	/**
 	 * Load and parse the index file
+	 * @indexPath Path to ast-metadata.json index file
+	 * @return Struct containing file metadata index
 	 */
 	public struct function loadIndex(required string indexPath) {
 		if ( !fileExists( arguments.indexPath ) ) {

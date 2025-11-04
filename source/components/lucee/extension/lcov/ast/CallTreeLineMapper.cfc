@@ -1,8 +1,8 @@
+/**
+ * CallTreeLineMapper - Maps call tree position-based data to line numbers
+ * Takes call tree blocks with character positions and maps them to the corresponding line numbers.
+ */
 component {
-	/**
-	 * Maps call tree position-based data to line numbers for display in line-by-line coverage reports.
-	 * Takes call tree blocks with character positions and maps them to the corresponding line numbers.
-	 */
 
 	/**
 	 * Maps call tree data from character positions to line numbers

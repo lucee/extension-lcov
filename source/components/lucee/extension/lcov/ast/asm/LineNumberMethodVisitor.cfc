@@ -18,11 +18,22 @@ component implementsJava="org.objectweb.asm.MethodVisitor" javasettings='{
 	variables.lineNumbers = {};
 	variables.ASM_API = 524288; // ASM9
 
+	/**
+	 * Initialize the method visitor
+	 * @api ASM API version
+	 * @lineNumbersStruct Struct to populate with line numbers (passed by reference)
+	 * @return This instance
+	 */
 	public function init(required numeric api, required struct lineNumbersStruct) {
 		variables.lineNumbers = arguments.lineNumbersStruct;
 		return this;
 	}
 
+	/**
+	 * Visit a line number entry in the method's LineNumberTable
+	 * @line Line number
+	 * @start Label object marking the start of this line
+	 */
 	public void function visitLineNumber(required numeric line, required any start) {
 		// Record this line number
 		variables.lineNumbers[arguments.line] = true;

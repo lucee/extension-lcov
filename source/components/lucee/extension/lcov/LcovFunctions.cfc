@@ -1,5 +1,10 @@
 component {
 
+	/**
+	 * Initialize LCOV functions with optional admin password
+	 * @adminPassword Lucee server admin password (optional)
+	 * @return This instance
+	 */
 	public function init(string adminPassword = "") {
 		if (len(arguments.adminPassword)) {
 			variables.exeLogger = new exeLogger(arguments.adminPassword);

@@ -22,11 +22,20 @@ component implementsJava="org.objectweb.asm.ClassVisitor" javasettings='{
 	variables.lineNumbers = {};
 	variables.ASM_API = 524288; // ASM9
 
+	/**
+	 * Initialize the collector with a line numbers struct
+	 * @lineNumbersStruct Struct to populate with line numbers (passed by reference)
+	 * @return This instance
+	 */
 	public function init(required struct lineNumbersStruct) {
 		variables.lineNumbers = arguments.lineNumbersStruct;
 		return this;
 	}
 
+	/**
+	 * Visit a method in the class file
+	 * @return MethodVisitor for this method
+	 */
 	public function visitMethod(access, name, descriptor, signature, exceptions) {
 		// Return a MethodVisitor to visit this method
 		return new LineNumberMethodVisitor(variables.ASM_API, variables.lineNumbers);

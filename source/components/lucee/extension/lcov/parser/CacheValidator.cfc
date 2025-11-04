@@ -8,6 +8,11 @@ component {
 
 	property name="logger" type="any";
 
+	/**
+	 * Initialize cache validator with logger
+	 * @logger Logger instance for debugging and tracing
+	 * @return This instance
+	 */
 	public function init(required any logger) {
 		variables.logger = arguments.logger;
 		return this;

@@ -14,6 +14,9 @@ component {
 	property name="executableLineCounter";
 	property name="astParserHelper";
 
+	/**
+	 * @logger Logger instance (optional)
+	 */
 	public function init(any logger) {
 		variables.logger = arguments.logger ?: new lucee.extension.lcov.Logger( logLevel="ERROR" );
 		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
