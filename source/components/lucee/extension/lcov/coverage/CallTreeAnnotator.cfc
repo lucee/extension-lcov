@@ -23,6 +23,7 @@ component {
 		variables.blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		variables.coverageStats = new lucee.extension.lcov.CoverageStats( logger=variables.logger );
 		variables.astMetadataLoader = new lucee.extension.lcov.parser.AstMetadataLoader( logger=variables.logger );
+		variables.blockAnnotator = new lucee.extension.lcov.coverage.BlockAnnotator( logger=variables.logger );
 		return this;
 	}
 
@@ -64,13 +65,17 @@ component {
 
 			// Build callTreeMap: nested struct keyed by fileIdx, then position
 			var callTreeMap = structNew( "regular" );
+			var astNodesMap = structNew( "regular" );
 			var files = result.getFiles();
 			for ( var fileIdx in files ) {
-				callTreeMap[fileIdx] = variables.astMetadataLoader.loadMetadataForFileWithIndex( metadataPath, index, files[fileIdx].path ).callTree;
+				var metadata = variables.astMetadataLoader.loadMetadataForFileWithIndex( metadataPath, index, files[fileIdx].path );
+				callTreeMap[fileIdx] = metadata.callTree;
+				// Load astNodes if available (backward compatible - old metadata won't have it)
+				astNodesMap[files[fileIdx].path] = structKeyExists( metadata, "astNodes" ) ? metadata.astNodes : structNew();
 			}
 
 			// Annotate CallTree - pass AST index for lineMapping
-			self.annotateResult( result, callTreeMap, metadataPath, index );
+			self.annotateResult( result, callTreeMap, astNodesMap, metadataPath, index );
 
 			// Write back to JSON
 			fileWrite( jsonPath, result.toJson( pretty=false ) );
@@ -96,11 +101,12 @@ component {
 	 *
 	 * @result The result object with aggregated data
 	 * @callTreeMap Map of call positions from ast-metadata.json
+	 * @astNodesMap Map of AST nodes by file path from ast-metadata.json
 	 * @astMetadataPath Path to ast-metadata.json (for loading lineMapping)
 	 * @astIndex Loaded AST index (shared across parallel processing)
 	 * @return The result object with CallTree annotations
 	 */
-	private any function annotateResult(result, callTreeMap, astMetadataPath, astIndex) localmode=true {
+	private any function annotateResult(result, callTreeMap, astNodesMap, astMetadataPath, astIndex) localmode=true {
 		// Check if already done
 		var flags = arguments.result.getFlags();
 		if ( structKeyExists( flags, "hasCallTree" ) && flags.hasCallTree ) {
@@ -112,7 +118,11 @@ component {
 
 		var blocks = arguments.result.getBlocks();
 		var aggregated = arguments.result.getAggregated();
+		var files = arguments.result.getFiles();
 		var markedBlocks = variables.callTreeAnalyzer.markChildTimeBlocks( aggregated, arguments.callTreeMap );
+
+		// Enrich blocks with AST node type information
+		enrichBlocksWithAst( blocks, files, arguments.astNodesMap );
 
 		// Update existing blocks with blockType from markedBlocks
 		// markedBlocks has flat structure: {fileIdx\tstartPos\tendPos: {fileIdx, startPos, endPos, isChildTime, isBuiltIn}}
@@ -167,6 +177,84 @@ component {
 		variables.logger.commitEvent( event=event, minThresholdMs=100, logLevel="debug" );
 
 		return arguments.result;
+	}
+
+	/**
+	 * Enrich blocks with AST node type information.
+	 *
+	 * @blocks Nested struct {fileIdx: {startPos-endPos: {hitCount, execTime, ...}}}
+	 * @files Files struct {fileIdx: {path: "..."}}
+	 * @astNodesMap AST nodes by file path {filePath: {startPos-endPos: {astNodeType, isBlock, tagName}}}
+	 */
+	private void function enrichBlocksWithAst(
+		required struct blocks,
+		required struct files,
+		required struct astNodesMap
+	) localmode=true {
+		var enrichedCount = 0;
+		var totalBlocks = 0;
+
+		// Iterate over each file's blocks
+		cfloop( collection=arguments.blocks, key="local.fileIdx" ) {
+			// Get file path
+			var filePath = "";
+			if ( structKeyExists( arguments.files, fileIdx ) &&
+			     structKeyExists( arguments.files[fileIdx], "path" ) ) {
+				filePath = arguments.files[fileIdx].path;
+			}
+
+			// Get AST nodes for this file
+			var astNodes = structKeyExists( arguments.astNodesMap, filePath ) ?
+				arguments.astNodesMap[filePath] :
+				structNew();
+
+			// Skip if no AST nodes for this file
+			if ( structCount( astNodes ) == 0 ) {
+				continue;
+			}
+
+			// Iterate over blocks in this file
+			var fileBlocks = arguments.blocks[fileIdx];
+			cfloop( collection=fileBlocks, key="local.blockKey" ) {
+				totalBlocks++;
+				var block = fileBlocks[blockKey];
+
+				// blockKey format: "startPos-endPos"
+				// Look up AST node with same key
+				if ( structKeyExists( astNodes, blockKey ) ) {
+					var astNode = astNodes[blockKey];
+
+					// VALIDATION: If overlap says it's a block container, AST MUST agree
+					// (Overlap is never wrong when it detects a container via runtime heuristic)
+					// But if AST says it's a block and overlap doesn't, that's OK
+					// (Overlap can miss single-statement blocks with no child execution blocks)
+					if ( structKeyExists( block, "isOverlapping" ) ) {
+						var overlapSaysBlock = block.isOverlapping;
+						var astSaysBlock = astNode.isBlock ?: false;
+
+						// Only throw if overlap detected a container but AST didn't
+						if ( overlapSaysBlock && !astSaysBlock ) {
+							throw(
+								type = "CallTreeAnnotator.BlockMismatch",
+								message = "Overlap detection found block container but AST disagrees for block #blockKey# in #filePath#",
+								detail = "Overlap detection: isOverlapping=#overlapSaysBlock#, AST: isBlock=#astSaysBlock#, astNodeType=#astNode.astNodeType#, tagName=#astNode.tagName ?: ''#" & chr(10) &
+									"Block data: hitCount=#block.hitCount#, execTime=#block.execTime#" & chr(10) &
+									"Full block struct: #serializeJSON(block)#" & chr(10) &
+									"Full AST node: #serializeJSON(astNode)#"
+							);
+						}
+					}
+
+					// Add AST data to block
+					block.astNodeType = astNode.astNodeType ?: "";
+					block.isBlock = astNode.isBlock ?: false;
+					block.tagName = astNode.tagName ?: "";
+					enrichedCount++;
+				}
+			}
+		}
+
+		variables.logger.debug( "Enriched #enrichedCount# of #totalBlocks# blocks with AST metadata" );
 	}
 
 

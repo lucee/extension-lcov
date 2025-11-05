@@ -145,7 +145,7 @@ component accessors="true" {
 					var lineNum = lineNumbers[j];
 					var lineData = filecoverage[lineNum];
 
-					// lineData[1] is hit count, lineData[2] is ownTime, lineData[3] is childTime
+					// lineData[1] is hit count, lineData[2] is ownTime, lineData[3] is childTime, lineData[4] is blockTime (not summed)
 					// Count lines with hitCount > 0 as executed
 					if (isNumeric(lineData[1]) && lineData[1] > 0) {
 						totalStats.totalLinesHit++;

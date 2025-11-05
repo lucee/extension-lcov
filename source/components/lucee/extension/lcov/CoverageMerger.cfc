@@ -345,10 +345,11 @@ component {
 				if (arrayLen(targetLine) != arrayLen(sourceLine)) {
 					throw("mergeCoverageData: Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 				}
-				// NEW FORMAT: Sum all three values [hitCount, ownTime, childTime]
+				// NEW FORMAT: Sum all four values [hitCount, ownTime, childTime, blockTime]
 				targetLine[1] += sourceLine[1]; // hitCount
 				targetLine[2] += sourceLine[2]; // ownTime
 				targetLine[3] += sourceLine[3]; // childTime
+				targetLine[4] += sourceLine[4]; // blockTime
 			}
 			linesMerged++;
 		}

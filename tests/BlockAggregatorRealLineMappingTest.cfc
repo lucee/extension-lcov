@@ -38,13 +38,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Verify we got SOME line coverage (not empty)
 				expect( structCount( lineCoverage ) ).toBeGT( 0, "Should have line coverage data" );
 
-				// Verify each line has the correct format [hitCount, ownTime, childTime]
+				// Verify each line has the correct format [hitCount, ownTime, childTime, blockTime]
 				for ( var lineNum in lineCoverage ) {
 					var lineData = lineCoverage[ lineNum ];
-					expect( arrayLen( lineData ) ).toBe( 3, "Line #lineNum# should have 3 elements" );
+					expect( arrayLen( lineData ) ).toBe( 4, "Line #lineNum# should have 4 elements" );
 					expect( lineData[ 1 ] ).toBeGTE( 0, "Line #lineNum# hitCount should be >= 0" );
 					expect( lineData[ 2 ] ).toBeGTE( 0, "Line #lineNum# ownTime should be >= 0" );
 					expect( lineData[ 3 ] ).toBeGTE( 0, "Line #lineNum# childTime should be >= 0" );
+					expect( lineData[ 4 ] ).toBeGTE( 0, "Line #lineNum# blockTime should be >= 0" );
 				}
 
 				// Verify the blocks were actually mapped to lines (not all skipped)

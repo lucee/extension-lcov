@@ -232,8 +232,9 @@ component {
 				}
 
 				// Different types of function calls
+				// NOTE: MemberExpression is NOT a call - it's property access (e.g., obj.property)
+				// CallExpression handles method calls where callee is a MemberExpression (e.g., obj.method())
 				if (nodeType === "CallExpression" ||
-				    nodeType === "MemberExpression" ||
 				    nodeType === "NewExpression" ||
 				    nodeType === "TaggedTemplateExpression") {
 

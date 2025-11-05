@@ -124,7 +124,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// Source coverage: line 10 hit 10 times with 2ns ownTime, line 20 hit 20 times with 3ns ownTime
 				// NEW FORMAT: [hitCount, ownTime, childTime]
-				var sourceCoverage = {"10": [10, 2, 0], "20": [20, 3, 0]};
+				var sourceCoverage = {"10": [10, 2, 0, 0], "20": [20, 3, 0, 0]};
 				// Merge into empty target
 				var mergedLines = merger.mergeCoverageData(targetResult, sourceCoverage, "/tmp/Synthetic.cfm", 0);
 				expect(mergedLines).toBe(2);
@@ -134,7 +134,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(cov["0"]["20"][2]).toBe(3);
 
 				// Merge again with new hits
-				var sourceCoverage2 = {"10": [10, 5, 0], "20": [20, 7, 0]};
+				var sourceCoverage2 = {"10": [10, 5, 0, 0], "20": [20, 7, 0, 0]};
 				var mergedLines2 = merger.mergeCoverageData(targetResult, sourceCoverage2, "/tmp/Synthetic.cfm", 0);
 				expect(mergedLines2).toBe(2);
 				cov = targetResult.getCoverage();
@@ -142,7 +142,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(cov["0"]["20"][2]).toBe(10); // 3+7
 			});
 
-			it("merges childTime correctly (NEW FORMAT: [hitCount, ownTime, childTime])", function() {
+			it("merges childTime correctly (NEW FORMAT: [hitCount, ownTime, childTime, blockTime])", function() {
 				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var targetResult = new lucee.extension.lcov.model.result();
 				targetResult.setExeLog("/tmp/synthetic.exl");
@@ -176,10 +176,10 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				targetResult.setOutputFilename("synthetic-childTime-test");
 
 				// First merge: line 10 has constructor call with childTime
-				// Format: [hitCount, ownTime, childTime]
+				// Format: [hitCount, ownTime, childTime, blockTime]
 				var sourceCoverage1 = {
-					"10": [ 1, 0, 5000 ],  // 1 hit, 0 ownTime, 5000 childTime (constructor call)
-					"20": [ 1, 100, 0 ]     // 1 hit, 100 ownTime, 0 childTime (regular code)
+					"10": [ 1, 0, 5000, 0 ],  // 1 hit, 0 ownTime, 5000 childTime (constructor call), 0 blockTime
+					"20": [ 1, 100, 0, 0 ]     // 1 hit, 100 ownTime, 0 childTime (regular code), 0 blockTime
 				};
 				var mergedLines1 = merger.mergeCoverageData( targetResult, sourceCoverage1, "/tmp/Synthetic.cfm", 0 );
 				expect( mergedLines1 ).toBe( 2 );
@@ -194,8 +194,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				// Second merge: same lines executed again (simulating multiple requests)
 				var sourceCoverage2 = {
-					"10": [ 1, 0, 3000 ],  // 1 more hit, 0 ownTime, 3000 childTime (faster due to JIT)
-					"20": [ 1, 50, 0 ]      // 1 more hit, 50 ownTime (faster due to JIT), 0 childTime
+					"10": [ 1, 0, 3000, 0 ],  // 1 more hit, 0 ownTime, 3000 childTime (faster due to JIT), 0 blockTime
+					"20": [ 1, 50, 0, 0 ]      // 1 more hit, 50 ownTime (faster due to JIT), 0 childTime, 0 blockTime
 				};
 				var mergedLines2 = merger.mergeCoverageData( targetResult, sourceCoverage2, "/tmp/Synthetic.cfm", 0 );
 				expect( mergedLines2 ).toBe( 2 );
@@ -219,14 +219,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result1 = new lucee.extension.lcov.model.result();
 				result1.setExeLog(exlPath1);
 				result1.setFiles({ 0: { path: filePath, linesFound: 0, linesHit: 0, linesSource: 0, coveragePercentage: 0, totalExecutions: 0, totalExecutionTime: 0, lines: [], executableLines: {} } });
-				result1.setCoverage({ 0: { "10": [10, 2, 0], "20": [20, 3, 0] } });
+				result1.setCoverage({ 0: { "10": [10, 2, 0, 0], "20": [20, 3, 0, 0] } });
 				result1.setMetadata({ "script-name": "synthetic1.cfm", "execution-time": 0, "unit": "ms" });
 				result1.setOutputFilename("synthetic1-mergeAll-test");
 
 				var result2 = new lucee.extension.lcov.model.result();
 				result2.setExeLog(exlPath2);
 				result2.setFiles({ 0: { path: filePath, linesFound: 0, linesHit: 0, linesSource: 0, coveragePercentage: 0, totalExecutions: 0, totalExecutionTime: 0, lines: [], executableLines: {} } });
-				result2.setCoverage({ 0: { "10": [10, 5, 0], "30": [30, 4, 0] } });
+				result2.setCoverage({ 0: { "10": [10, 5, 0, 0], "30": [30, 4, 0, 0] } });
 				result2.setMetadata({ "script-name": "synthetic2.cfm", "execution-time": 0, "unit": "ms" });
 				result2.setOutputFilename("synthetic2-mergeAll-test");
 

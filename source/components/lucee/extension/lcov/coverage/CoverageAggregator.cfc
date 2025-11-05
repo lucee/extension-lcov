@@ -257,13 +257,13 @@ component {
 			// Using literal tab in string template is 17% faster than chr(9) concatenation
 			var k = "#p[1]#	#p[2]#	#p[3]#";
 
-			// Aggregate (we use ints, half the memory size of doubles)
+			// Aggregate (use native numeric types to avoid int overflow for large execution times)
 			if ( structKeyExists( a, k ) ) {
 				var r = a[k];
 				r[4]++;
-				r[5] += int( p[4] );
+				r[5] += p[4];
 			} else {
-				a[k] = [p[1], int( p[2] ), int( p[3] ), 1, int( p[4] )];
+				a[k] = [p[1], p[2], p[3], 1, p[4]];
 			}
 		}
 

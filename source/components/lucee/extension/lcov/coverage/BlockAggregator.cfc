@@ -4,11 +4,12 @@
  * LINE COVERAGE FORMAT:
  *
  * CURRENT FORMAT (used throughout the system):
- *   [hitCount, ownTime, childTime]
+ *   [hitCount, ownTime, childTime, blockTime]
  *   - hitCount: Number of times the line was executed (integer)
  *   - ownTime: Time spent in the line's own code in nanoseconds (blocks with blockType==0)
  *   - childTime: Time spent in function calls in nanoseconds (blocks with blockType==1)
- *   - totalTime = ownTime + childTime
+ *   - blockTime: Time for container blocks (for loops, if statements) - NOT summed in totals to avoid double-counting
+ *   - totalTime = ownTime (childTime and blockTime overlap with actual execution, not additive)
  *
  * LEGACY FORMAT (deprecated - no longer used):
  *   [hitCount, execTime, isChildTime]
@@ -113,19 +114,25 @@ component {
 				continue;
 			}
 
-			// Initialize line if not exists: [hitCount, ownTime, childTime]
+			// Initialize line if not exists: [hitCount, ownTime, childTime, blockTime]
+			// blockTime is tracked separately and NOT summed in file/request totals (prevents double-counting)
 			if ( !structKeyExists( lineCoverage, lineNum ) ) {
-				lineCoverage[ lineNum ] = [ 0, 0, 0 ];
+				lineCoverage[ lineNum ] = [ 0, 0, 0, 0 ];
 			}
 
 			var lineData = lineCoverage[ lineNum ];
 			// Aggregate hit counts
 			lineData[ 1 ] += block.hitCount;
 
-			// Separate own time vs child time based on blockType
+			// Separate own time vs child time vs block container time based on blockType and isBlock flag
 			// blockType may not exist if annotateCallTree hasn't run yet
 			// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
-			if ( hasBlockType === 1 && (block.blockType == 1 || block.blockType == 3) ) {
+			var isBlock = structKeyExists( block, "isBlock" ) && block.isBlock;
+
+			// Block containers have time that INCLUDES everything inside them, so we track separately to avoid double-counting
+			if ( isBlock ) {
+				lineData[ 4 ] += block.execTime;  // Block container time (not summed in totals)
+			} else if ( hasBlockType === 1 && (block.blockType == 1 || block.blockType == 3) ) {
 				lineData[ 3 ] += block.execTime;  // Child time (blockType == 1 or 3)
 			} else {
 				lineData[ 2 ] += block.execTime;  // Own time (blockType == 0, 2, or not set)
@@ -204,18 +211,22 @@ component {
 				}
 				var lineNum = lineMapping[ startPos ];
 
-				// Initialize line if not exists: [hitCount, ownTime, childTime]
+				// Initialize line if not exists: [hitCount, ownTime, childTime, blockTime]
 				if ( !structKeyExists( lineCoverage, lineNum ) ) {
-					lineCoverage[ lineNum ] = [ 0, 0, 0 ];
+					lineCoverage[ lineNum ] = [ 0, 0, 0, 0 ];
 				}
 
 				var lineData = lineCoverage[ lineNum ];
 				// Aggregate hit counts
 				lineData[ 1 ] += block.hitCount;
 
-				// Separate own time vs child time based on blockType
+				// Separate own time vs child time vs block container time based on blockType and isBlock flag
 				// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
-				if ( hasBlockType === 1 && (block.blockType == 1 || block.blockType == 3) ) {
+				var isBlock = structKeyExists( block, "isBlock" ) && block.isBlock;
+
+				if ( isBlock ) {
+					lineData[ 4 ] += block.execTime;  // Block container time (not summed in totals)
+				} else if ( hasBlockType === 1 && (block.blockType == 1 || block.blockType == 3) ) {
 					lineData[ 3 ] += block.execTime;  // Child time (blockType == 1 or 3)
 				} else {
 					lineData[ 2 ] += block.execTime;  // Own time (blockType == 0, 2, or not set)

@@ -51,13 +51,15 @@ component {
 			variables.logger.debug("astFromPath failed for [" & arguments.path & "], falling back to astFromString: " & e.message);
 
 			var content = arguments.fileContent;
+			var mode = "script"; // Default: script mode for script-based CFML
 
-			// Fix for .cfc files: wrap in cfscript tags if it doesn't contain cfcomponent tag
-			if (arguments.path.endsWith(".cfc") && !findNoCase("<" & "cfcomponent", content)) {
-				content = "<" & "cfscript>" & content & "</" & "cfscript>";
+			// Script-based .cfc files use "script" mode (most common)
+			// Tag-based .cfm files with cf tags use "tag" mode
+			if (arguments.path.endsWith(".cfm") && findNoCase("<cf", content)) {
+				mode = "tag";
 			}
 
-			ast = astFromString(content);
+			ast = astFromString(content, mode);
 		}
 
 		// Cache the AST for future use

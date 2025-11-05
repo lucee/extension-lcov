@@ -56,7 +56,7 @@ component {
 			if (structKeyExists(fileInfo, "executableLines")) {
 				cfloop( collection=fileInfo.executableLines, key="local.lineNum" ) {
 					if (!structKeyExists(coverage[fileIdx], lineNum)) {
-						coverage[fileIdx][lineNum] = [0, 0, 0]; // [hitCount, ownTime, childTime]
+						coverage[fileIdx][lineNum] = [0, 0, 0, 0]; // [hitCount, ownTime, childTime, blockTime]
 					}
 				}
 			}

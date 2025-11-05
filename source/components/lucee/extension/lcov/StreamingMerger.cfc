@@ -135,6 +135,7 @@ component {
 			});
 
 			// Set metadata with required properties (script-name, execution-time, unit)
+			// Note: unit starts as "μs" but will be corrected from source .exl during first merge
 			emptyResult.setMetadata({
 				"script-name": fileInfo.path,
 				"exeLog": fileInfo.path,
@@ -270,6 +271,16 @@ component {
 			var mergedAggregated = mergedResult.getAggregated();
 			if (!isStruct(mergedAggregated)) {
 				mergedAggregated = structNew("regular");
+			}
+
+			// Copy metadata (including unit) from first source result
+			// The empty result has a placeholder "μs" unit, but source result has the correct unit from .exl
+			var mergedMetadata = mergedResult.getMetadata();
+			var sourceMetadata = arguments.result.getMetadata();
+			if (structKeyExists(sourceMetadata, "unit") && sourceMetadata.unit != "") {
+				// Always use the source unit (from .exl file) as it's authoritative
+				mergedMetadata.unit = sourceMetadata.unit;
+				mergedResult.setMetadata(mergedMetadata);
 			}
 
 			// Build key with canonical index (always 0 for merged results)

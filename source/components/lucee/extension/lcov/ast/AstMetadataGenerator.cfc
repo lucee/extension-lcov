@@ -86,6 +86,7 @@ component {
 				"callTree": metadata.callTree,
 				"executableLineCount": metadata.executableLineCount,
 				"executableLines": metadata.executableLines,
+				"astNodes": metadata.astNodes,
 				"lineMapping": lineMapping
 			};
 			fileWrite( metadataFilePath, serializeJSON( metadataContent, false ) );

@@ -234,13 +234,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 									start: {offset: 150, line: 3}
 								},
 								{
-									type: "MemberExpression",
-									callee: {
-										property: {name: "methodCall"}
-									},
-									start: {offset: 200, line: 5}
-								},
-								{
 									type: "NewExpression",
 									constructor: "MyClass",
 									start: {offset: 250, line: 7}
@@ -253,10 +246,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" displayname=
 				var functions = variables.astCallAnalyzer.extractFunctions(ast);
 				var func = functions[1];
 
-				expect(arrayLen(func.calls)).toBe(3);
+				// MemberExpression is NOT a call - it's just property access (e.g., obj.property)
+				// Only CallExpression and NewExpression are actual calls
+				expect(arrayLen(func.calls)).toBe(2);
 				expect(func.calls[1].name).toBe("simpleCall");
-				expect(func.calls[2].name).toBe("methodCall");
-				expect(func.calls[3].name).toBe("new MyClass");
+				expect(func.calls[2].name).toBe("new MyClass");
 			});
 
 		});
