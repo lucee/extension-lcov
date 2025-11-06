@@ -10,8 +10,8 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 	}
 
 	function testForLoopMarkedAsBlockType() {
-		// Test that the for loop at line 41 is marked as "Block" type (not "Child" or "Own")
-		// Block containers should show their execution time separately to avoid double-counting
+		// Test that the for loop at line 41 is marked with proper time type
+		// With new format, for loops show as "Own" time (not "Child" time which is for function calls)
 
 		var exlFiles = directoryList( variables.testData.coverageDir, false, "array", "*.exl" );
 		expect( exlFiles ).toHaveLength( 1, "Should have generated one .exl file" );
@@ -45,13 +45,13 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		var htmlParser = new HtmlParser();
 		var doc = htmlParser.parseHtml( htmlContent );
 
-		// Find line 41 - the for loop should be marked as "Block" type
+		// Find line 41 - the for loop
 		var line41Rows = htmlParser.select( doc, "tr[data-line-number='41']" );
 		expect( line41Rows ).toHaveLength( 1, "Should find line 41 in HTML" );
 
 		var line41 = line41Rows[1];
 
-		// Find the type cell (should contain "Block")
+		// Find the type cell
 		var typeCells = htmlParser.select( line41, "td.time-type" );
 		expect( typeCells ).toHaveLength( 1, "Should have type cell for line 41" );
 
@@ -61,8 +61,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		systemOutput( "Line 41 (for loop) type: #typeText#", true );
 		systemOutput( "HTML report: file:///#replace( testHtmlFile, '\', '/', 'all' )#", true );
 
-		// Assert: The for loop should be marked as "Block" type
-		expect( typeText ).toBe( "Block", "For loop at line 41 should be marked as Block type (not Child or Own)" );
+		// Assert: The for loop should be marked as "Own" type (blockType 0 or 2)
+		// NEW FORMAT: Only "Own" and "Child" types exist (no separate "Block" type)
+		expect( typeText ).toBe( "Own", "For loop at line 41 should be marked as Own type (block container execution time)" );
 	}
 
 }

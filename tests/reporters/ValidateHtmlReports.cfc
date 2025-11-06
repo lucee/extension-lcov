@@ -269,8 +269,7 @@ component {
 				var rowClass = htmlParser.getAttr(row, "class");
 				if (structKeyExists(coverageData, lineNumber) && arrayLen(coverageData[lineNumber]) > 0) {
 					var hitCount = coverageData[lineNumber][1];
-					var ownTime = coverageData[lineNumber][2];
-					var childTime = coverageData[lineNumber][3];
+					var execTime = coverageData[lineNumber][2];
 
 					if (hitCount > 0) {
 						// Check for exact "executed" class (not "not-executed")
@@ -279,18 +278,17 @@ component {
 
 						// NOTE: We don't validate time > 0 because lines can execute too fast to measure (execTime=0)
 						// This is especially common with simple assignments, returns, or very fast operations
+						// Also, lines with ONLY overlapping blocks will have execTime=0 (containers like cfscript tags)
 					} else {
 						// Check for exact "not-executed" class
 						expect(rowClass).toBe("not-executed",
 							"Line #lineNumber# with hitCount=0 should have class 'not-executed' but got '#rowClass#' in [#arguments.reportHtmlPath#]");
 
 						// Not executed lines should have 0 time
-						expect(ownTime).toBe(0,
-							"Line #lineNumber# with hitCount=0 should have ownTime=0 but got #ownTime# in [#arguments.reportHtmlPath#]");
-						expect(childTime).toBe(0,
-							"Line #lineNumber# with hitCount=0 should have childTime=0 but got #childTime# in [#arguments.reportHtmlPath#]");
+						expect(execTime).toBe(0,
+							"Line #lineNumber# with hitCount=0 should have execTime=0 but got #execTime# in [#arguments.reportHtmlPath#]");
 					}
-				} else {
+				} else{
 					// Check for exact "non-executable" class
 					expect(rowClass).toBe("non-executable",
 						"Line #lineNumber# not in coverage should have class 'non-executable' but got '#rowClass#' in [#arguments.reportHtmlPath#]");
@@ -308,26 +306,24 @@ component {
 				var timeValueText = trim(htmlParser.getText(timeValueCells[1]));
 
 				// Find matching line in JSON coverage data
-				// FORMAT: [hitCount, ownTime, childTime] - both ownTime and childTime can be present
-				if (structKeyExists(coverageData, lineNumber) && arrayLen(coverageData[lineNumber]) >= 2) {
-					var ownTimeNanos = coverageData[lineNumber][2]; // Own time in source unit
-					var childTimeNanos = arrayLen(coverageData[lineNumber]) >= 3 ? coverageData[lineNumber][3] : 0; // Child time in source unit
+				// NEW FORMAT: [hitCount, execTime, blockType]
+				// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
+				if (structKeyExists(coverageData, lineNumber) && arrayLen(coverageData[lineNumber]) >= 3) {
+					var execTimeNanos = coverageData[lineNumber][2]; // Execution time in source unit
+					var blockType = coverageData[lineNumber][3]; // Block type (0-3)
 
 					// Convert to display unit using same logic as production code
-					var ownTimeMicros = timeFormatter.convertTime(ownTimeNanos, sourceUnit, "μs");
-					var childTimeMicros = timeFormatter.convertTime(childTimeNanos, sourceUnit, "μs");
+					var execTimeMicros = timeFormatter.convertTime(execTimeNanos, sourceUnit, "μs");
 
-					// Determine expected type and value based on production logic:
-					// Priority: Child > Own
+					// Determine expected type and value based on blockType
+					// Map blockType to label: 0=Own, 1=Child, 2=Own, 3=Child
 					var expectedType = "";
 					var expectedTimeMicros = 0;
 
-					if (childTimeMicros > 0) {
-						expectedType = "Child";
-						expectedTimeMicros = childTimeMicros;
-					} else if (ownTimeMicros > 0) {
-						expectedType = "Own";
-						expectedTimeMicros = ownTimeMicros;
+					if (execTimeMicros > 0) {
+						var timeTypeLabels = ["Own", "Child", "Own", "Child"];
+						expectedType = timeTypeLabels[blockType + 1]; // +1 for 1-based array
+						expectedTimeMicros = execTimeMicros;
 					}
 
 					// Validate time type

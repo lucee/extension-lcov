@@ -72,15 +72,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect( lineCoverage ).toBeStruct();
 				expect( structCount( lineCoverage ) ).toBe( 2 ); // Lines 1 and 2
 
-				// Line 1: one block (own time)
+				// Line 1: one block (own time, blockType=0)
 				expect( lineCoverage[ "1" ][ 1 ] ).toBe( 2 ); // hitCount
-				expect( lineCoverage[ "1" ][ 2 ] ).toBe( 100 ); // ownTime
-				expect( lineCoverage[ "1" ][ 3 ] ).toBe( 0 ); // childTime
+				expect( lineCoverage[ "1" ][ 2 ] ).toBe( 100 ); // execTime
+				expect( lineCoverage[ "1" ][ 3 ] ).toBe( 0 ); // blockType: own
 
-				// Line 2: two blocks aggregated (one child, one own)
+				// Line 2: two blocks aggregated (one child, one own) - child takes priority
 				expect( lineCoverage[ "2" ][ 1 ] ).toBe( 4 ); // hitCount: 3 + 1
-				expect( lineCoverage[ "2" ][ 2 ] ).toBe( 50 ); // ownTime: block with blockType==0
-				expect( lineCoverage[ "2" ][ 3 ] ).toBe( 200 ); // childTime: block with blockType==1
+				expect( lineCoverage[ "2" ][ 2 ] ).toBe( 250 ); // execTime: 50 + 200 (sum of all blocks)
+				expect( lineCoverage[ "2" ][ 3 ] ).toBe( 1 ); // blockType: child (priority over own)
 			});
 
 			it( "should aggregate all blocks to line coverage for all files", function() {
@@ -116,11 +116,11 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				// Check file 0 coverage
 				expect( coverage["0"]["1"][1] ).toBe( 2 ); // Line 1 hit count
 				expect( coverage["0"]["2"][1] ).toBe( 3 ); // Line 2 hit count
-				expect( coverage["0"]["2"][3] ).toBe( 200 ); // Line 2 child time
+				expect( coverage["0"]["2"][3] ).toBe( 1 ); // Line 2 blockType (child)
 
 				// Check file 1 coverage
 				expect( coverage["1"]["1"][1] ).toBe( 5 ); // Line 1 hit count
-				expect( coverage["1"]["1"][2] ).toBe( 300 ); // Line 1 own time
+				expect( coverage["1"]["1"][2] ).toBe( 300 ); // Line 1 execTime
 			});
 
 			it( "should aggregate merged blocks to line coverage", function() {
@@ -167,21 +167,21 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 				expect( structKeyExists( file1Coverage, "1" ) ).toBeTrue( "Line 1 should have coverage" );
 				expect( file1Coverage["1"][1] ).toBe( 2, "Line 1 hitCount" );
-				expect( file1Coverage["1"][2] ).toBe( 100, "Line 1 ownTime" );
-				expect( file1Coverage["1"][3] ).toBe( 0, "Line 1 childTime" );
+				expect( file1Coverage["1"][2] ).toBe( 100, "Line 1 execTime" );
+				expect( file1Coverage["1"][3] ).toBe( 0, "Line 1 blockType (own)" );
 
 				// Block 14-19 actually maps to line 2, not line 3 (checked via debug output)
 				expect( structKeyExists( file1Coverage, "2" ) ).toBeTrue( "Line 2 should have coverage" );
 				expect( file1Coverage["2"][1] ).toBe( 3, "Line 2 hitCount" );
-				expect( file1Coverage["2"][2] ).toBe( 0, "Line 2 ownTime" );
-				expect( file1Coverage["2"][3] ).toBe( 200, "Line 2 childTime" );
+				expect( file1Coverage["2"][2] ).toBe( 200, "Line 2 execTime" );
+				expect( file1Coverage["2"][3] ).toBe( 1, "Line 2 blockType (child)" );
 
 				// Check file2 coverage
 				var file2Coverage = coverage["/path/to/file2.cfm"];
 				expect( structKeyExists( file2Coverage, "1" ) ).toBeTrue( "Line 1 should have coverage" );
 				expect( file2Coverage["1"][1] ).toBe( 1, "Line 1 hitCount" );
-				expect( file2Coverage["1"][2] ).toBe( 50, "Line 1 ownTime" );
-				expect( file2Coverage["1"][3] ).toBe( 0, "Line 1 childTime" );
+				expect( file2Coverage["1"][2] ).toBe( 50, "Line 1 execTime" );
+				expect( file2Coverage["1"][3] ).toBe( 0, "Line 1 blockType (own)" );
 			});
 
 		});

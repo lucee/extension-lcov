@@ -339,11 +339,20 @@ component {
 				if (arrayLen(targetLine) != arrayLen(sourceLine)) {
 					throw("mergeCoverageData: Coverage line array length mismatch at line " & lineNumber & ". targetLine=" & serializeJSON(targetLine) & ", sourceLine=" & serializeJSON(sourceLine), "CoverageDataError");
 				}
-				// NEW FORMAT: Sum all four values [hitCount, ownTime, childTime, blockTime]
+				// NEW FORMAT: Merge [hitCount, execTime, blockType]
 				targetLine[1] += sourceLine[1]; // hitCount
-				targetLine[2] += sourceLine[2]; // ownTime
-				targetLine[3] += sourceLine[3]; // childTime
-				targetLine[4] += sourceLine[4]; // blockTime
+				targetLine[2] += sourceLine[2]; // execTime
+
+				// Merge blockType with priority: Child (1,3) > Own (0,2)
+				var targetBlockType = targetLine[3];
+				var sourceBlockType = sourceLine[3];
+				var isTargetChild = ( targetBlockType == 1 || targetBlockType == 3 );
+				var isSourceChild = ( sourceBlockType == 1 || sourceBlockType == 3 );
+
+				// Use source blockType if: target has no type, OR source is child and target is not
+				if ( targetBlockType == 0 || ( isSourceChild && !isTargetChild ) ) {
+					targetLine[3] = sourceBlockType;
+				}
 			}
 			linesMerged++;
 		}
@@ -483,10 +492,20 @@ component {
 				if (!structKeyExists(targetCoverage, lineNum)) {
 					targetCoverage[lineNum] = duplicate(lineData);
 				} else {
-					// Add hit counts, execution times, and child times together
-					targetCoverage[lineNum][1] += lineData[1];
-					targetCoverage[lineNum][2] += lineData[2];
-					targetCoverage[lineNum][3] += lineData[3]; // childTime
+					// Merge [hitCount, execTime, blockType]
+					targetCoverage[lineNum][1] += lineData[1]; // hitCount
+					targetCoverage[lineNum][2] += lineData[2]; // execTime
+
+					// Merge blockType with priority: Child (1,3) > Own (0,2)
+					var targetBlockType = targetCoverage[lineNum][3];
+					var sourceBlockType = lineData[3];
+					var isTargetChild = ( targetBlockType == 1 || targetBlockType == 3 );
+					var isSourceChild = ( sourceBlockType == 1 || sourceBlockType == 3 );
+
+					// Use source blockType if: target has no type, OR source is child and target is not
+					if ( targetBlockType == 0 || ( isSourceChild && !isTargetChild ) ) {
+						targetCoverage[lineNum][3] = sourceBlockType;
+					}
 				}
 			}
 

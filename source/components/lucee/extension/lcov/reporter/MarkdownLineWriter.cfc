@@ -164,11 +164,11 @@ component {
 
 				if (hasData) {
 					var count = lineData[1];
-					var ownTime = lineData[2];
-					var childTime = lineData[3];
+					var execTime = lineData[2];
+					var blockType = lineData[3];
 
 					// Only show executed lines
-					if (count > 0 || ownTime > 0 || childTime > 0) {
+					if (count > 0 || execTime > 0) {
 						arrayAppend( parts, "**Line " & lineNum & ":** `" & escapeMarkdown(lineCode) & "`" );
 						arrayAppend( parts, "" );
 
@@ -176,22 +176,14 @@ component {
 							arrayAppend( parts, "- Executed: " & numberFormat(count) & " times" );
 						}
 
-						// Show single time type (Child takes priority over Own)
-						if (childTime > 0) {
-							var timeMicros = arguments.timeFormatter.convertTime(childTime, arguments.sourceUnit, "μs");
-							var timeDisplay = arguments.timeFormatter.formatTime(timeMicros, variables.displayUnit, true);
-							arrayAppend( parts, "- Time (Child): " & timeDisplay );
+						// Map blockType to label: 0=Own, 1=Child, 2=Own, 3=Child
+						if (execTime > 0) {
+							var timeTypeLabels = ["Own", "Child", "Own", "Child"];
+							var timeType = timeTypeLabels[blockType + 1]; // +1 for 1-based array
 
-							// Add average if count > 1
-							if (count > 1) {
-								var avgMicros = timeMicros / count;
-								var avgDisplay = arguments.timeFormatter.formatTime(avgMicros, variables.displayUnit, true);
-								arrayAppend( parts, "- Avg: " & avgDisplay );
-							}
-						} else if (ownTime > 0) {
-							var timeMicros = arguments.timeFormatter.convertTime(ownTime, arguments.sourceUnit, "μs");
+							var timeMicros = arguments.timeFormatter.convertTime(execTime, arguments.sourceUnit, "μs");
 							var timeDisplay = arguments.timeFormatter.formatTime(timeMicros, variables.displayUnit, true);
-							arrayAppend( parts, "- Time (Own): " & timeDisplay );
+							arrayAppend( parts, "- Time (" & timeType & "): " & timeDisplay );
 
 							// Add average if count > 1
 							if (count > 1) {

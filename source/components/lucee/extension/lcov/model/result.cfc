@@ -10,7 +10,7 @@ component accessors=true {
 	property name="optionsHash" type="string" default=""; // hash of parsing options to detect option changes
 	property name="coverageStartByte" type="numeric" default="0"; // byte offset where coverage section starts in .exl file
 	property name="outputFilename" type="string" default=""; // name of the output, without an file extension
-	property name="parserPerformance" type="struct" default="#{}#";
+	property name="parserPerformance" type="struct" default="#{}#"; // internal tracking of parser performance metrics
 
 	/**
 	 * aggregated: Raw block-level coverage data (character positions) - IMMUTABLE CACHE
@@ -30,12 +30,12 @@ component accessors=true {
 
 	/**
 	 * coverage: Line-based coverage data for reporting
-	 * Format: {fileIdx: {lineNum: [hitCount, ownTime, childTime, blockTime]}}
-	 * Example: {"0": {"41": [1, 79975, 0, 0]}}
+	 * Format: {fileIdx: {lineNum: [hitCount, execTime, blockType]}}
+	 * Example: {"0": {"41": [1, 79975, 1]}}
 	 *   - Element [0]: hitCount (how many times line executed)
-	 *   - Element [1]: ownTime (own execution time in microseconds)
-	 *   - Element [2]: childTime (time spent in function calls in microseconds)
-	 *   - Element [3]: blockTime (time for block containers like for/if in microseconds)
+	 *   - Element [1]: execTime (total execution time in microseconds - sum of all blocks on this line)
+	 *   - Element [2]: blockType (execution type: 0=own, 1=child, 2=own+overlap, 3=child+overlap)
+	 *     - When multiple blocks map to same line, highest priority blockType is used (Child > Own)
 	 * Created by: aggregateBlocksToLines() which converts blocks to lines using lineMapping
 	 * Used by: HTML reporter to display per-line coverage
 	 */

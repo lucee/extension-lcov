@@ -145,7 +145,7 @@ component accessors="true" {
 					var lineNum = lineNumbers[j];
 					var lineData = filecoverage[lineNum];
 
-					// lineData[1] is hit count, lineData[2] is ownTime, lineData[3] is childTime, lineData[4] is blockTime (not summed)
+					// lineData[1] is hitCount, lineData[2] is execTime, lineData[3] is blockType
 					// Count lines with hitCount > 0 as executed
 					if (isNumeric(lineData[1]) && lineData[1] > 0) {
 						totalStats.totalLinesHit++;
@@ -153,21 +153,32 @@ component accessors="true" {
 					}
 
 					totalStats.totalExecutions += lineData[1];
-					// totalExecutionTime = ownTime only (childTime is counted in the function body where it executes)
-					totalStats.totalExecutionTime += lineData[2];
 					fileInfo.totalExecutions += lineData[1];
-					fileInfo.totalExecutionTime += lineData[2];
 
-					// Track childTime separately for reporting
-					totalStats.totalChildTime += lineData[3];
-					fileInfo.totalChildTime += lineData[3];
+					// Sum execTime based on blockType to avoid double-counting
+					// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
+					var blockType = lineData[3];
+					var execTime = lineData[2];
+
+					// totalExecutionTime: only count OWN time (blockType 0 or 2), not child time
+					// This prevents double-counting since child time is already counted in the function where it executes
+					if (blockType == 0 || blockType == 2) {
+						totalStats.totalExecutionTime += execTime;
+						fileInfo.totalExecutionTime += execTime;
+					}
+
+					// totalChildTime: accumulate execTime for child blockTypes (1 or 3)
+					if (blockType == 1 || blockType == 3) {
+						totalStats.totalChildTime += execTime;
+						fileInfo.totalChildTime += execTime;
+					}
 				}
 			}
 			// fileinfo is passed by reference and updated in place
 		});
 
 		// Child time is now calculated from coverage data in the loop above
-		// where we sum lineData[3] (childTime) for each line
+		// where we sum lineData[2] (execTime) for lines with child blockType (1 or 3)
 
 		arguments.result.setStats(totalStats);
 
@@ -319,11 +330,14 @@ component accessors="true" {
 			}
 			fileStats[filePath].hitCounts[lineNum] += hitCount;
 
-			// Track childTime from coverage data (lineData[3])
+			// Track childTime: accumulate execTime for child blockTypes (1 or 3)
 			if (!structKeyExists(fileStats[filePath], "totalChildTime")) {
 				fileStats[filePath].totalChildTime = 0;
 			}
-			fileStats[filePath].totalChildTime += lineData[3];
+			var blockType = lineData[3];
+			if (blockType == 1 || blockType == 3) {
+				fileStats[filePath].totalChildTime += lineData[2]; // execTime
+			}
 		}
 	}
 

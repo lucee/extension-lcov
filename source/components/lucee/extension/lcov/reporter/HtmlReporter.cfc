@@ -202,11 +202,11 @@ component {
 			throw(message="No coverage data in result for outputFilename=[#outputFilename#]. Coverage must be built before generating Markdown reports. Call buildLineCoverage() first.");
 		}
 
-		// Check if block-based markdown is enabled
-		var blockBased = structKeyExists(variables.markdownOptions, "blockBased") && variables.markdownOptions.blockBased;
+		// Check if block-based markdown is enabled (defaults to true for better debugging)
+		var blockBased = !structKeyExists(variables.markdownOptions, "blockBased") || variables.markdownOptions.blockBased;
 
 		if (blockBased) {
-			// Use block-based markdown writer
+			// Use block-based markdown writer (default - shows block positions for debugging)
 			var markdownPath = variables.markdownBlockWriter.generate(
 				arguments.result,
 				variables.outputDir,
@@ -215,7 +215,7 @@ component {
 			variables.logger.debug("Generated block-based markdown: " & markdownPath);
 			return markdownPath;
 		} else {
-			// Use line-based markdown writer (default, backward compatible)
+			// Use line-based markdown writer (opt-in via markdownOptions.blockBased = false)
 			var markdown = variables.markdownLineWriter.generateMarkdownContent( result );
 			var markdownPath = createMarkdownPath(result);
 			fileWrite(markdownPath, markdown);

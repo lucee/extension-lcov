@@ -68,22 +68,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 			//systemOutput( "Validating file: #file.path#", true );
 
-			// Check each line
+			// Check each line - new format is [hitCount, execTime, blockType]
+			// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
 			for ( var lineNum in coverage ) {
 				var lineData = coverage[ lineNum ];
 				var hitCount = lineData[ 1 ];
-				var ownTime = lineData[ 2 ];
-				var childTime = lineData[ 3 ];
-				var totalTime = ownTime + childTime;
+				var execTime = lineData[ 2 ];
+				var blockType = lineData[ 3 ];
 
-				// CRITICAL: childTime should NEVER exceed totalTime
-				// If it does, it means child time is being counted multiple times
-				if ( childTime > 0 ) {
-					expect( childTime ).toBeLTE( totalTime,
-						"#label# Line #lineNum#: childTime (#childTime#) exceeds totalTime (#totalTime#). ownTime=#ownTime#. This suggests double-counting in " & jsonFilePath);
+				// All execTime values should be non-negative
+				expect( execTime ).toBeGTE( 0, "#label# Line #lineNum#: execTime should be >= 0" );
 
-					//systemOutput( "  Line #lineNum#: hitCount=#hitCount#, ownTime=#ownTime#, childTime=#childTime#, total=#totalTime#", true );
-				}
+				// blockType should be 0-3
+				expect( blockType ).toBeBetween( 0, 3, "#label# Line #lineNum#: blockType should be 0-3" );
 			}
 		}
 	}

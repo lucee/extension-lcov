@@ -4,18 +4,16 @@
  * LINE COVERAGE FORMAT:
  *
  * CURRENT FORMAT (used throughout the system):
- *   [hitCount, ownTime, childTime, blockTime]
+ *   [hitCount, execTime, blockType]
  *   - hitCount: Number of times the line was executed (integer)
- *   - ownTime: Time spent in the line's own code in nanoseconds (blocks with blockType==0)
- *   - childTime: Time spent in function calls in nanoseconds (blocks with blockType==1)
- *   - blockTime: Time for container blocks (for loops, if statements) - NOT summed in totals to avoid double-counting
- *   - totalTime = ownTime (childTime and blockTime overlap with actual execution, not additive)
+ *   - execTime: Total execution time in nanoseconds (accumulated from all blocks on this line)
+ *   - blockType: Numeric type indicating the nature of execution (0=own, 1=child, 2=own+overlap, 3=child+overlap)
+ *     - When multiple blocks map to the same line, the highest priority blockType is used (Child > Own)
+ *     - Priority order: 1 or 3 (child) > 0 or 2 (own)
  *
  * LEGACY FORMAT (deprecated - no longer used):
- *   [hitCount, execTime, isChildTime]
- *   - execTime: Total execution time
- *   - isChildTime: Boolean flag indicating if line contains function calls
- *   Note: This format is no longer used. All code has been migrated to use numeric childTime values.
+ *   [hitCount, ownTime, childTime, blockTime]
+ *   Note: This format split time into separate indices. Now replaced with single execTime + blockType.
  */
 component {
 
@@ -73,7 +71,7 @@ component {
 	 * @result The result model containing blocks
 	 * @fileIndex The file index (numeric)
 	 * @lineMapping Array where index = character position, value = line number
-	 * @return Struct of line-based coverage: {lineNum: [hitCount, ownTime, childTime]}
+	 * @return Struct of line-based coverage: {lineNum: [hitCount, execTime, blockType]}
 	 */
 	public struct function aggregateBlocksToLines( required any result, required numeric fileIndex, required array lineMapping ) localmode=true {
 		var lineCoverage = structNew('regular');
@@ -114,28 +112,37 @@ component {
 				continue;
 			}
 
-			// Initialize line if not exists: [hitCount, ownTime, childTime, blockTime]
-			// blockTime is tracked separately and NOT summed in file/request totals (prevents double-counting)
+			// Initialize line if not exists: [hitCount, execTime, blockType]
+			// When multiple blocks map to same line, we'll use highest priority blockType (Child > Own)
 			if ( !structKeyExists( lineCoverage, lineNum ) ) {
-				lineCoverage[ lineNum ] = [ 0, 0, 0, 0 ];
+				lineCoverage[ lineNum ] = [ 0, 0, 0 ];
 			}
 
 			var lineData = lineCoverage[ lineNum ];
 			// Aggregate hit counts
 			lineData[ 1 ] += block.hitCount;
 
-			// Separate own time vs child time vs block container time based on blockType and isBlock flag
-			// blockType may not exist if annotateCallTree hasn't run yet
-			// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
-			var isBlock = structKeyExists( block, "isBlock" ) && block.isBlock;
+			// Accumulate execution time - SKIP overlapping blocks to avoid double-counting
+			// Overlapping blocks are containers whose time is already counted in their children
+			var isOverlapping = structKeyExists( block, "isOverlapping" ) && block.isOverlapping;
+			if ( !isOverlapping ) {
+				lineData[ 2 ] += block.execTime;
+			}
 
-			// Block containers have time that INCLUDES everything inside them, so we track separately to avoid double-counting
-			if ( isBlock ) {
-				lineData[ 4 ] += block.execTime;  // Block container time (not summed in totals)
-			} else if ( hasBlockType === 1 && (block.blockType == 1 || block.blockType == 3) ) {
-				lineData[ 3 ] += block.execTime;  // Child time (blockType == 1 or 3)
-			} else {
-				lineData[ 2 ] += block.execTime;  // Own time (blockType == 0, 2, or not set)
+			// Set blockType using priority: Child (1,3) > Own (0,2)
+			// If block has blockType, use it with priority logic
+			if ( hasBlockType === 1 && structKeyExists( block, "blockType" ) ) {
+				var currentBlockType = lineData[ 3 ];
+				var newBlockType = block.blockType;
+
+				// Priority: Child (1 or 3) > Own (0 or 2)
+				var isCurrentChild = ( currentBlockType == 1 || currentBlockType == 3 );
+				var isNewChild = ( newBlockType == 1 || newBlockType == 3 );
+
+				// Update if: no type set yet, OR new type is child and current is not
+				if ( currentBlockType == 0 || ( isNewChild && !isCurrentChild ) ) {
+					lineData[ 3 ] = newBlockType;
+				}
 			}
 		}
 
@@ -146,7 +153,7 @@ component {
 	 * Aggregates all blocks in a result to line-based coverage for all files.
 	 * @result The result model containing blocks
 	 * @files The files struct with line mappings
-	 * @return Struct of coverage data: {fileIdx: {lineNum: [hitCount, ownTime, childTime]}}
+	 * @return Struct of coverage data: {fileIdx: {lineNum: [hitCount, execTime, blockType]}}
 	 */
 	public struct function aggregateAllBlocksToLines( required any result, required struct files ) localmode=true {
 		var coverage = structNew('regular');
@@ -165,7 +172,7 @@ component {
 	 * Works with the merged structure where keys are file paths, not indices.
 	 * @mergedBlocks Struct of blocks keyed by file path: {"/path": {"startPos-endPos": {hitCount, execTime, blockType}}}
 	 * @mergedFiles Struct of file info keyed by file path: {"/path": {path, lines, content, ...}}
-	 * @return Struct of coverage data keyed by file path: {"/path": {lineNum: [hitCount, ownTime, childTime]}}
+	 * @return Struct of coverage data keyed by file path: {"/path": {lineNum: [hitCount, execTime, blockType]}}
 	 */
 	public struct function aggregateMergedBlocksToLines( required struct mergedBlocks, required struct mergedFiles ) localmode=true {
 		var coverage = {};
@@ -211,25 +218,36 @@ component {
 				}
 				var lineNum = lineMapping[ startPos ];
 
-				// Initialize line if not exists: [hitCount, ownTime, childTime, blockTime]
+				// Initialize line if not exists: [hitCount, execTime, blockType]
 				if ( !structKeyExists( lineCoverage, lineNum ) ) {
-					lineCoverage[ lineNum ] = [ 0, 0, 0, 0 ];
+					lineCoverage[ lineNum ] = [ 0, 0, 0 ];
 				}
 
 				var lineData = lineCoverage[ lineNum ];
 				// Aggregate hit counts
 				lineData[ 1 ] += block.hitCount;
 
-				// Separate own time vs child time vs block container time based on blockType and isBlock flag
-				// blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
-				var isBlock = structKeyExists( block, "isBlock" ) && block.isBlock;
+				// Accumulate execution time - SKIP overlapping blocks to avoid double-counting
+				// Overlapping blocks are containers whose time is already counted in their children
+				var isOverlapping = structKeyExists( block, "isOverlapping" ) && block.isOverlapping;
+				if ( !isOverlapping ) {
+					lineData[ 2 ] += block.execTime;
+				}
 
-				if ( isBlock ) {
-					lineData[ 4 ] += block.execTime;  // Block container time (not summed in totals)
-				} else if ( hasBlockType === 1 && (block.blockType == 1 || block.blockType == 3) ) {
-					lineData[ 3 ] += block.execTime;  // Child time (blockType == 1 or 3)
-				} else {
-					lineData[ 2 ] += block.execTime;  // Own time (blockType == 0, 2, or not set)
+				// Set blockType using priority: Child (1,3) > Own (0,2)
+				// If block has blockType, use it with priority logic
+				if ( hasBlockType === 1 && structKeyExists( block, "blockType" ) ) {
+					var currentBlockType = lineData[ 3 ];
+					var newBlockType = block.blockType;
+
+					// Priority: Child (1 or 3) > Own (0 or 2)
+					var isCurrentChild = ( currentBlockType == 1 || currentBlockType == 3 );
+					var isNewChild = ( newBlockType == 1 || newBlockType == 3 );
+
+					// Update if: no type set yet, OR new type is child and current is not
+					if ( currentBlockType == 0 || ( isNewChild && !isCurrentChild ) ) {
+						lineData[ 3 ] = newBlockType;
+					}
 				}
 			}
 

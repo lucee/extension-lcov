@@ -73,14 +73,10 @@ component {
 
 			if (arrayLen(lineData) > 0) {
 				var countVal = lineData[1];
-				var ownTime = lineData[2];
-				var childTime = lineData[3];
-				var blockTime = lineData[4];
-				// Total execution time = ownTime + childTime + blockTime
-				var totalTime = ownTime + childTime + blockTime;
+				var execTime = lineData[2];
 
 				if (countVal > 0) arrayAppend(countValues, countVal);
-				if (totalTime > 0) arrayAppend(timeValues, totalTime);
+				if (execTime > 0) arrayAppend(timeValues, execTime);
 			}
 		}
 
@@ -164,47 +160,21 @@ component {
 
 			if (hasData) {
 				var countVal = lineData[1];
-				var ownTimeVal = lineData[2];
-				var childTimeVal = lineData[3];
-				var blockTimeVal = lineData[4];
+				var execTime = lineData[2];
+				var blockType = lineData[3];
 
 				execCount = countVal > 0 ? numberFormat(countVal) : "";
 
-				// Determine time type and value - Priority: Block > Child > Own
-				if (blockTimeVal > 0) {
-					timeType = "Block";
-					var timeMicros = arguments.timeFormatter.convertTime(blockTimeVal, arguments.sourceUnit, "μs");
-					timeValue = arguments.timeFormatter.format(timeMicros);
-					timeSortValue = timeMicros;
-					var additionalTimeClass = arguments.timeHeatmap.getValueClass(blockTimeVal);
-					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
+				// Single time formatting path - no duplication!
+				if (execTime > 0) {
+					// Map blockType to label: 0=Own, 1=Child, 2=Own, 3=Child
+					var timeTypeLabels = ["Own", "Child", "Own", "Child"];
+					timeType = timeTypeLabels[blockType + 1]; // +1 for 1-based array
 
-					// Calculate average if count > 1
-					if (countVal > 1) {
-						var avgMicros = timeMicros / countVal;
-						avgValue = arguments.timeFormatter.format(avgMicros);
-						avgSortValue = avgMicros;
-					}
-				} else if (childTimeVal > 0) {
-					timeType = "Child";
-					var timeMicros = arguments.timeFormatter.convertTime(childTimeVal, arguments.sourceUnit, "μs");
+					var timeMicros = arguments.timeFormatter.convertTime(execTime, arguments.sourceUnit, "μs");
 					timeValue = arguments.timeFormatter.format(timeMicros);
 					timeSortValue = timeMicros;
-					var additionalTimeClass = arguments.timeHeatmap.getValueClass(childTimeVal);
-					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
-
-					// Calculate average if count > 1
-					if (countVal > 1) {
-						var avgMicros = timeMicros / countVal;
-						avgValue = arguments.timeFormatter.format(avgMicros);
-						avgSortValue = avgMicros;
-					}
-				} else if (ownTimeVal > 0) {
-					timeType = "Own";
-					var timeMicros = arguments.timeFormatter.convertTime(ownTimeVal, arguments.sourceUnit, "μs");
-					timeValue = arguments.timeFormatter.format(timeMicros);
-					timeSortValue = timeMicros;
-					var additionalTimeClass = arguments.timeHeatmap.getValueClass(ownTimeVal);
+					var additionalTimeClass = arguments.timeHeatmap.getValueClass(execTime);
 					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
 
 					// Calculate average if count > 1

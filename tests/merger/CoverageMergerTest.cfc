@@ -122,9 +122,9 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				targetResult.setMetadata({ "script-name": "synthetic.cfm", "execution-time": 0, "unit": "ms" });
 				targetResult.setOutputFilename("synthetic-mergeCoverageData-test");
 
-				// Source coverage: line 10 hit 10 times with 2ns ownTime, line 20 hit 20 times with 3ns ownTime
-				// NEW FORMAT: [hitCount, ownTime, childTime]
-				var sourceCoverage = {"10": [10, 2, 0, 0], "20": [20, 3, 0, 0]};
+				// Source coverage: line 10 hit 10 times with 2ns execTime (blockType 0=own), line 20 hit 20 times with 3ns execTime (blockType 0=own)
+				// NEW FORMAT: [hitCount, execTime, blockType]
+				var sourceCoverage = {"10": [10, 2, 0], "20": [20, 3, 0]};
 				// Merge into empty target
 				var mergedLines = merger.mergeCoverageData(targetResult, sourceCoverage, "/tmp/Synthetic.cfm", 0);
 				expect(mergedLines).toBe(2);
@@ -134,7 +134,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(cov["0"]["20"][2]).toBe(3);
 
 				// Merge again with new hits
-				var sourceCoverage2 = {"10": [10, 5, 0, 0], "20": [20, 7, 0, 0]};
+				var sourceCoverage2 = {"10": [10, 5, 0], "20": [20, 7, 0]};
 				var mergedLines2 = merger.mergeCoverageData(targetResult, sourceCoverage2, "/tmp/Synthetic.cfm", 0);
 				expect(mergedLines2).toBe(2);
 				cov = targetResult.getCoverage();
@@ -142,7 +142,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				expect(cov["0"]["20"][2]).toBe(10); // 3+7
 			});
 
-			it("merges childTime correctly (NEW FORMAT: [hitCount, ownTime, childTime, blockTime])", function() {
+			it("merges blockType correctly with priority (NEW FORMAT: [hitCount, execTime, blockType])", function() {
 				var merger = new lucee.extension.lcov.CoverageMerger( logger=variables.logger );
 				var targetResult = new lucee.extension.lcov.model.result();
 				targetResult.setExeLog("/tmp/synthetic.exl");
@@ -173,41 +173,41 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				});
 				targetResult.setCoverage({});
 				targetResult.setMetadata({ "script-name": "synthetic.cfm", "execution-time": 0, "unit": "ms" });
-				targetResult.setOutputFilename("synthetic-childTime-test");
+				targetResult.setOutputFilename("synthetic-blockType-test");
 
-				// First merge: line 10 has constructor call with childTime
-				// Format: [hitCount, ownTime, childTime, blockTime]
+				// First merge: line 10 has child time (blockType=1), line 20 has own time (blockType=0)
+				// Format: [hitCount, execTime, blockType]
 				var sourceCoverage1 = {
-					"10": [ 1, 0, 5000, 0 ],  // 1 hit, 0 ownTime, 5000 childTime (constructor call), 0 blockTime
-					"20": [ 1, 100, 0, 0 ]     // 1 hit, 100 ownTime, 0 childTime (regular code), 0 blockTime
+					"10": [ 1, 5000, 1 ],  // 1 hit, 5000ns execTime, blockType=1 (child - constructor call)
+					"20": [ 1, 100, 0 ]    // 1 hit, 100ns execTime, blockType=0 (own - regular code)
 				};
 				var mergedLines1 = merger.mergeCoverageData( targetResult, sourceCoverage1, "/tmp/Synthetic.cfm", 0 );
 				expect( mergedLines1 ).toBe( 2 );
 
 				var cov = targetResult.getCoverage();
 				expect( cov[ "0" ][ "10" ][ 1 ] ).toBe( 1, "Line 10 hitCount should be 1" );
-				expect( cov[ "0" ][ "10" ][ 2 ] ).toBe( 0, "Line 10 ownTime should be 0" );
-				expect( cov[ "0" ][ "10" ][ 3 ] ).toBe( 5000, "Line 10 childTime should be 5000" );
+				expect( cov[ "0" ][ "10" ][ 2 ] ).toBe( 5000, "Line 10 execTime should be 5000" );
+				expect( cov[ "0" ][ "10" ][ 3 ] ).toBe( 1, "Line 10 blockType should be 1 (child)" );
 				expect( cov[ "0" ][ "20" ][ 1 ] ).toBe( 1, "Line 20 hitCount should be 1" );
-				expect( cov[ "0" ][ "20" ][ 2 ] ).toBe( 100, "Line 20 ownTime should be 100" );
-				expect( cov[ "0" ][ "20" ][ 3 ] ).toBe( 0, "Line 20 childTime should be 0" );
+				expect( cov[ "0" ][ "20" ][ 2 ] ).toBe( 100, "Line 20 execTime should be 100" );
+				expect( cov[ "0" ][ "20" ][ 3 ] ).toBe( 0, "Line 20 blockType should be 0 (own)" );
 
 				// Second merge: same lines executed again (simulating multiple requests)
 				var sourceCoverage2 = {
-					"10": [ 1, 0, 3000, 0 ],  // 1 more hit, 0 ownTime, 3000 childTime (faster due to JIT), 0 blockTime
-					"20": [ 1, 50, 0, 0 ]      // 1 more hit, 50 ownTime (faster due to JIT), 0 childTime, 0 blockTime
+					"10": [ 1, 3000, 1 ],  // 1 more hit, 3000ns execTime (faster due to JIT), blockType=1 (child)
+					"20": [ 1, 50, 0 ]     // 1 more hit, 50ns execTime (faster due to JIT), blockType=0 (own)
 				};
 				var mergedLines2 = merger.mergeCoverageData( targetResult, sourceCoverage2, "/tmp/Synthetic.cfm", 0 );
 				expect( mergedLines2 ).toBe( 2 );
 
 				cov = targetResult.getCoverage();
-				// Validate hitCount, ownTime, and childTime are ALL summed
+				// Validate hitCount and execTime are summed, blockType uses priority (child > own)
 				expect( cov[ "0" ][ "10" ][ 1 ] ).toBe( 2, "Line 10 hitCount should be 1+1=2" );
-				expect( cov[ "0" ][ "10" ][ 2 ] ).toBe( 0, "Line 10 ownTime should be 0+0=0" );
-				expect( cov[ "0" ][ "10" ][ 3 ] ).toBe( 8000, "Line 10 childTime should be 5000+3000=8000 (THIS IS THE BUG FIX!)" );
+				expect( cov[ "0" ][ "10" ][ 2 ] ).toBe( 8000, "Line 10 execTime should be 5000+3000=8000" );
+				expect( cov[ "0" ][ "10" ][ 3 ] ).toBe( 1, "Line 10 blockType should remain 1 (child has priority)" );
 				expect( cov[ "0" ][ "20" ][ 1 ] ).toBe( 2, "Line 20 hitCount should be 1+1=2" );
-				expect( cov[ "0" ][ "20" ][ 2 ] ).toBe( 150, "Line 20 ownTime should be 100+50=150" );
-				expect( cov[ "0" ][ "20" ][ 3 ] ).toBe( 0, "Line 20 childTime should be 0+0=0" );
+				expect( cov[ "0" ][ "20" ][ 2 ] ).toBe( 150, "Line 20 execTime should be 100+50=150" );
+				expect( cov[ "0" ][ "20" ][ 3 ] ).toBe( 0, "Line 20 blockType should remain 0 (own)" );
 			});
 
 			it("merges all coverage data from synthetic results (mergeAllCoverageDataFromResults)", function() {
@@ -219,14 +219,14 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				var result1 = new lucee.extension.lcov.model.result();
 				result1.setExeLog(exlPath1);
 				result1.setFiles({ 0: { path: filePath, linesFound: 0, linesHit: 0, linesSource: 0, coveragePercentage: 0, totalExecutions: 0, totalExecutionTime: 0, lines: [], executableLines: {} } });
-				result1.setCoverage({ 0: { "10": [10, 2, 0, 0], "20": [20, 3, 0, 0] } });
+				result1.setCoverage({ 0: { "10": [10, 2, 0], "20": [20, 3, 0] } });
 				result1.setMetadata({ "script-name": "synthetic1.cfm", "execution-time": 0, "unit": "ms" });
 				result1.setOutputFilename("synthetic1-mergeAll-test");
 
 				var result2 = new lucee.extension.lcov.model.result();
 				result2.setExeLog(exlPath2);
 				result2.setFiles({ 0: { path: filePath, linesFound: 0, linesHit: 0, linesSource: 0, coveragePercentage: 0, totalExecutions: 0, totalExecutionTime: 0, lines: [], executableLines: {} } });
-				result2.setCoverage({ 0: { "10": [10, 5, 0, 0], "30": [30, 4, 0, 0] } });
+				result2.setCoverage({ 0: { "10": [10, 5, 0], "30": [30, 4, 0] } });
 				result2.setMetadata({ "script-name": "synthetic2.cfm", "execution-time": 0, "unit": "ms" });
 				result2.setOutputFilename("synthetic2-mergeAll-test");
 
