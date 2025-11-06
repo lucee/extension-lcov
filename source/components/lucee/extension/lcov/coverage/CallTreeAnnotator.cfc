@@ -134,7 +134,8 @@ component {
 				// Base blockType: 1 if child time, 0 if own time
 				var baseType = (markedBlock.isChildTime ?: false) ? 1 : 0;
 				// Add 2 if overlapping (Phase 2): blockType 2 = own+overlap, 3 = child+overlap
-				var isOverlapping = structKeyExists(block, "isOverlapping") && block.isOverlapping;
+				// isOverlapping is optional - only set after overlap filtering phase
+				var isOverlapping = block.isOverlapping ?: false;
 				block[ "blockType" ] = baseType + (isOverlapping ? 2 : 0);
 				// Set isBlock flag from AST analysis
 				block[ "isBlock" ] = markedBlock.isBlock ?: false;

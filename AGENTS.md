@@ -20,7 +20,7 @@ mvn package
 
 - If a required property is missing or invalid, throw an error immediately.
 - Avoid defensive coding. Let code fail fast and loudly on invalid input or unexpected state. Defensive checks often hide real problems and make technical debt harder to detect and fix.
-- Never use the elvis operator (`?:`) to provide fallback values for required properties.
+- Do not over rely on the elvis operator (`?:`) to provide fallback values for required properties.
 
 ### Code Formatting
 
@@ -34,6 +34,8 @@ mvn package
 When throwing exceptions, include context values wrapped in square brackets for clarity (e.g., "Source file [/path/to/file.cfc] does not exist" or "Execution log directory argument [executionLogDir] does not exist: [/actual/path]").
 
 This makes it easy to identify the actual values causing issues.
+
+Detail in exceptions don't get logged out, put the info in the message.
 
 ### Missing Source Files
 

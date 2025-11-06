@@ -43,12 +43,8 @@ component {
 			var startPos = block[2];
 			var endPos = block[3];
 
-			// Get file path
-			var filePath = "";
-			if ( structKeyExists( arguments.files, fileIdx ) &&
-			     structKeyExists( arguments.files[fileIdx], "path" ) ) {
-				filePath = arguments.files[fileIdx].path;
-			}
+			// Get file path - fail fast if fileIdx doesn't exist in files
+			var filePath = arguments.files[fileIdx].path;
 
 			// Try to enrich with AST data
 			var astData = findAstNodeForBlock( filePath, startPos, endPos, arguments.astMetadataCache );

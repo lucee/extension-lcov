@@ -124,7 +124,8 @@ component {
 
 			// Accumulate execution time - SKIP overlapping blocks to avoid double-counting
 			// Overlapping blocks are containers whose time is already counted in their children
-			var isOverlapping = structKeyExists( block, "isOverlapping" ) && block.isOverlapping;
+			// isOverlapping is optional - only set after overlap filtering phase
+			var isOverlapping = block.isOverlapping ?: false;
 			if ( !isOverlapping ) {
 				lineData[ 2 ] += block.execTime;
 			}
@@ -229,7 +230,8 @@ component {
 
 				// Accumulate execution time - SKIP overlapping blocks to avoid double-counting
 				// Overlapping blocks are containers whose time is already counted in their children
-				var isOverlapping = structKeyExists( block, "isOverlapping" ) && block.isOverlapping;
+				// isOverlapping is optional - only set after overlap filtering phase
+				var isOverlapping = block.isOverlapping ?: false;
 				if ( !isOverlapping ) {
 					lineData[ 2 ] += block.execTime;
 				}
