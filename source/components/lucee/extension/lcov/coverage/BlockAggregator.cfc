@@ -58,7 +58,7 @@ component {
 
 			// Preserve isOverlapping flag if present (Phase 2)
 			if ( arrayLen( blockData ) >= 6 ) {
-				blockStruct.isOverlapping = blockData[ 6 ];
+				blockStruct[ "isOverlapping" ] = blockData[ 6 ];
 			}
 
 			blocks[ fileIdx ][ blockKey ] = blockStruct;
@@ -152,7 +152,7 @@ component {
 		var coverage = structNew('regular');
 		var blocks = arguments.result.getBlocks();
 
-		cfloop( collection=blocks, key="local.fileIdx" ) {
+		cfloop( collection=blocks, key="local.fileIdx", value="local.fileBlocks" ) {
 			var fileInfo = arguments.files[ fileIdx ];
 			coverage[ fileIdx ] = aggregateBlocksToLines( arguments.result, fileIdx, fileInfo.lineMapping );
 		}

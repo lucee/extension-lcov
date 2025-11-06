@@ -17,8 +17,8 @@ component accessors=false {
 		var nextIndex = 0;
 		cfloop( collection=arguments.validResults, key="local.exlPath", value="local.result" ) {
 			var files = result.getFiles();
-			cfloop( collection=files, key="local.fileIndex" ) {
-				var sourceFilePath = result.getFileItem(fileIndex).path;
+			cfloop( collection=files, key="local.fileIndex", value="local.fileData" ) {
+				var sourceFilePath = fileData.path;
 				if (!len(sourceFilePath)) {
 					throw(message="BUG: Encountered fileIndex with empty or missing path during buildFileIndexMappings. exlPath=" & exlPath & ", fileIndex=" & fileIndex & ", result=" & serializeJSON(result));
 				}
@@ -47,8 +47,8 @@ component accessors=false {
 			var found = false;
 			cfloop( collection=validResults, key="local.exlPath", value="local.result" ) {
 				var files = result.getFiles();
-				cfloop( collection=files, key="local.fileIndex" ) {
-					if (files[fileIndex].path == sourceFilePath) {
+				cfloop( collection=files, key="local.fileIndex", value="local.fileData" ) {
+					if (fileData.path == sourceFilePath) {
 						mergedResults[canonicalIndex] = lucee.extension.lcov.CoverageMergerUtils::initializeSourceFileEntry(sourceFilePath, result, fileIndex, canonicalIndex);
 						found = true;
 						break;

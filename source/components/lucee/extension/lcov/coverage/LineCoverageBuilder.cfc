@@ -126,10 +126,10 @@ component {
 
 		// Convert struct to array of {canonicalIndex, result} for parallel processing
 		var resultArray = [];
-		cfloop(collection=arguments.mergedResults, item="local.canonicalIndex") {
+		cfloop(collection=arguments.mergedResults, key="local.canonicalIndex", value="local.result") {
 			arrayAppend(resultArray, {
 				"canonicalIndex": canonicalIndex,
-				"result": arguments.mergedResults[canonicalIndex]
+				"result": result
 			});
 		}
 
@@ -182,24 +182,34 @@ component {
 		var files = arguments.result.getFiles();
 
 		// If buildWithCallTree, build CallTree data and mark blocks with blockType
+		// Convert aggregated to blocks FIRST (needed for markChildTimeBlocks)
+		var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
+
+		// Clear aggregated from memory - no longer needed after blocks are created
+		// Keeping it around only wastes memory and bloats JSON output files
+		// Comment this out if you need aggregated for debugging
+		arguments.result.setAggregated( structNew() );
 		if ( arguments.buildWithCallTree ) {
 			var callTreeMap = structNew( "regular" );
+			var astNodesMap = structNew( "regular" );
 			cfloop( collection=files, key="local.fileIdx", value="local.fileInfo" ) {
-				callTreeMap[fileIdx] = arguments.astLoader.loadMetadataForFileWithIndex(
+				var metadata = arguments.astLoader.loadMetadataForFileWithIndex(
 					arguments.astMetadataPath,
 					arguments.astIndex,
 					fileInfo.path
-				).callTree;
+				);
+				callTreeMap[fileIdx] = metadata.callTree;
+				// Load astNodes if available (backward compatible - old metadata won't have it)
+				astNodesMap[fileInfo.path] = structKeyExists( metadata, "astNodes" ) ? metadata.astNodes : structNew();
 			}
 
 			var callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
-			var markedBlocks = callTreeAnalyzer.markChildTimeBlocks( aggregated, callTreeMap );
+			var markedBlocks = callTreeAnalyzer.markChildTimeBlocks( blocks, callTreeMap, astNodesMap, files );
 
 			arguments.result.setCallTree( callTreeMap );
 			arguments.result.setCallTreeMetrics( callTreeAnalyzer.calculateChildTimeMetrics( markedBlocks ) );
 		}
 
-		var blocks = variables.blockAggregator.convertAggregatedToBlocks( aggregated );
 
 		if ( arguments.buildWithCallTree ) {
 			applyIsChildFlags( blocks, markedBlocks );
@@ -208,29 +218,36 @@ component {
 		arguments.result.setBlocks( blocks );
 
 		// Build line mappings cache from AST JSON files (calculated once in extractAstMetadata)
+		// IMPORTANT: lineMapping is REQUIRED for block-based markdown reports
 		var lineMappingsCache = structNew( "regular" );
 		cfloop( collection=files, key="local.fileIdx", value="local.fileInfo" ) {
-
-			if ( structKeyExists( fileInfo, "lineMapping" ) ) {
-				lineMappingsCache[fileInfo.path] = fileInfo.lineMapping;
-			} else {
-				var astData = arguments.astLoader.loadMetadataForFileWithIndex(
-					arguments.astMetadataPath,
-					arguments.astIndex,
-					fileInfo.path
+			// Always load lineMapping from AST metadata (it's not persisted in result JSON)
+			var astData = arguments.astLoader.loadMetadataForFileWithIndex(
+				arguments.astMetadataPath,
+				arguments.astIndex,
+				fileInfo.path
+			);
+			if ( !structKeyExists( astData, "lineMapping" ) ) {
+				throw(
+					type = "LineMappingMissing",
+					message = "lineMapping not found in AST metadata for file [#fileInfo.path#]. AST data keys: [#structKeyList(astData)#]. Index has #structCount(arguments.astIndex.files)# files."
 				);
-				if ( !structKeyExists( astData, "lineMapping" ) ) {
-					throw(
-						type = "LineMappingMissing",
-						message = "lineMapping not found in AST metadata for file [#fileInfo.path#]. AST data keys: [#structKeyList(astData)#]. Index has #structCount(arguments.astIndex.files)# files."
-					);
-				}
-				fileInfo.lineMapping = astData.lineMapping;
-				lineMappingsCache[fileInfo.path] = astData.lineMapping;
-				fileInfo.linesFound = astData.executableLineCount;
-				fileInfo.executableLines = astData.executableLines;
+			}
+			// Add lineMapping to the result's files struct so reporters can access it
+			files[fileIdx].lineMapping = astData.lineMapping;
+			lineMappingsCache[fileInfo.path] = astData.lineMapping;
+
+			// Also update executable line info from AST if not already set
+			if ( !structKeyExists( fileInfo, "linesFound" ) || fileInfo.linesFound == 0 ) {
+				files[fileIdx].linesFound = astData.executableLineCount;
+			}
+			if ( !structKeyExists( fileInfo, "executableLines" ) ) {
+				files[fileIdx].executableLines = astData.executableLines;
 			}
 		}
+
+		// Write modified files struct back to result (ensures lineMapping persists)
+		arguments.result.setFiles( files );
 
 		var coverage = variables.blockToLineAggregator.aggregateBlocksToLines(
 			arguments.result,
@@ -268,7 +285,8 @@ component {
 			var fileIdx = markedBlock.fileIdx;
 			var blockKey = markedBlock.startPos & "-" & markedBlock.endPos;
 
-			arguments.blocks[fileIdx][blockKey].blockType = (markedBlock.isChildTime ?: false) ? 1 : 0;
+			arguments.blocks[fileIdx][blockKey]["blockType"] = (markedBlock.isChildTime ?: false) ? 1 : 0;
+			arguments.blocks[fileIdx][blockKey]["isBlock"] = markedBlock.isBlock ?: false;
 		}
 	}
 

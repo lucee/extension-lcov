@@ -34,6 +34,19 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		// Add per-file stats to match model expectations
 		// Use numeric file indices for all per-file data
 		var filePaths = [outDir & "/FullyCovered.cfm", outDir & "/PartiallyCovered.cfm"];
+
+		// Create AST directory and files
+		var astDir = outDir & "/ast";
+		if ( !directoryExists( astDir ) ) {
+			directoryCreate( astDir );
+		}
+
+		// Create AST files with source data
+		var astFile0 = astDir & "/file0.json";
+		var astFile1 = astDir & "/file1.json";
+		fileWrite( astFile0, serializeJSON( { "lines": ["line1", "line2", "line3", "line4", "line5"] } ) );
+		fileWrite( astFile1, serializeJSON( { "lines": ["line1", "line2", "line3", "line4", "line5"] } ) );
+
 		// fileIndex 0 = FullyCovered.cfm, fileIndex 1 = PartiallyCovered.cfm
 		syntheticResult.setStatsProperty("files", {
 			0: { linesFound: 5, linesHit: 5, totalExecutions: 10, totalExecutionTime: 60 },
@@ -48,7 +61,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				coveragePercentage: 100,
 				totalExecutions: 10,
 				totalExecutionTime: 60,
-				lines: ["line1", "line2", "line3", "line4", "line5"],
+				astFile: astFile0,
 				executableLines: {}
 			},
 			1: {
@@ -59,7 +72,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				coveragePercentage: 40,
 				totalExecutions: 7,
 				totalExecutionTime: 63,
-				lines: ["line1", "line2", "line3", "line4", "line5"],
+				astFile: astFile1,
 				executableLines: {}
 			}
 		});

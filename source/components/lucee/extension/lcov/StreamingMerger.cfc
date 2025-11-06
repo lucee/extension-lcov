@@ -82,13 +82,13 @@ component {
 			var files = result.getFiles();
 
 			// Map each unique file path to a canonical index
-			cfloop(collection=files, item="local.fileIndex") {
-				var filePath = files[fileIndex].path;
+			cfloop(collection=files, key="local.fileIndex", value="local.fileData") {
+				var filePath = fileData.path;
 				if (!structKeyExists(filePathToIndex, filePath)) {
 					filePathToIndex[filePath] = canonicalIndex;
 					indexToFilePath[canonicalIndex] = {
 						"path": filePath,
-						"fileInfo": files[fileIndex]
+						"fileInfo": fileData
 					};
 					canonicalIndex++;
 				}
@@ -115,8 +115,7 @@ component {
 	private struct function initializeEmptyMergedResults(required struct mappings) localmode=true {
 		var mergedResults = structNew("regular");
 
-		cfloop(collection=arguments.mappings.indexToFilePath, item="local.canonicalIndex") {
-			var fileInfo = arguments.mappings.indexToFilePath[canonicalIndex];
+		cfloop(collection=arguments.mappings.indexToFilePath, key="local.canonicalIndex", value="local.fileInfo") {
 
 			// Create empty result with just file metadata
 			var emptyResult = new lucee.extension.lcov.model.result();
@@ -259,8 +258,7 @@ component {
 		var files = arguments.result.getFiles();
 
 		// For each block in aggregated data: "fileIdx\tstartPos\tendPos" = [fileIdx, startPos, endPos, hitCount, execTime]
-		cfloop(collection=aggregatedData, item="local.blockKey") {
-			var blockData = aggregatedData[blockKey];
+		cfloop(collection=aggregatedData, key="local.blockKey", value="local.blockData") {
 
 			var fileIndex = blockData[1];  // First element is file index
 			var filePath = files[fileIndex].path;

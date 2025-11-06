@@ -11,7 +11,7 @@ component {
 	/**
 	* Constructor/init function
 	*/
-	public MarkdownWriter function init(required Logger logger, string displayUnit = "μs") {
+	public MarkdownLineWriter function init(required Logger logger, string displayUnit = "μs") {
 		variables.logger = arguments.logger;
 		variables.displayUnit = arguments.displayUnit;
 		return this;
@@ -146,7 +146,10 @@ component {
 			arrayAppend( parts, repeatString("##", 6) & " Lines" );
 			arrayAppend( parts, "" );
 
-			var fileLines = arguments.result.getFileLines(arguments.fileIndex);
+			// Load source lines from AST file
+			var astFilePath = fileData.astFile;
+			var astData = deserializeJSON(fileRead(astFilePath));
+			var fileLines = astData.lines;
 
 			for (var lineNum = 1; lineNum <= arrayLen(fileLines); lineNum++) {
 				var lineData = fileCoverage[lineNum] ?: [];
@@ -173,18 +176,29 @@ component {
 							arrayAppend( parts, "- Executed: " & numberFormat(count) & " times" );
 						}
 
-						// Display own time if present
-						if (ownTime > 0) {
-							var ownTimeMicros = arguments.timeFormatter.convertTime(ownTime, arguments.sourceUnit, "μs");
-							var ownTimeDisplay = arguments.timeFormatter.formatTime(ownTimeMicros, variables.displayUnit, true);
-							arrayAppend( parts, "- Time: " & ownTimeDisplay );
-						}
-
-						// Display child time if present
+						// Show single time type (Child takes priority over Own)
 						if (childTime > 0) {
-							var childTimeMicros = arguments.timeFormatter.convertTime(childTime, arguments.sourceUnit, "μs");
-							var childTimeDisplay = arguments.timeFormatter.formatTime(childTimeMicros, variables.displayUnit, true);
-							arrayAppend( parts, "- Child Time: " & childTimeDisplay );
+							var timeMicros = arguments.timeFormatter.convertTime(childTime, arguments.sourceUnit, "μs");
+							var timeDisplay = arguments.timeFormatter.formatTime(timeMicros, variables.displayUnit, true);
+							arrayAppend( parts, "- Time (Child): " & timeDisplay );
+
+							// Add average if count > 1
+							if (count > 1) {
+								var avgMicros = timeMicros / count;
+								var avgDisplay = arguments.timeFormatter.formatTime(avgMicros, variables.displayUnit, true);
+								arrayAppend( parts, "- Avg: " & avgDisplay );
+							}
+						} else if (ownTime > 0) {
+							var timeMicros = arguments.timeFormatter.convertTime(ownTime, arguments.sourceUnit, "μs");
+							var timeDisplay = arguments.timeFormatter.formatTime(timeMicros, variables.displayUnit, true);
+							arrayAppend( parts, "- Time (Own): " & timeDisplay );
+
+							// Add average if count > 1
+							if (count > 1) {
+								var avgMicros = timeMicros / count;
+								var avgDisplay = arguments.timeFormatter.formatTime(avgMicros, variables.displayUnit, true);
+								arrayAppend( parts, "- Avg: " & avgDisplay );
+							}
 						}
 
 						arrayAppend( parts, "" );

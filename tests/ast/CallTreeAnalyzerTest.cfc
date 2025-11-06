@@ -5,7 +5,118 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.logger = new lucee.extension.lcov.Logger( level=variables.logLevel );
 		variables.testDataGenerator = new "../GenerateTestData"( testName="CallTreeAnalyzerTest" );
 		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
+		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
+		variables.blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		variables.adminPassword = request.SERVERADMINPASSWORD ?: "admin";
+	}
+
+	/**
+	 * Helper function to run the new CallTreeAnalyzer workflow
+	 * Replaces the old analyzeCallTree() method
+	 */
+	private struct function analyzeCallTreeWithNewAPI( required struct aggregated, required struct files ) {
+		// 1. Convert aggregated to blocks format
+		var blocks = variables.blockAggregator.convertAggregatedToBlocks( arguments.aggregated );
+
+		// 2. Extract calls from AST using AstCallAnalyzer
+		var callTreeMap = {};
+		for ( var fileIdx in arguments.files ) {
+			var file = arguments.files[ fileIdx ];
+			var functions = variables.astCallAnalyzer.extractFunctions( file.ast );
+
+			callTreeMap[ fileIdx ] = {};
+			for ( var func in functions ) {
+				for ( var call in func.calls ) {
+					// Skip built-in functions
+					if ( !( call.isBuiltIn ?: false ) && call.position > 0 ) {
+						callTreeMap[ fileIdx ][ call.position ] = {
+							isChildTime: true,
+							isBuiltIn: false,
+							functionName: call.name
+						};
+					}
+				}
+			}
+
+			// Also extract top-level calls (outside functions) from AST body
+			extractTopLevelCalls( file.ast, callTreeMap[ fileIdx ] );
+		}
+
+		// 3. Build empty astNodesMap (tests don't need this yet)
+		var astNodesMap = {};
+
+		// 4. Mark blocks with child time flags
+		var markedBlocks = variables.callTreeAnalyzer.markChildTimeBlocks( blocks, callTreeMap, astNodesMap, arguments.files );
+
+		// 5. Calculate metrics
+		var metrics = variables.callTreeAnalyzer.calculateChildTimeMetrics( markedBlocks );
+
+		// Return in same format as old API
+		return {
+			blocks: markedBlocks,
+			metrics: metrics
+		};
+	}
+
+	/**
+	 * Extract top-level function calls from AST body (calls outside any function)
+	 */
+	private void function extractTopLevelCalls( required struct ast, required struct callMap ) {
+		if ( !structKeyExists( arguments.ast, "body" ) || !isArray( arguments.ast.body ) ) {
+			return;
+		}
+
+		for ( var node in arguments.ast.body ) {
+			if ( isStruct( node ) && structKeyExists( node, "type" ) ) {
+				var nodeType = node.type;
+
+				// Check for CallExpression or NewExpression
+				if ( nodeType == "CallExpression" || nodeType == "NewExpression" ) {
+					var isBuiltIn = node.isBuiltIn ?: false;
+					var position = 0;
+					var callName = "";
+
+					// Get position
+					if ( structKeyExists( node, "start" ) ) {
+						if ( isStruct( node.start ) && structKeyExists( node.start, "offset" ) ) {
+							position = node.start.offset;
+						} else if ( isNumeric( node.start ) ) {
+							position = node.start;
+						}
+					}
+
+					// Get call name
+					if ( structKeyExists( node, "callee" ) ) {
+						if ( isStruct( node.callee ) && structKeyExists( node.callee, "name" ) ) {
+							callName = node.callee.name;
+						}
+					}
+
+					// Special case: _createcomponent is marked as built-in but it's instantiating user code
+					if ( lCase( callName ) == "_createcomponent" ) {
+						isBuiltIn = false;
+						// Try to get the component name from the first argument
+						if ( structKeyExists( node, "arguments" ) &&
+						    isArray( node.arguments ) &&
+						    arrayLen( node.arguments ) > 0 ) {
+							var firstArg = node.arguments[ 1 ];
+							if ( isStruct( firstArg ) && structKeyExists( firstArg, "value" ) && isSimpleValue( firstArg.value ) ) {
+								callName = "new " & firstArg.value;
+							}
+						}
+					}
+
+					// Add to call map if not built-in
+					if ( !isBuiltIn && position > 0 ) {
+						arguments.callMap[ position ] = {
+							isChildTime: true,
+							isBuiltIn: false,
+							functionName: callName
+						};
+					}
+				}
+			}
+		}
 	}
 
 	function run() {
@@ -46,7 +157,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Check that result has blocks and metrics
 				expect(structKeyExists(result, "blocks")).toBeTrue();
@@ -88,7 +199,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Check that blocks are properly marked
 				var childTimeBlockFound = false;
@@ -141,7 +252,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Built-in functions should NOT be marked as child time
 				// They are part of regular execution, not child time
@@ -193,7 +304,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Find the constructor call block and verify it's marked as child time
 				var constructorBlockFound = false;
@@ -238,7 +349,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Find the constructor call block and verify it's marked as child time
 				var constructorBlockFound = false;
@@ -419,49 +530,15 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 
 					// Extract aggregated data and files from coverage
 					if (structKeyExists(coverage, "aggregated") && structKeyExists(coverage, "files")) {
-						// Run call tree analysis
-						var callTree = variables.callTreeAnalyzer.analyzeCallTree(
-							coverage.aggregated,
-							coverage.files
-						);
+						// Run call tree analysis with new API
+						var result = analyzeCallTreeWithNewAPI( coverage.aggregated, coverage.files );
 
-						// Verify we found functions
-						expect(structCount(callTree)).toBeGT(0, "Should find functions in call tree");
+						// Verify we found blocks
+						expect(structCount(result.blocks)).toBeGT(0, "Should find blocks in call tree");
 
-						// Check for expected functions from our test file
-						var foundMain = false;
-						var foundFetchData = false;
-						var foundProcessData = false;
-
-						for (var key in callTree) {
-							var node = callTree[key];
-							if (node.function.name == "main") {
-								foundMain = true;
-								expect(node.totalTime).toBeGT(0);
-								expect(arrayLen(node.children)).toBeGT(0, "main should have children");
-							}
-							else if (node.function.name == "fetchData") {
-								foundFetchData = true;
-								expect(node.totalTime).toBeGT(0);
-							}
-							else if (node.function.name == "processData") {
-								foundProcessData = true;
-								expect(node.totalTime).toBeGT(0);
-							}
-						}
-
-						// These assertions might fail if AST parsing isn't working yet
-						// That's okay - we're building this incrementally
-						if (foundMain || foundFetchData || foundProcessData) {
-							expect(foundMain || foundFetchData || foundProcessData).toBeTrue(
-								"Should find at least one expected function"
-							);
-						} else {
-							// If no functions found, just check that we processed something
-							expect(structCount(callTree)).toBeGTE(0,
-								"Call tree analysis should complete without error"
-							);
-						}
+						// Check metrics
+						expect(structKeyExists(result, "metrics")).toBeTrue("Should have metrics");
+						expect(result.metrics.totalBlocks).toBeGT(0, "Should have total blocks");
 					}
 				} else {
 					// No execution logs generated - this is okay for initial testing

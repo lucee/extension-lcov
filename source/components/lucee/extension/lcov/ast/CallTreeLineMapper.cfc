@@ -22,8 +22,7 @@ component {
 		var blocks = arguments.callTree.blocks;
 
 		// Process each block in the call tree
-		cfloop( collection=blocks, key="local.blockKey" ) {
-			var block = blocks[blockKey];
+		cfloop( collection=blocks, key="local.blockKey", value="local.block" ) {
 			var fileIdx = block.fileIdx;
 
 			// Get the file's information
@@ -103,8 +102,7 @@ component {
 	public struct function createLineLookup(required struct lineCallTree) localmode=true {
 		var lookup = structNew( "regular" );
 
-		cfloop( collection=arguments.lineCallTree, key="local.lineKey" ) {
-			var lineData = arguments.lineCallTree[lineKey];
+		cfloop( collection=arguments.lineCallTree, key="local.lineKey", value="local.lineData" ) {
 			var fileIdx = lineData.fileIdx;
 			var lineNum = lineData.lineNum;
 
@@ -149,8 +147,7 @@ component {
 
 		// First, ensure ALL coverage arrays have 3 elements
 		// [count, executionTime, isChildTime]
-		cfloop( collection=arguments.coverage, key="local.fileIdx" ) {
-			var fileCoverage = arguments.coverage[fileIdx];
+		cfloop( collection=arguments.coverage, key="local.fileIdx", value="local.fileCoverage" ) {
 			if (!isStruct(fileCoverage)) {
 				throw "Coverage data for file index " & fileIdx & " must be a struct, got: " & getMetadata(fileCoverage).getName();
 			}
@@ -158,16 +155,14 @@ component {
 		}
 
 		// Now mark lines that represent child time (function calls)
-		cfloop( collection=lookup, key="local.fileIdx" ) {
+		cfloop( collection=lookup, key="local.fileIdx", value="local.fileCallTree" ) {
 			if (!structKeyExists(arguments.coverage, fileIdx)) {
 				arguments.coverage[fileIdx] = {};
 			}
 
 			var fileCoverage = arguments.coverage[fileIdx];
-			var fileCallTree = lookup[fileIdx];
 
-			cfloop( collection=fileCallTree, key="local.lineNum" ) {
-				var callTreeData = fileCallTree[lineNum];
+			cfloop( collection=fileCallTree, key="local.lineNum", value="local.callTreeData" ) {
 
 				// If line already has coverage data, set the childTime value
 				if (structKeyExists(fileCoverage, lineNum)) {

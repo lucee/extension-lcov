@@ -20,42 +20,6 @@ component {
 	}
 
 	/**
-	 * Analyzes execution blocks to identify which represent child time
-	 * @aggregated The aggregated execution blocks (position-based format)
-	 * @files File information including AST data
-	 * @return Struct containing blocks marked as child time
-	 */
-	public struct function analyzeCallTree(required struct aggregated, required struct files) localmode=true {
-		var startTime = getTickCount();
-
-		variables.logger.trace( "CallTreeAnalyzer: Starting analysis with " & structCount( arguments.aggregated ) & " blocks and " & structCount( arguments.files ) & " files" );
-
-		var astStart = getTickCount();
-
-		// Extract all function calls from AST for all files
-		var callsMap = extractAllCalls( arguments.files, variables.astCallAnalyzer );
-
-		variables.logger.debug( "CallTreeAnalyzer: extractAllCalls completed in " & ( getTickCount() - astStart ) & "ms, found " & structCount( callsMap ) & " call positions" );
-
-		// Mark blocks that represent child time (function calls)
-		var markStart = getTickCount();
-		var markedBlocks = markChildTimeBlocks( arguments.aggregated, callsMap );
-
-		variables.logger.debug( "CallTreeAnalyzer: markChildTimeBlocks completed in " & ( getTickCount() - markStart ) & "ms" );
-
-		var metricsStart = getTickCount();
-		var metrics = calculateChildTimeMetrics( markedBlocks );
-
-		variables.logger.trace( "CallTreeAnalyzer: calculateChildTimeMetrics completed in " & ( getTickCount() - metricsStart ) & "ms" );
-		variables.logger.debug( "CallTreeAnalyzer: Total analysis time: " & ( getTickCount() - startTime ) & "ms" );
-
-		return {
-			blocks: markedBlocks,
-			metrics: metrics
-		};
-	}
-
-	/**
 	 * Extract all function calls from AST data across all files
 	 * @files File information including AST
 	 * @astCallAnalyzer The AST call analyzer component
@@ -71,8 +35,7 @@ component {
 
 		// Build array of file data for parallel processing: [fileIdx, file, filePath, cached, fileCallCache]
 		var fileArray = [];
-		cfloop( collection=arguments.files, key="local.fileIdx" ) {
-			var file = arguments.files[ fileIdx ];
+		cfloop( collection=arguments.files, key="local.fileIdx", value="local.file" ) {
 
 			// Fail fast if no AST available
 			if ( !structKeyExists( file, "ast" ) || !isStruct( file.ast ) ) {
@@ -136,16 +99,37 @@ component {
 	/**
 	 * Mark execution blocks that represent child time (function calls)
 	 */
-	public struct function markChildTimeBlocks(required struct aggregated, required struct callsMap) localmode=true {
+	public struct function markChildTimeBlocks(required struct blocks, required struct callsMap, required struct astNodesMap, required struct files) localmode=true {
 		var markedBlocks = structNew( "regular" );
 
 		// callsMap is now nested: {fileIdx: {position: {isChildTime, isBuiltIn, functionName}}}
 		// No need to rebuild callsByFile - it's already indexed by fileIdx!
 
-		// Convert aggregated struct to array for chunking
+		// Convert blocks struct to array for chunking
+		// blocks format: {fileIdx: {"startPos-endPos": {hitCount, execTime, isOverlapping, blockType}}}
 		var blockArray = [];
-		cfloop( collection=arguments.aggregated, key="local.blockKey" ) {
-			arrayAppend( blockArray, [ blockKey, arguments.aggregated[ blockKey ] ] );
+		cfloop( collection=arguments.blocks, key="local.fileIdx", value="local.fileBlocks" ) {
+			if ( !isStruct( fileBlocks ) ) {
+				throw(
+					type = "CallTreeAnalyzer.InvalidBlocksStructure",
+					message = "Expected blocks[fileIdx] to be a struct, got: #getMetadata( fileBlocks ).name#",
+					detail = "fileIdx: #fileIdx#, blocks type: #getMetadata( arguments.blocks ).name#, fileBlocks: #serializeJSON( fileBlocks )#"
+				);
+			}
+			cfloop( collection=fileBlocks, key="local.blockKey", value="local.blockData" ) {
+				// blockKey is "startPos-endPos", parse it
+				var parts = listToArray( blockKey, "-" );
+				if ( arrayLen( parts ) != 2 ) {
+					throw(
+						type = "CallTreeAnalyzer.InvalidBlockKey",
+						message = "Expected blockKey format 'startPos-endPos', got: '#blockKey#'",
+						detail = "Parts array length: #arrayLen( parts )#, Parts: #serializeJSON( parts )#, fileIdx: #fileIdx#, fileBlocks type: #getMetadata( fileBlocks ).name#"
+					);
+				}
+				var startPos = parts[1];
+				var endPos = parts[2];
+				arrayAppend( blockArray, [ fileIdx, startPos, endPos, blockData ] );
+			}
 		}
 
 		// Use fixed chunk size - arrayMap's thread pool handles optimal parallelism
@@ -157,7 +141,7 @@ component {
 		for ( var i = 1; i <= totalBlocks; i += chunkSize ) {
 			var length = min( chunkSize, totalBlocks - i + 1 );
 			var chunk = arraySlice( blockArray, i, length );
-			arrayAppend( chunks, [ chunk, arguments.callsMap ] );
+			arrayAppend( chunks, [ chunk, arguments.callsMap, arguments.astNodesMap, arguments.files ] );
 		}
 
 		// Process chunks in parallel
@@ -181,8 +165,7 @@ component {
 			"builtInBlocks": 0
 		};
 
-		cfloop( collection=arguments.markedBlocks, key="local.blockKey" ) {
-			var block = arguments.markedBlocks[blockKey];
+		cfloop( collection=arguments.markedBlocks, key="local.blockKey", value="local.block" ) {
 
 			if (block.isChildTime) {
 				metrics.childTimeBlocks++;

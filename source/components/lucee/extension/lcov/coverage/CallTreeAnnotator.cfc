@@ -117,15 +117,12 @@ component {
 		var event = variables.logger.beginEvent( "AnnotateCallTree" );;
 
 		var blocks = arguments.result.getBlocks();
-		var aggregated = arguments.result.getAggregated();
 		var files = arguments.result.getFiles();
-		var markedBlocks = variables.callTreeAnalyzer.markChildTimeBlocks( aggregated, arguments.callTreeMap );
+		var markedBlocks = variables.callTreeAnalyzer.markChildTimeBlocks( blocks, arguments.callTreeMap, arguments.astNodesMap, files );
 
-		// Enrich blocks with AST node type information
-		enrichBlocksWithAst( blocks, files, arguments.astNodesMap );
 
-		// Update existing blocks with blockType from markedBlocks
-		// markedBlocks has flat structure: {fileIdx\tstartPos\tendPos: {fileIdx, startPos, endPos, isChildTime, isBuiltIn}}
+		// Update existing blocks with blockType and isBlock from markedBlocks
+		// markedBlocks has flat structure: {fileIdx\tstartPos\tendPos: {fileIdx, startPos, endPos, isChildTime, isBuiltIn, isBlock}}
 		// blocks has nested structure: {fileIdx: {startPos-endPos: {hitCount, execTime, blockType, isOverlapping (optional)}}}
 		for (var flatKey in markedBlocks) {
 			var markedBlock = markedBlocks[flatKey];
@@ -138,7 +135,9 @@ component {
 				var baseType = (markedBlock.isChildTime ?: false) ? 1 : 0;
 				// Add 2 if overlapping (Phase 2): blockType 2 = own+overlap, 3 = child+overlap
 				var isOverlapping = structKeyExists(block, "isOverlapping") && block.isOverlapping;
-				block.blockType = baseType + (isOverlapping ? 2 : 0);
+				block[ "blockType" ] = baseType + (isOverlapping ? 2 : 0);
+				// Set isBlock flag from AST analysis
+				block[ "isBlock" ] = markedBlock.isBlock ?: false;
 			}
 		}
 
@@ -162,6 +161,8 @@ component {
 		}
 
 		arguments.result.setCoverage( variables.blockAggregator.aggregateAllBlocksToLines( arguments.result, files ) );
+		// Enrich blocks with AST node type information (MUST be after blocks are rebuilt from aggregated!)
+		enrichBlocksWithAst( arguments.result.getBlocks(), files, arguments.astNodesMap );
 
 		// Recalculate stats from the rebuilt coverage to pick up childTime values
 		// This is critical - stats were calculated in buildLineCoverage before blocks had blockType set
@@ -195,7 +196,7 @@ component {
 		var totalBlocks = 0;
 
 		// Iterate over each file's blocks
-		cfloop( collection=arguments.blocks, key="local.fileIdx" ) {
+		cfloop( collection=arguments.blocks, key="local.fileIdx", value="local.fileBlocks" ) {
 			// Get file path
 			var filePath = "";
 			if ( structKeyExists( arguments.files, fileIdx ) &&
@@ -212,12 +213,8 @@ component {
 			if ( structCount( astNodes ) == 0 ) {
 				continue;
 			}
-
-			// Iterate over blocks in this file
-			var fileBlocks = arguments.blocks[fileIdx];
-			cfloop( collection=fileBlocks, key="local.blockKey" ) {
+			cfloop( collection=fileBlocks, key="local.blockKey", value="local.block" ) {
 				totalBlocks++;
-				var block = fileBlocks[blockKey];
 
 				// blockKey format: "startPos-endPos"
 				// Look up AST node with same key
@@ -253,7 +250,6 @@ component {
 				}
 			}
 		}
-
 		variables.logger.debug( "Enriched #enrichedCount# of #totalBlocks# blocks with AST metadata" );
 	}
 

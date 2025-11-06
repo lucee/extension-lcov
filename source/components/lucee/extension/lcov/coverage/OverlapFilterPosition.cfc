@@ -28,8 +28,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		var isAggregatedFormat = false;
 
 		// Check if this is aggregated format (has tab-delimited keys) or blocks format (numeric keys with array values)
-		cfloop( collection=arguments.aggregatedOrBlocksByFile, key="local.key" ) {
-			var value = arguments.aggregatedOrBlocksByFile[key];
+		cfloop( collection=arguments.aggregatedOrBlocksByFile, key="local.key", value="local.value" ) {
 			if (isArray(value) && arrayLen(value) > 0) {
 				if (isArray(value[1])) {
 					// This is blocksByFile format (array of arrays)
@@ -45,8 +44,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 
 		if (isAggregatedFormat) {
 			// Convert aggregated structure to blocks by file
-			cfloop( collection=arguments.aggregatedOrBlocksByFile, key="local.key" ) {
-				var block = arguments.aggregatedOrBlocksByFile[key];
+			cfloop( collection=arguments.aggregatedOrBlocksByFile, key="local.key", value="local.block" ) {
 				// Block format from aggregator: [fileIdx, startPos, endPos, count, totalTime]
 				var fileIdx = toString(block[1]);
 				if (!structKeyExists(blocksByFile, fileIdx)) {
@@ -63,9 +61,8 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		var filesProcessed = 0;
 		var filesWithChanges = 0;
 
-		cfloop( collection=blocksByFile, key="local.fileIdx" ) {
+		cfloop( collection=blocksByFile, key="local.fileIdx", value="local.blocks" ) {
 			var fileStart = getTickCount();
-			var blocks = blocksByFile[ fileIdx ];
 			var blockCountBefore = arrayLen( blocks );
 
 			// Filter overlapping blocks based on character positions
@@ -145,8 +142,7 @@ component displayname="OverlapFilterPosition" accessors="true" {
 		event["filesWithOverlaps"] = filesWithChanges;
 
 		// Count total marked overlaps
-		cfloop( collection=result, key="local.key" ) {
-			var entry = result[key];
+		cfloop( collection=result, key="local.key", value="local.entry" ) {
 			if (isAggregatedFormat && isArray(entry) && arrayLen(entry) >= 6 && entry[6]) {
 				event["markedEntries"]++;
 			}

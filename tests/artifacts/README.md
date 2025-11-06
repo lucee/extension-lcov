@@ -2,6 +2,8 @@
 
 This folder contains CFML test files used to generate code coverage data for testing the LCOV extension.
 
+DO NOT ADD NEW FILES TO THE ROOT, use a subfolder
+
 ## Output Methods
 
 ### Why systemOutput() vs writeOutput()

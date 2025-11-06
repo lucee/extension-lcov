@@ -48,11 +48,10 @@ component {
 	* @allowList Array of allowed file patterns/paths
 	* @blocklist Array of blocked file patterns/paths
 	* @writeJsonCache Whether to write a JSON cache file
-	* @includeCallTree Whether to include call tree analysis
 	* @includeSourceCode Whether to include source code in output
 	* @return Result object containing sections and fileCoverage data
 	*/
-	public function parseExlFile(exlPath, allowList=[], blocklist=[], writeJsonCache=false, includeCallTree=false, includeSourceCode=true) {
+	public function parseExlFile(exlPath, allowList=[], blocklist=[], writeJsonCache=false, includeSourceCode=true) {
 
 		var startTime = getTickCount();
 
@@ -60,8 +59,7 @@ component {
 		var cacheCheck = variables.cacheValidator.loadCachedResultIfValid(
 			exlPath=arguments.exlPath,
 			allowList=arguments.allowList,
-			blocklist=arguments.blocklist,
-			includeCallTree=arguments.includeCallTree
+			blocklist=arguments.blocklist
 		);
 		if (cacheCheck.valid) {
 			return cacheCheck.result;
@@ -104,8 +102,7 @@ component {
 		// Store options hash (delegate to CacheValidator for consistency)
 		var optionsHash = variables.cacheValidator.calculateOptionsHash(
 			arguments.allowList,
-			arguments.blocklist,
-			arguments.includeCallTree
+			arguments.blocklist
 		);
 		coverage.setOptionsHash(optionsHash);
 
@@ -118,8 +115,7 @@ component {
 		// Parse coverage data (the expensive part)
 		parseCoverage(
 			coverageData=coverage,
-			callTreeAnalyzer=variables.callTreeAnalyzer,
-			includeCallTree=arguments.includeCallTree
+			callTreeAnalyzer=variables.callTreeAnalyzer
 		);
 
 		var totalTime = getTickCount() - startTime;
@@ -140,10 +136,9 @@ component {
 	 * Combine identical coverage entries before line processing
 	 * @coverageData The result object containing coverage data to parse
 	 * @callTreeAnalyzer The call tree analyzer component for AST analysis
-	 * @includeCallTree Whether to include call tree analysis (default: false)
 	 * @return The updated coverageData result object
 	 */
-	private function parseCoverage(coverageData, callTreeAnalyzer, includeCallTree) localmode=true {
+	private function parseCoverage(coverageData, callTreeAnalyzer) localmode=true {
 		var files = arguments.coverageData.getFiles();
 		var exlPath = arguments.coverageData.getExeLog();
 		var start = getTickCount();
@@ -231,8 +226,9 @@ component {
 				);
 			}
 
-			// Get all file data (content, lineMapping, sourceLines) in a single call
-			var fileData = variables.fileCacheHelper.getFileData(path);
+			// Build full AST file path from file checksum
+			var checksum = fileInfo(path).checksum;
+			var astFile = getDirectoryFromPath(arguments.exlPath) & "ast/" & checksum & ".json";
 
 			// OPTIMIZATION: Skip AST parsing during parseExlFile phase
 			// AST metadata (including linesFound) is extracted later in batch via extractAstMetadata
@@ -242,10 +238,7 @@ component {
 			files[num] = variables.fileEntryBuilder.buildFileEntry(
 				fileIndex=num,
 				path=path,
-				lineMapping=fileData.lineMapping,
-				fileContent=fileData.content,
-				sourceLines=fileData.sourceLines,
-				includeSourceCode=arguments.includeSourceCode
+				astFile=astFile
 			);
 		}
 

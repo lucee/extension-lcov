@@ -82,12 +82,17 @@ component {
 			var safeFileName = fileInfo.checksum & ".json";
 			var metadataFilePath = metadataDir & "/" & safeFileName;
 
+			// Build lines array (split by line for reporters)
+			var lines = listToArray( fileContent, chr(10) );
 			var metadataContent = {
-				"callTree": metadata.callTree,
-				"executableLineCount": metadata.executableLineCount,
+				"path": filePath,
+				"content": fileContent,
+				"lines": lines,
+				"lineMapping": lineMapping,
 				"executableLines": metadata.executableLines,
-				"astNodes": metadata.astNodes,
-				"lineMapping": lineMapping
+				"executableLineCount": metadata.executableLineCount,
+				"callTree": metadata.callTree,
+				"astNodes": metadata.astNodes
 			};
 			fileWrite( metadataFilePath, serializeJSON( metadataContent, false ) );
 

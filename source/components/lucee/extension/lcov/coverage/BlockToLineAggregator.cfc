@@ -33,8 +33,7 @@ component {
 		var blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		var coverage = structNew( "regular" );
 
-		cfloop( collection=arguments.files, key="local.fileIdx" ) {
-			var fileInfo = arguments.files[fileIdx];
+		cfloop( collection=arguments.files, key="local.fileIdx", value="local.fileInfo" ) {
 
 			// Aggregate blocks for this file
 			if (structKeyExists(arguments.blocks, fileIdx) && structCount(arguments.blocks[fileIdx]) > 0) {

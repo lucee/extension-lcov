@@ -23,14 +23,12 @@ component {
 	 * @exlPath Path to .exl file
 	 * @allowList Allow list for validation
 	 * @blocklist Block list for validation
-	 * @includeCallTree Whether call tree is included
 	 * @return struct with {valid: boolean, result: result object or null}
 	 */
 	public struct function loadCachedResultIfValid(
 		required string exlPath,
 		required array allowList,
-		required array blocklist,
-		required boolean includeCallTree
+		required array blocklist
 	) {
 		var jsonPath = reReplace(arguments.exlPath, "\.exl$", ".json");
 
@@ -49,13 +47,12 @@ component {
 			// Create options hash for comparison
 			var currentOptionsHash = calculateOptionsHash(
 				arguments.allowList,
-				arguments.blocklist,
-				arguments.includeCallTree
+				arguments.blocklist
 			);
 			var cachedOptionsHash = cachedData.optionsHash ?: "";
 
 			// Debug: show what's being hashed
-			//variables.logger.debug("Options being hashed: allowList=#serializeJSON(arguments.allowList)#, blocklist=#serializeJSON(arguments.blocklist)#, includeCallTree=#arguments.includeCallTree#");
+			//variables.logger.debug("Options being hashed: allowList=#serializeJSON(arguments.allowList)#, blocklist=#serializeJSON(arguments.blocklist)#");
 
 			if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
 				variables.logger.debug("Using cached result for [" & getFileFromPath(arguments.exlPath) & "]");
@@ -95,15 +92,13 @@ component {
 	 * Calculates an options hash for cache validation.
 	 * @allowList Allow list
 	 * @blocklist Block list
-	 * @includeCallTree Whether call tree is included
 	 * @return string MD5 hash of options
 	 */
 	public string function calculateOptionsHash(
 		required array allowList,
-		required array blocklist,
-		required boolean includeCallTree
+		required array blocklist
 	) {
-		var json = serializeJSON([arguments.allowList, arguments.blocklist, arguments.includeCallTree]);
+		var json = serializeJSON([arguments.allowList, arguments.blocklist]);
 		var hashValue = hash(json, "MD5");
 		//variables.logger.debug("calculateOptionsHash: JSON=[#json#], hash=#hashValue#");
 		return hashValue;

@@ -47,25 +47,18 @@ component accessors="true" {
 					continue;
 				}
 
-				// Skip keys that don't exist or have null values
-				if (!structKeyExists(node, key)) {
-					continue;
-				}
-
-				var value = node[key];
-
 				// Skip null values
-				if (isNull(value)) {
+				if (isNull(node[key])) {
 					continue;
 				}
 
 				// Recursively traverse arrays
-				if (isArray(value)) {
-					traverseNodes(value, arguments.executableLines);
+				if (isArray(node[key])) {
+					traverseNodes(node[key], arguments.executableLines);
 				}
 				// Recursively traverse nested structs
-				else if (isStruct(value)) {
-					traverseNodes([value], arguments.executableLines);
+				else if (isStruct(node[key])) {
+					traverseNodes([node[key]], arguments.executableLines);
 				}
 			}
 		}

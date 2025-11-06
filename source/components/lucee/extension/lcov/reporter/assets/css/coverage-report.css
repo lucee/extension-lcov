@@ -432,6 +432,31 @@ tbody tr:nth-child(even) {
 	border-radius: 3px;
 }
 
+.code-table td.time-type {
+	text-align: left;
+	font-size: 12px;
+	padding: 2px 5px;
+	white-space: nowrap;
+}
+
+.code-table td.time-value {
+	text-align: right;
+	font-weight: bold;
+	font-size: 12px;
+	padding: 2px 5px;
+	border-radius: 3px;
+	white-space: nowrap;
+}
+
+.code-table td.avg-time {
+	text-align: right;
+	font-size: 12px;
+	padding: 2px 5px;
+	white-space: nowrap;
+	font-style: italic;
+	color: var(--non-executable-text);
+}
+
 .dark-mode-toggle {
 	position: absolute;
 	top: 20px;

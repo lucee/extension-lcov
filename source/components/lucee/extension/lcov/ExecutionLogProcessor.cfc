@@ -154,7 +154,6 @@ component {
 			arguments.options.allowList ?: [],
 			arguments.options.blocklist ?: [],
 			false,  // writeJsonCache - we handle JSON writing after stats
-			false,  // includeCallTree - not needed for parseExecutionLogs minimal JSONs
 			includeSourceCode  // CRITICAL: false for separateFiles=true to reduce JSON from 2MB to ~1KB
 		);
 

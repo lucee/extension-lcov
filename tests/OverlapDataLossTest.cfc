@@ -28,7 +28,6 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 			allowList=[],
 			blocklist=[],
 			writeJsonCache=false,
-			includeCallTree=false,
 			includeSourceCode=false
 		);
 

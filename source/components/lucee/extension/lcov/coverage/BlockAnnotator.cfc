@@ -35,9 +35,8 @@ component {
 		var totalBlocks = 0;
 
 		// Process each block
-		cfloop( collection=arguments.aggregatedBlocks, key="local.blockKey" ) {
+		cfloop( collection=arguments.aggregatedBlocks, key="local.blockKey", value="local.block" ) {
 			totalBlocks++;
-			var block = arguments.aggregatedBlocks[blockKey];
 
 			// Block format: [fileIdx, startPos, endPos, count, totalTime, isOverlapping]
 			var fileIdx = toString( block[1] );

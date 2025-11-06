@@ -229,8 +229,8 @@ component {
 
 		// Normalize input to array of paths
 		if ( isStruct( arguments.files ) ) {
-			cfloop( collection=arguments.files, key="local.idx" ) {
-				arrayAppend( filePaths, arguments.files[idx].path );
+			cfloop( collection=arguments.files, key="local.idx", value="local.fileData" ) {
+				arrayAppend( filePaths, fileData.path );
 			}
 		} else if ( isArray( arguments.files ) ) {
 			filePaths = arguments.files;

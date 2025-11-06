@@ -262,11 +262,6 @@ component {
 		new lucee.extension.lcov.CoverageStats( logger=arguments.logger ).calculateStatsForMergedResults( mergedResults );
 		arguments.logger.commitEvent( statsEvent, 0, "info" );
 
-		// Hydrate source code back into mergedResults before writing per-file JSONs
-		// This is needed because parseExecutionLogs minimal JSONs don't include source code/AST
-		var hydrateEvent = arguments.logger.beginEvent( "Merge: Hydrate source code for #structCount(mergedResults)# files" );
-		hydrateSourceCodeForMergedResults( mergedResults, arguments.logger );
-		arguments.logger.commitEvent( hydrateEvent, 0, "info" );
 
 		// Write per-file JSONs
 		var writeEvent = arguments.logger.beginEvent( "Merge: Write #structCount(mergedResults)# per-file JSONs" );
@@ -291,36 +286,5 @@ component {
 	 * @mergedResults Struct of merged result objects (modified in place)
 	 * @logger Logger instance
 	 */
-	public void function hydrateSourceCodeForMergedResults( required struct mergedResults, required any logger ) {
-		arguments.logger.debug( "Hydrating source code for #structCount(arguments.mergedResults)# merged results" );
-		var fileCacheHelper = new lucee.extension.lcov.parser.FileCacheHelper( logger=arguments.logger, blockProcessor=variables.blockProcessor );
-
-		for ( var canonicalIndex in arguments.mergedResults ) {
-			var entry = arguments.mergedResults[canonicalIndex];
-			var files = entry.getFiles();
-
-			// Each merged result should have exactly one file
-			for ( var fileIdx in files ) {
-				var fileInfo = files[fileIdx];
-				var filePath = fileInfo.path;
-
-				// Only hydrate if source code is missing
-				if ( !structKeyExists( fileInfo, "lines" ) || !isArray( fileInfo.lines ) ) {
-					arguments.logger.trace( "Hydrating source code for: " & filePath );
-
-					// Read file from disk and convert to lines array
-					var sourceLines = fileCacheHelper.readFileAsArrayBylines( filePath );
-					fileInfo.lines = sourceLines;
-
-					// Also store content as single string if needed
-					fileInfo.content = arrayToList( sourceLines, chr(10) );
-
-					arguments.logger.trace( "Hydrated " & arrayLen(sourceLines) & " lines for: " & filePath );
-				}
-			}
-		}
-
-		arguments.logger.debug( "Completed hydrating source code" );
-	}
 
 }

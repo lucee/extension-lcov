@@ -69,54 +69,73 @@ component {
 
 	/**
 	 * Process a chunk of blocks - for parallel execution
-	 * chunkInfo is: [blocks array, callsMap]
+	 * chunkInfo is: [blocks array, callsMap, astNodesMap, files]
 	 * callsMap is nested: {fileIdx: {position: {isChildTime, isBuiltIn, functionName}}}
+	 * astNodesMap is nested: {filePath: {startPos-endPos: {astNodeType, isBlock, tagName}}}
 	 */
 	public function processBlockChunk( required array chunkInfo ) localmode=true {
 		var blocks = chunkInfo[ 1 ];
 		var callsMap = chunkInfo[ 2 ];
+		var astNodesMap = chunkInfo[ 3 ];
+		var files = chunkInfo[ 4 ];
 		var result = structNew( "regular" );
 
 		cfloop( array=blocks, item="local.blockInfo" ) {
-			var blockKey = blockInfo[ 1 ];
-			var blockData = blockInfo[ 2 ];
+			// blockInfo format: [fileIdx, startPos, endPos, blockData]
+			// blockData is a struct: {hitCount, execTime, isOverlapping, blockType}
+			var fileIdx = blockInfo[ 1 ];
+			var startPos = blockInfo[ 2 ];
+			var endPos = blockInfo[ 3 ];
+			var blockData = blockInfo[ 4 ];
 
-			// Validate array format: [fileIdx, startPos, endPos, count, totalTime, isOverlapping (optional)]
-			var blockDataLen = arrayLen( blockData );
-			if ( !isArray( blockData ) || (blockDataLen != 5 && blockDataLen != 6) ) {
-				throw "Aggregated block must be array with 5 or 6 elements [fileIdx, startPos, endPos, count, totalTime, isOverlapping (optional)], got: " & serializeJSON( blockData );
-			}
+			var count = blockData.hitCount;
+			var executionTime = blockData.execTime;
 
-			var fileIdx = blockData[ 1 ];
-			var startPos = blockData[ 2 ];
-			var endPos = blockData[ 3 ];
-			var count = blockData[ 4 ];
-			var executionTime = blockData[ 5 ];
-
-			// Check if this block matches a function call position
-			var isChildTime = false;
-			var isBuiltIn = false;
-
-			// Check calls from this file using nested struct lookup
-			var fileCalls = callsMap[ fileIdx ] ?: {};
-			cfloop( collection=fileCalls, key="local.position" ) {
-				if ( position >= startPos && position <= endPos ) {
-					var callInfo = fileCalls[ position ];
-					isChildTime = callInfo.isChildTime ?: true;
-					isBuiltIn = callInfo.isBuiltIn ?: false;
-					break;
+			// Check if this block is a block statement (ForStatement, IfStatement, etc.) in AST
+			var isBlockStatement = false;
+			if ( structKeyExists( files, fileIdx ) && structKeyExists( files[fileIdx], "path" ) ) {
+				var filePath = files[fileIdx].path;
+				if ( structKeyExists( astNodesMap, filePath ) ) {
+					var astNodes = astNodesMap[filePath];
+					var astKey = startPos & "-" & endPos;
+					if ( structKeyExists( astNodes, astKey ) ) {
+						var astNode = astNodes[astKey];
+						isBlockStatement = astNode.isBlock ?: false;
+					}
 				}
 			}
 
+			// Check if this block contains function call positions
+			var isChildTime = false;
+			var isBuiltIn = false;
+
+			// Only mark as child time if this is NOT a block statement
+			// Block statements (for, if, etc.) contain child calls but are not themselves child time
+			if ( !isBlockStatement ) {
+				// Check calls from this file using nested struct lookup
+				var fileCalls = callsMap[ fileIdx ] ?: {};
+				cfloop( collection=fileCalls, key="local.position", value="local.callInfo" ) {
+					if ( position >= startPos && position <= endPos ) {
+						isChildTime = callInfo.isChildTime ?: true;
+						isBuiltIn = callInfo.isBuiltIn ?: false;
+						break;
+					}
+				}
+			}
+
+			// Build result key (matches aggregated format for compatibility)
+			var resultKey = fileIdx & chr(9) & startPos & chr(9) & endPos;
+
 			// Store in chunk result
-			result[ blockKey ] = {
+			result[ resultKey ] = {
 				"fileIdx": fileIdx,
 				"startPos": startPos,
 				"endPos": endPos,
 				"count": count,
 				"executionTime": executionTime,
 				"isChildTime": isChildTime,
-				"isBuiltIn": isBuiltIn
+				"isBuiltIn": isBuiltIn,
+				"isBlock": isBlockStatement
 			};
 		}
 
@@ -221,9 +240,9 @@ component {
 			}
 
 			// Recursively search children
-			cfloop( collection=node, key="local.key" ) {
-				if ( !arrayContains( variables.SKIP_KEYS, key ) && !isNull( node[ key ] ) ) {
-					this.extractCFMLTagsAndCalls( node[ key ], fileCalls );
+			cfloop( collection=node, key="local.key", value="local.value" ) {
+				if ( !arrayContains( variables.SKIP_KEYS, key ) && !isNull( value ) ) {
+					this.extractCFMLTagsAndCalls( value, fileCalls );
 				}
 			}
 		}

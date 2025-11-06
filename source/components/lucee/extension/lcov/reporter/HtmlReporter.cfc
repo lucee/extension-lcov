@@ -6,6 +6,7 @@ component {
 	variables.displayUnit = { symbol: "μs", name: "micro", factor: 1 };
 	variables.outputDir = "";
 	variables.fileUtils = new FileUtils();
+	variables.markdownOptions = {};  // Markdown generation options
 
 	/**
 	* Constructor/init function
@@ -15,8 +16,16 @@ component {
 		variables.displayUnit = arguments.displayUnit;
 		variables.htmlAssets = new HtmlAssets();
 		variables.htmlWriter = new HtmlWriter( logger=variables.logger, displayUnit=variables.displayUnit );
-		variables.markdownWriter = new MarkdownWriter( logger=variables.logger, displayUnit=variables.displayUnit );
+		variables.markdownLineWriter = new MarkdownLineWriter( logger=variables.logger, displayUnit=variables.displayUnit );
+		variables.markdownBlockWriter = new MarkdownBlockWriter( logger=variables.logger, displayUnit=variables.displayUnit );
 		return this;
+	}
+
+	/**
+	 * Set markdown generation options
+	 */
+	public void function setMarkdownOptions(required struct options) {
+		variables.markdownOptions = arguments.options;
 	}
 
 	/**
@@ -101,8 +110,10 @@ component {
 
 		variables.logger.debug("Generated index.html with " & arrayLen( indexData ) & " reports");
 
-		// Generate index.md alongside HTML
-		generateIndexMarkdown(indexData, arguments.outputDirectory);
+		// Generate index.md alongside HTML (if enabled)
+		if ( !structKeyExists( variables.markdownOptions, "enabled" ) || variables.markdownOptions.enabled ) {
+			generateIndexMarkdown( indexData, arguments.outputDirectory );
+		}
 
 		return indexHtmlPath;
 	}
@@ -178,6 +189,12 @@ component {
 			throw(message="generateMarkdownReport requires a lucee.extension.lcov.model.result instance, got: " & getMetaData(arguments.result).name);
 		}
 
+		// Check if markdown generation is disabled
+		if (structKeyExists(variables.markdownOptions, "enabled") && !variables.markdownOptions.enabled) {
+			variables.logger.debug("Markdown generation disabled via options.markdown.enabled");
+			return "";
+		}
+
 		// Fail fast - coverage must exist before generating Markdown
 		var coverage = arguments.result.getCoverage();
 		if (!isStruct(coverage) || structIsEmpty(coverage)) {
@@ -185,12 +202,26 @@ component {
 			throw(message="No coverage data in result for outputFilename=[#outputFilename#]. Coverage must be built before generating Markdown reports. Call buildLineCoverage() first.");
 		}
 
-		var markdown = variables.markdownWriter.generateMarkdownContent( result );
-		var markdownPath = createMarkdownPath(result);
-		fileWrite(markdownPath, markdown);
+		// Check if block-based markdown is enabled
+		var blockBased = structKeyExists(variables.markdownOptions, "blockBased") && variables.markdownOptions.blockBased;
 
-		variables.logger.debug("Generated Markdown report: " & markdownPath);
-		return markdownPath;
+		if (blockBased) {
+			// Use block-based markdown writer
+			var markdownPath = variables.markdownBlockWriter.generate(
+				arguments.result,
+				variables.outputDir,
+				variables.markdownOptions
+			);
+			variables.logger.debug("Generated block-based markdown: " & markdownPath);
+			return markdownPath;
+		} else {
+			// Use line-based markdown writer (default, backward compatible)
+			var markdown = variables.markdownLineWriter.generateMarkdownContent( result );
+			var markdownPath = createMarkdownPath(result);
+			fileWrite(markdownPath, markdown);
+			variables.logger.debug("Generated line-based markdown: " & markdownPath);
+			return markdownPath;
+		}
 	}
 
 	/**
@@ -207,7 +238,7 @@ component {
 	* @return Path to the generated index.md file
 	*/
 	public string function generateIndexMarkdown(required array indexData, required string outputDirectory) {
-		return variables.markdownWriter.generateIndexMarkdown(indexData=arguments.indexData, outputDirectory=arguments.outputDirectory);
+		return variables.markdownLineWriter.generateIndexMarkdown(indexData=arguments.indexData, outputDirectory=arguments.outputDirectory);
 	}
 
 }

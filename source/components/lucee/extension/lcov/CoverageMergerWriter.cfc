@@ -27,7 +27,8 @@ component accessors=false {
 				var srcFile = files[idx];
 				// Fail fast if any required field is missing
 				// Note: executableLines removed from required fields - coverage now contains all executable lines
-				var requiredFields = ["linesSource","linesFound","linesHit","path","totalExecutions","totalExecutionTime","lines"];
+				// Note: lines removed from required fields - loaded from AST file via astFile path
+				var requiredFields = ["linesSource","linesFound","linesHit","path","totalExecutions","totalExecutionTime","astFile"];
 				cfloop( array=requiredFields, item="local.f" ) {
 					if (!structKeyExists(srcFile, f)) {
 						throw(message="BUG: Missing required field '" & f & "' in srcFile for canonical index " & canonicalIndex & ". srcFile: " & serializeJSON(srcFile));

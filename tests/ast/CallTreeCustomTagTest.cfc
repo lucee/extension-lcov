@@ -6,7 +6,117 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 		variables.testDataGenerator = new "../GenerateTestData"( testName="CallTreeCustomTagTest" );
 		variables.callTreeAnalyzer = new lucee.extension.lcov.ast.CallTreeAnalyzer( logger=variables.logger );
 		variables.astCallAnalyzer = new lucee.extension.lcov.ast.AstCallAnalyzer( logger=variables.logger );
+		variables.blockAggregator = new lucee.extension.lcov.coverage.BlockAggregator();
 		variables.artifactsDir = expandPath( "/testAdditional/artifacts/ast" );
+	}
+
+	/**
+	 * Helper function to run the new CallTreeAnalyzer workflow
+	 * Replaces the old analyzeCallTree() method
+	 */
+	private struct function analyzeCallTreeWithNewAPI( required struct aggregated, required struct files ) {
+		// 1. Convert aggregated to blocks format
+		var blocks = variables.blockAggregator.convertAggregatedToBlocks( arguments.aggregated );
+
+		// 2. Extract calls from AST using AstCallAnalyzer
+		var callTreeMap = {};
+		for ( var fileIdx in arguments.files ) {
+			var file = arguments.files[ fileIdx ];
+			var functions = variables.astCallAnalyzer.extractFunctions( file.ast );
+
+			callTreeMap[ fileIdx ] = {};
+			for ( var func in functions ) {
+				for ( var call in func.calls ) {
+					// Skip built-in functions
+					if ( !( call.isBuiltIn ?: false ) && call.position > 0 ) {
+						callTreeMap[ fileIdx ][ call.position ] = {
+							isChildTime: true,
+							isBuiltIn: false,
+							functionName: call.name
+						};
+					}
+				}
+			}
+
+			// Also extract top-level calls (outside functions) from AST body
+			extractTopLevelCalls( file.ast, callTreeMap[ fileIdx ] );
+		}
+
+		// 3. Build empty astNodesMap (tests don't need this yet)
+		var astNodesMap = {};
+
+		// 4. Mark blocks with child time flags
+		var markedBlocks = variables.callTreeAnalyzer.markChildTimeBlocks( blocks, callTreeMap, astNodesMap, arguments.files );
+
+		// 5. Calculate metrics
+		var metrics = variables.callTreeAnalyzer.calculateChildTimeMetrics( markedBlocks );
+
+		// Return in same format as old API
+		return {
+			blocks: markedBlocks,
+			metrics: metrics
+		};
+	}
+
+	/**
+	 * Extract top-level function calls from AST body (calls outside any function)
+	 */
+	private void function extractTopLevelCalls( required struct ast, required struct callMap ) {
+		if ( !structKeyExists( arguments.ast, "body" ) || !isArray( arguments.ast.body ) ) {
+			return;
+		}
+
+		for ( var node in arguments.ast.body ) {
+			if ( isStruct( node ) && structKeyExists( node, "type" ) ) {
+				var nodeType = node.type;
+
+				// Check for CallExpression or NewExpression
+				if ( nodeType == "CallExpression" || nodeType == "NewExpression" ) {
+					var isBuiltIn = node.isBuiltIn ?: false;
+					var position = 0;
+					var callName = "";
+
+					// Get position
+					if ( structKeyExists( node, "start" ) ) {
+						if ( isStruct( node.start ) && structKeyExists( node.start, "offset" ) ) {
+							position = node.start.offset;
+						} else if ( isNumeric( node.start ) ) {
+							position = node.start;
+						}
+					}
+
+					// Get call name
+					if ( structKeyExists( node, "callee" ) ) {
+						if ( isStruct( node.callee ) && structKeyExists( node.callee, "name" ) ) {
+							callName = node.callee.name;
+						}
+					}
+
+					// Special case: _createcomponent is marked as built-in but it's instantiating user code
+					if ( lCase( callName ) == "_createcomponent" ) {
+						isBuiltIn = false;
+						// Try to get the component name from the first argument
+						if ( structKeyExists( node, "arguments" ) &&
+						    isArray( node.arguments ) &&
+						    arrayLen( node.arguments ) > 0 ) {
+							var firstArg = node.arguments[ 1 ];
+							if ( isStruct( firstArg ) && structKeyExists( firstArg, "value" ) && isSimpleValue( firstArg.value ) ) {
+								callName = "new " & firstArg.value;
+							}
+						}
+					}
+
+					// Add to call map if not built-in
+					if ( !isBuiltIn && position > 0 ) {
+						arguments.callMap[ position ] = {
+							isChildTime: true,
+							isBuiltIn: false,
+							functionName: callName
+						};
+					}
+				}
+			}
+		}
 	}
 
 	function run() {
@@ -149,7 +259,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 				};
 
 				// Test that the analyzer can process real AST files
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Verify basic structure
 				expect(structKeyExists(result, "blocks")).toBeTrue("Result should have blocks");
@@ -176,7 +286,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Component methods should NOT be marked as built-in
 				for (var key in result.blocks) {
@@ -209,7 +319,7 @@ component extends="org.lucee.cfml.test.LuceeTestCase" labels="lcov" {
 					}
 				};
 
-				var result = variables.callTreeAnalyzer.analyzeCallTree(aggregated, files);
+				var result = analyzeCallTreeWithNewAPI( aggregated, files );
 
 				// Member functions of built-in types should be handled appropriately
 				expect(result.metrics.childTimeBlocks).toBeGTE(0, "Should detect member function calls");

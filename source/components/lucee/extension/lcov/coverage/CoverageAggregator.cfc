@@ -105,14 +105,13 @@ component {
 		cfloop( array=chunkResults, item="local.chunkResult" ) {
 			totalLinesProcessed += chunkResult.linesProcessed;
 			var chunkAgg = chunkResult.aggregated;
-			cfloop( collection=chunkAgg, key="local.k" ) {
+			cfloop( collection=chunkAgg, key="local.k", value="local.e" ) {
 				if ( structKeyExists( a, k ) ) {
 					var r = a[k];
-					var e = chunkAgg[k];
 					r[4] += e[4];
 					r[5] += e[5];
 				} else {
-					a[k] = chunkAgg[k];
+					a[k] = e;
 				}
 			}
 		}
@@ -123,8 +122,8 @@ component {
 		// Calculate stats
 		var aggregatedEntries = structCount(a);
 		var totalHits = 0;
-		cfloop( collection=a, key="local.key" ) {
-			totalHits += a[key][4];
+		cfloop( collection=a, key="local.key", value="local.value" ) {
+			totalHits += value[4];
 		}
 		var duplicateCount = totalHits - aggregatedEntries;
 		var aggregationTime = getTickCount() - aggregationStart;

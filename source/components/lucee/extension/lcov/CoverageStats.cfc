@@ -305,12 +305,10 @@ component accessors="true" {
 		required struct fileCoverage,
 		required struct allExecutableLines
 	) localmode=true {
-		cfloop( collection=arguments.fileCoverage, key="local.lineNum" ) {
+		cfloop( collection=arguments.fileCoverage, key="local.lineNum", value="local.lineData" ) {
 			if (!structKeyExists(allExecutableLines[filePath], lineNum)) {
 				continue;
 			}
-
-			var lineData = fileCoverage[lineNum];
 			var hitCount = int(lineData[1]);
 			if (!structKeyExists(fileStats[filePath].hitCounts, lineNum)) {
 				fileStats[filePath].hitCounts[lineNum] = 0;

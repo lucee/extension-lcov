@@ -296,19 +296,19 @@ component {
 						"Line #lineNumber# not in coverage should have class 'non-executable' but got '#rowClass#' in [#arguments.reportHtmlPath#]");
 				}
 
-				// Get execution time cell and child time cell
-				var execTimeCells = htmlParser.select(row, "[data-execution-time-cell]");
-				var childTimeCells = htmlParser.select(row, "td.child-time");
+				// Get time type and time value cells
+				var timeTypeCells = htmlParser.select(row, "td.time-type");
+				var timeValueCells = htmlParser.select(row, "td.time-value");
 
-				// Both should exist (mutually exclusive)
-				expect(arrayLen(execTimeCells)).toBe(1, "Each row should have one execution-time cell in line #lineNumber#");
-				expect(arrayLen(childTimeCells)).toBe(1, "Each row should have one child-time cell in line #lineNumber#");
+				// Both should exist
+				expect(arrayLen(timeTypeCells)).toBe(1, "Each row should have one time-type cell in line #lineNumber#");
+				expect(arrayLen(timeValueCells)).toBe(1, "Each row should have one time-value cell in line #lineNumber#");
 
-				var execHtmlText = trim(htmlParser.getText(execTimeCells[1]));
-				var childHtmlText = trim(htmlParser.getText(childTimeCells[1]));
+				var timeTypeText = trim(htmlParser.getText(timeTypeCells[1]));
+				var timeValueText = trim(htmlParser.getText(timeValueCells[1]));
 
 				// Find matching line in JSON coverage data
-				// NEW FORMAT: [hitCount, ownTime, childTime] - both ownTime and childTime can be present
+				// FORMAT: [hitCount, ownTime, childTime] - both ownTime and childTime can be present
 				if (structKeyExists(coverageData, lineNumber) && arrayLen(coverageData[lineNumber]) >= 2) {
 					var ownTimeNanos = coverageData[lineNumber][2]; // Own time in source unit
 					var childTimeNanos = arrayLen(coverageData[lineNumber]) >= 3 ? coverageData[lineNumber][3] : 0; // Child time in source unit
@@ -317,27 +317,33 @@ component {
 					var ownTimeMicros = timeFormatter.convertTime(ownTimeNanos, sourceUnit, "μs");
 					var childTimeMicros = timeFormatter.convertTime(childTimeNanos, sourceUnit, "μs");
 
-					// Validate total time (ownTime + childTime)
-					var totalTimeMicros = ownTimeMicros + childTimeMicros;
-					if (totalTimeMicros > 0) {
-						var expectedTotalFormatted = timeFormatter.format(totalTimeMicros);
-						expect(execHtmlText).toBe(expectedTotalFormatted,
-							"Total time mismatch at line #lineNumber# - HTML: '#execHtmlText#', Expected: '#expectedTotalFormatted#' [#arguments.reportHtmlPath#]");
-					} else {
-						// No time at all, execution time cell should be empty
-						expect(execHtmlText).toBe("",
-							"Line #lineNumber# with totalTime=0 should have empty execution time cell [#arguments.reportHtmlPath#]");
+					// Determine expected type and value based on production logic:
+					// Priority: Child > Own
+					var expectedType = "";
+					var expectedTimeMicros = 0;
+
+					if (childTimeMicros > 0) {
+						expectedType = "Child";
+						expectedTimeMicros = childTimeMicros;
+					} else if (ownTimeMicros > 0) {
+						expectedType = "Own";
+						expectedTimeMicros = ownTimeMicros;
 					}
 
-					// Validate child time if present
-					if (childTimeMicros > 0) {
-						var expectedChildFormatted = timeFormatter.format(childTimeMicros);
-						expect(childHtmlText).toBe(expectedChildFormatted,
-							"Child time mismatch at line #lineNumber# - HTML: '#childHtmlText#', Expected: '#expectedChildFormatted#' [#arguments.reportHtmlPath#]");
+					// Validate time type
+					if (expectedType != "") {
+						expect(timeTypeText).toBe(expectedType,
+							"Time type mismatch at line #lineNumber# - HTML: '#timeTypeText#', Expected: '#expectedType#' [#arguments.reportHtmlPath#]");
+
+						var expectedTimeFormatted = timeFormatter.format(expectedTimeMicros);
+						expect(timeValueText).toBe(expectedTimeFormatted,
+							"Time value mismatch at line #lineNumber# - HTML: '#timeValueText#', Expected: '#expectedTimeFormatted#' [#arguments.reportHtmlPath#]");
 					} else {
-						// No child time, child time cell should be empty
-						expect(childHtmlText).toBe("",
-							"Line #lineNumber# with childTime=0 should have empty child time cell [#arguments.reportHtmlPath#]");
+						// No time at all, cells should be empty
+						expect(timeTypeText).toBe("",
+							"Line #lineNumber# with no time should have empty type cell [#arguments.reportHtmlPath#]");
+						expect(timeValueText).toBe("",
+							"Line #lineNumber# with no time should have empty value cell [#arguments.reportHtmlPath#]");
 					}
 				}
 			}

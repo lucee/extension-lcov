@@ -25,13 +25,12 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		var coverage = [=];
 
 		// Process each file's blocks
-		cfloop( collection=arguments.blocksByFile, key="local.fileIdx" ) {
+		cfloop( collection=arguments.blocksByFile, key="local.fileIdx", value="local.blocks" ) {
 			if (!structKeyExists(arguments.files, fileIdx)) continue;
 
 			var filePath = arguments.files[fileIdx].path;
 			var lineMapping = arguments.lineMappingsCache[filePath];
 			var mappingLen = arrayLen(lineMapping);
-			var blocks = arguments.blocksByFile[fileIdx];
 			var f = structNew('regular');
 
 			// Get executable lines for this file
@@ -82,13 +81,12 @@ component displayname="CoverageBlockProcessor" accessors="true" {
 		var coverage = [=];
 
 		// Process each file's blocks
-		cfloop( collection=arguments.blocksByFile, key="local.fileIdx" ) {
+		cfloop( collection=arguments.blocksByFile, key="local.fileIdx", value="local.blocks" ) {
 			if (!structKeyExists(arguments.files, fileIdx)) continue;
 
 			var filePath = arguments.files[fileIdx].path;
 			var lineMapping = arguments.lineMappingsCache[filePath];
 			var mappingLen = arrayLen(lineMapping);
-			var blocks = arguments.blocksByFile[fileIdx];
 			var f = structNew('regular');
 
 			// Get executable lines for this file

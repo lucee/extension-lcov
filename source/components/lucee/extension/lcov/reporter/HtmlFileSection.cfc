@@ -26,14 +26,18 @@ component {
 		html &= generateStatsSection(stats, totalExecutionTime, timeFormatter, sourceUnit, arguments.displayUnit);
 
 		var coverage = result.getCoverageForFile(arguments.fileIndex);
-		var fileLines = result.getFileLines(arguments.fileIndex);
+
+		// Load source lines from AST file
+		var astFilePath = result.getFileItem(arguments.fileIndex, "astFile");
+		var astData = deserializeJSON(fileRead(astFilePath));
+		var fileLines = astData.lines;
 
 		// Sanity check: file with coverage should have source code
 		if ( arrayLen( fileLines ) == 0 ) {
 			throw(
 				type = "HtmlGenerationError",
 				message = "Cannot generate HTML: source code missing for file [" & filePath & "]",
-				detail = "File has coverage data but no source lines. Source code must be hydrated before HTML generation. File index: " & arguments.fileIndex & ", exeLog: " & arguments.result.getExeLog()
+				detail = "AST file [" & astFilePath & "] exists but contains no source lines. File index: " & arguments.fileIndex & ", exeLog: " & arguments.result.getExeLog()
 			);
 		}
 
@@ -71,8 +75,9 @@ component {
 				var countVal = lineData[1];
 				var ownTime = lineData[2];
 				var childTime = lineData[3];
-				// Total execution time = ownTime + childTime
-				var totalTime = ownTime + childTime;
+				var blockTime = lineData[4];
+				// Total execution time = ownTime + childTime + blockTime
+				var totalTime = ownTime + childTime + blockTime;
 
 				if (countVal > 0) arrayAppend(countValues, countVal);
 				if (totalTime > 0) arrayAppend(timeValues, totalTime);
@@ -104,9 +109,9 @@ component {
 					& '<th class="line-number" data-sort-type="numeric">Line</th>'
 					& '<th class="code-cell" data-sort-type="text">Code</th>'
 					& '<th class="exec-count" data-sort-type="numeric">Count</th>'
-					& '<th class="total-time" data-sort-type="numeric" data-execution-time-header>Total' & unitSuffix & '</th>'
-					& '<th class="child-time" data-sort-type="numeric">Child' & unitSuffix & '</th>'
-					& '<th class="own-time" data-sort-type="numeric">Own' & unitSuffix & '</th>'
+				& '<th class="time-type" data-sort-type="text">Type</th>'
+					& '<th class="time-value" data-sort-type="numeric" data-execution-time-header>Time' & unitSuffix & '</th>'
+					& '<th class="avg-time" data-sort-type="numeric">Avg' & unitSuffix & '</th>'
 				& '</tr>'
 			& '</thead>'
 			& '<tbody>';
@@ -148,50 +153,66 @@ component {
 			var rowClass = hasData ? "executed" : (structKeyExists(arguments.coverage, i) ? "not-executed" : "non-executable");
 
 			var execCount = "";
-			var totalTime = "";
-			var childTime = "";
-			var ownTime = "";
+			var timeType = "";
+			var timeValue = "";
+			var avgValue = "";
 			var countClass = "exec-count";
-			var totalTimeClass = "total-time";
-			var childTimeClass = "child-time";
-			var ownTimeClass = "own-time";
-			var totalTimeSortValue = 0;
-			var childTimeSortValue = 0;
-			var ownTimeSortValue = 0;
+			var timeClass = "time-value";
+			var avgClass = "avg-time";
+			var timeSortValue = 0;
+			var avgSortValue = 0;
 
 			if (hasData) {
 				var countVal = lineData[1];
 				var ownTimeVal = lineData[2];
 				var childTimeVal = lineData[3];
+				var blockTimeVal = lineData[4];
 
 				execCount = countVal > 0 ? numberFormat(countVal) : "";
 
-				// Calculate total time (own + child)
-				var totalTimeVal = ownTimeVal + childTimeVal;
-				if (totalTimeVal > 0) {
-					var totalTimeMicros = arguments.timeFormatter.convertTime(totalTimeVal, arguments.sourceUnit, "μs");
-					totalTime = arguments.timeFormatter.format(totalTimeMicros);
-					totalTimeSortValue = totalTimeMicros;
-					var additionalTotalTimeClass = arguments.timeHeatmap.getValueClass(totalTimeVal);
-					if (additionalTotalTimeClass != "") totalTimeClass &= " " & additionalTotalTimeClass;
-				}
+				// Determine time type and value - Priority: Block > Child > Own
+				if (blockTimeVal > 0) {
+					timeType = "Block";
+					var timeMicros = arguments.timeFormatter.convertTime(blockTimeVal, arguments.sourceUnit, "μs");
+					timeValue = arguments.timeFormatter.format(timeMicros);
+					timeSortValue = timeMicros;
+					var additionalTimeClass = arguments.timeHeatmap.getValueClass(blockTimeVal);
+					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
 
-				// Format child time if present
-				if (childTimeVal > 0) {
-					var childTimeMicros = arguments.timeFormatter.convertTime(childTimeVal, arguments.sourceUnit, "μs");
-					childTime = arguments.timeFormatter.format(childTimeMicros);
-					childTimeSortValue = childTimeMicros;
-					var additionalChildTimeClass = arguments.timeHeatmap.getValueClass(childTimeVal);
-					if (additionalChildTimeClass != "") childTimeClass &= " " & additionalChildTimeClass;
-				}
+					// Calculate average if count > 1
+					if (countVal > 1) {
+						var avgMicros = timeMicros / countVal;
+						avgValue = arguments.timeFormatter.format(avgMicros);
+						avgSortValue = avgMicros;
+					}
+				} else if (childTimeVal > 0) {
+					timeType = "Child";
+					var timeMicros = arguments.timeFormatter.convertTime(childTimeVal, arguments.sourceUnit, "μs");
+					timeValue = arguments.timeFormatter.format(timeMicros);
+					timeSortValue = timeMicros;
+					var additionalTimeClass = arguments.timeHeatmap.getValueClass(childTimeVal);
+					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
 
-				// Format own time if present
-				if (ownTimeVal > 0) {
-					var ownTimeMicros = arguments.timeFormatter.convertTime(ownTimeVal, arguments.sourceUnit, "μs");
-					ownTime = arguments.timeFormatter.format(ownTimeMicros);
-					ownTimeSortValue = ownTimeMicros;
-					var additionalOwnTimeClass = arguments.timeHeatmap.getValueClass(ownTimeVal);
-					if (additionalOwnTimeClass != "") ownTimeClass &= " " & additionalOwnTimeClass;
+					// Calculate average if count > 1
+					if (countVal > 1) {
+						var avgMicros = timeMicros / countVal;
+						avgValue = arguments.timeFormatter.format(avgMicros);
+						avgSortValue = avgMicros;
+					}
+				} else if (ownTimeVal > 0) {
+					timeType = "Own";
+					var timeMicros = arguments.timeFormatter.convertTime(ownTimeVal, arguments.sourceUnit, "μs");
+					timeValue = arguments.timeFormatter.format(timeMicros);
+					timeSortValue = timeMicros;
+					var additionalTimeClass = arguments.timeHeatmap.getValueClass(ownTimeVal);
+					if (additionalTimeClass != "") timeClass &= " " & additionalTimeClass;
+
+					// Calculate average if count > 1
+					if (countVal > 1) {
+						var avgMicros = timeMicros / countVal;
+						avgValue = arguments.timeFormatter.format(avgMicros);
+						avgSortValue = avgMicros;
+					}
 				}
 
 				// Apply heatmap classes for count
@@ -206,9 +227,9 @@ component {
 			htmlParts[++partIndex] = '<td class="line-number"><a href="##F' & arguments.fileIndex & '-L' & i & '" id="F' & arguments.fileIndex & '-L' & i & '" class="line-anchor">' & i & '</a></td>' & nl;
 			htmlParts[++partIndex] = '<td class="code-cell">' & arguments.htmlEncoder.htmlEncode(arguments.fileLines[i]) & '</td>' & nl;
 			htmlParts[++partIndex] = '<td class="' & countClass & '">' & execCount & '</td>' & nl;
-			htmlParts[++partIndex] = '<td class="' & totalTimeClass & '" data-execution-time-cell data-sort-value="' & totalTimeSortValue & '">' & totalTime & '</td>' & nl;
-			htmlParts[++partIndex] = '<td class="' & childTimeClass & '" data-child-time-cell data-sort-value="' & childTimeSortValue & '">' & childTime & '</td>' & nl;
-			htmlParts[++partIndex] = '<td class="' & ownTimeClass & '" data-own-time-cell data-sort-value="' & ownTimeSortValue & '">' & ownTime & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="time-type">' & timeType & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="' & timeClass & '" data-execution-time-cell data-sort-value="' & timeSortValue & '">' & timeValue & '</td>' & nl;
+			htmlParts[++partIndex] = '<td class="' & avgClass & '" data-sort-value="' & avgSortValue & '">' & avgValue & '</td>' & nl;
 			htmlParts[++partIndex] = '</tr>' & nl;
 		}
 
