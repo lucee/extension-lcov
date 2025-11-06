@@ -103,12 +103,12 @@ component {
 			}
 
 			// Recursively traverse all child nodes
-			cfloop( collection=arguments.node, key="local.key" ) {
+			cfloop( collection=arguments.node, key="local.key", value="local.value" ) {
 				if (!arrayContains(variables.SKIP_KEYS_TRAVERSE, key)) {
 					// Skip null values (e.g., ReturnStatement with no argument)
-					if (!isNull(arguments.node[key])) {
+					if (!isNull(local.value)) {
 						traverseForFunctions(
-							arguments.node[key],
+							local.value,
 							arguments.functions,
 							arguments.parentScope
 						);
@@ -353,9 +353,9 @@ component {
 			}
 
 			// Traverse children
-			cfloop( collection=node, key="local.key" ) {
-				if (!arrayContains(variables.SKIP_KEYS_EXTRACT, key) && !isNull(node[key])) {
-					findCallsRecursive(node[key], calls);
+			cfloop( collection=node, key="local.key", value="local.value" ) {
+				if (!arrayContains(variables.SKIP_KEYS_EXTRACT, key) && !isNull(local.value)) {
+					findCallsRecursive(local.value, calls);
 				}
 			}
 		}

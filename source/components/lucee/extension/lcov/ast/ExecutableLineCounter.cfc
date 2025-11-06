@@ -41,24 +41,24 @@ component accessors="true" {
 
 			// Recursively traverse ALL properties in the node
 			// This ensures we find all executable lines regardless of AST structure
-			cfloop( collection=node, key="local.key" ) {
+			cfloop( collection=node, key="local.key", value="local.value" ) {
 				// Skip metadata properties that don't contain executable code
 				if (key == "start" || key == "end" || key == "type" || key == "sourceLines") {
 					continue;
 				}
 
 				// Skip null values
-				if (isNull(node[key])) {
+				if (isNull(local.value)) {
 					continue;
 				}
 
 				// Recursively traverse arrays
-				if (isArray(node[key])) {
-					traverseNodes(node[key], arguments.executableLines);
+				if (isArray(local.value)) {
+					traverseNodes(local.value, arguments.executableLines);
 				}
 				// Recursively traverse nested structs
-				else if (isStruct(node[key])) {
-					traverseNodes([node[key]], arguments.executableLines);
+				else if (isStruct(local.value)) {
+					traverseNodes([local.value], arguments.executableLines);
 				}
 			}
 		}
