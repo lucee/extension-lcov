@@ -54,19 +54,33 @@ component {
 			);
 			var cachedOptionsHash = cachedData.optionsHash ?: "";
 
+			// Debug: show what's being hashed
+			//variables.logger.debug("Options being hashed: allowList=#serializeJSON(arguments.allowList)#, blocklist=#serializeJSON(arguments.blocklist)#, includeCallTree=#arguments.includeCallTree#");
+
 			if (len(cachedChecksum) && cachedChecksum == currentChecksum && currentOptionsHash == cachedOptionsHash) {
 				variables.logger.debug("Using cached result for [" & getFileFromPath(arguments.exlPath) & "]");
 				// Use the static fromJson method but disable validation to avoid schema issues
 				var cachedResult = new lucee.extension.lcov.model.result().fromJson(fileRead(jsonPath), false);
 				return {valid: true, result: cachedResult};
 			} else {
-				variables.logger.debug("Checksum mismatch for [" & arguments.exlPath & "] - re-parsing (cached: " & cachedChecksum & ", current: " & currentChecksum & ")");
+				// Determine what changed to provide clear debug logging
+				var reasons = [];
+				if (cachedChecksum != currentChecksum) {
+					arrayAppend( reasons, "checksum changed (cached: " & cachedChecksum & ", current: " & currentChecksum & ")" );
+				}
+				if (cachedOptionsHash != currentOptionsHash) {
+					arrayAppend( reasons, "options hash changed (cached: " & cachedOptionsHash & ", current: " & currentOptionsHash & ")" );
+				}
+				if (arrayLen(reasons) == 0) {
+					arrayAppend( reasons, "cache validation failed (missing checksum or hash)" );
+				}
+				variables.logger.info("Cache invalid for [" & getFileFromPath(arguments.exlPath) & "] - " & arrayToList(reasons, "; ") & " - re-parsing");
 				// Delete outdated cached file
 				fileDelete(jsonPath);
 				return {valid: false};
 			}
 		} catch (any e) {
-			variables.logger.debug("Failed to load cached result for [" & arguments.exlPath & "]: " & e.message & " - re-parsing");
+			variables.logger.info("Failed to load cached result for [" & arguments.exlPath & "]: " & e.message & " - re-parsing");
 			// Delete invalid cached file
 			try {
 				fileDelete(jsonPath);
@@ -89,7 +103,10 @@ component {
 		required array blocklist,
 		required boolean includeCallTree
 	) {
-		return hash(serializeJSON([arguments.allowList, arguments.blocklist, arguments.includeCallTree]), "MD5");
+		var json = serializeJSON([arguments.allowList, arguments.blocklist, arguments.includeCallTree]);
+		var hashValue = hash(json, "MD5");
+		//variables.logger.debug("calculateOptionsHash: JSON=[#json#], hash=#hashValue#");
+		return hashValue;
 	}
 
 }

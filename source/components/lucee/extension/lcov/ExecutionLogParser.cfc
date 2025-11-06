@@ -101,8 +101,12 @@ component {
 			}
 		}
 
-		// Store options hash
-		var optionsHash = hash(serializeJSON([arguments.allowList, arguments.blocklist]), "MD5");
+		// Store options hash (delegate to CacheValidator for consistency)
+		var optionsHash = variables.cacheValidator.calculateOptionsHash(
+			arguments.allowList,
+			arguments.blocklist,
+			arguments.includeCallTree
+		);
 		coverage.setOptionsHash(optionsHash);
 
 		// If result is empty, return it without processing coverage
