@@ -4,21 +4,69 @@ component accessors=true {
 	// Always use these methods for property access in tests and core logic; do not use direct assignment or member access.
 	property name="metadata" type="struct" default="#{}#";
 	property name="stats" type="struct" default="#{}#"; // overall stats for all files
-	property name="coverage" type="struct" default="#{}#"; // per file coverage data (line-based, derived from blocks)
-	property name="blocks" type="struct" default="#{}#"; // per file block-level execution data: {fileIdx: {"startPos-endPos": {hitCount, execTime, blockType}}}
-	property name="files" type="struct" default="#{}#"; // contains per file stats, source and info 
+	property name="files" type="struct" default="#{}#"; // contains per file stats, source and info
 	property name="exeLog" type="string" default=""; // file path of the .exl used to generate this result
 	property name="exlChecksum" type="string" default=""; // checksum of the .exl file to detect reprocessing
 	property name="optionsHash" type="string" default=""; // hash of parsing options to detect option changes
 	property name="coverageStartByte" type="numeric" default="0"; // byte offset where coverage section starts in .exl file
 	property name="outputFilename" type="string" default=""; // name of the output, without an file extension
 	property name="parserPerformance" type="struct" default="#{}#";
-	property name="callTree" type="struct" default="#{}#"; // call tree analysis data
+
+	/**
+	 * aggregated: Raw block-level coverage data (character positions) - IMMUTABLE CACHE
+	 * Format: {"fileIdx\tstartPos\tendPos": [fileIdx, startPos, endPos, hitCount, execTime, isOverlapping]}
+	 * Example: {"0\t857\t1055": [0, 857, 1055, 1, 79975, true]}
+	 *   - Element [0]: fileIdx
+	 *   - Element [1]: startPos (character position where block starts)
+	 *   - Element [2]: endPos (character position where block ends)
+	 *   - Element [3]: hitCount (how many times block executed)
+	 *   - Element [4]: execTime (execution time in microseconds)
+	 *   - Element [5]: isOverlapping (true if block contains other executed blocks)
+	 * Created by: parseExecutionLogs() from .exl files
+	 * Used by: convertAggregatedToBlocks() to create blocks struct
+	 * Note: This is the SOURCE OF TRUTH - blocks is derived from this
+	 */
+	property name="aggregated" type="struct" default="#{}#";
+
+	/**
+	 * coverage: Line-based coverage data for reporting
+	 * Format: {fileIdx: {lineNum: [hitCount, ownTime, childTime, blockTime]}}
+	 * Example: {"0": {"41": [1, 79975, 0, 0]}}
+	 *   - Element [0]: hitCount (how many times line executed)
+	 *   - Element [1]: ownTime (own execution time in microseconds)
+	 *   - Element [2]: childTime (time spent in function calls in microseconds)
+	 *   - Element [3]: blockTime (time for block containers like for/if in microseconds)
+	 * Created by: aggregateBlocksToLines() which converts blocks to lines using lineMapping
+	 * Used by: HTML reporter to display per-line coverage
+	 */
+	property name="coverage" type="struct" default="#{}#";
+
+	/**
+	 * callTree: Call tree metadata from AST analysis
+	 * Format: {position: {isChildTime, isBuiltIn, functionName, astNodeType}}
+	 * Example: {"156": {isBlock: false, isChildTime: true, astNodeType: "CallExpression", functionName: "SOMEFUNCTION"}}
+	 * Created by: extractAstMetadata() phase by parsing AST once per unique file
+	 * Used by: markChildTimeBlocks() to determine which blocks are function calls vs block containers
+	 */
+	property name="callTree" type="struct" default="#{}#";
+
+	/**
+	 * blocks: Block-level execution data (character positions)
+	 * Format: {fileIdx: {"startPos-endPos": {hitCount, execTime, isOverlapping, blockType}}}
+	 * Example: {"0": {"857-1055": {hitCount: 1, execTime: 79975, isOverlapping: true, blockType: 0}}}
+	 *   - hitCount: how many times block executed
+	 *   - execTime: execution time in microseconds
+	 *   - isOverlapping: true if this block contains other executed blocks (runtime heuristic)
+	 *   - blockType: 0=own, 1=child, 2=own+overlap, 3=child+overlap
+	 * Created by: convertAggregatedToBlocks() from aggregated data
+	 * Used by: aggregateBlocksToLines() to build line-based coverage
+	 * Note: This is a REDUNDANT copy of aggregated data in different format for easier lookup
+	 */
+	property name="blocks" type="struct" default="#{}#";
+
 	property name="callTreeMetrics" type="struct" default="#{}#"; // call tree summary metrics
 	property name="isFile" type="boolean" default="false"; // true if this is a file-level result (merged), false if request-level
-	property name="aggregated" type="struct" default="#{}#"; // raw aggregated coverage data: {"fileIdx\tstartPos\tendPos": [fileIdx, startPos, endPos, hitCount, execTime]}
 	property name="flags" type="struct" default="#{}#"; // processing flags: {hasCallTree: false, hasBlocks: false, hasCoverage: false}
-
 
 	/**
 	 * Returns an array of all file paths in the result.
@@ -342,26 +390,4 @@ component accessors=true {
 		return validator.validate(this, arguments.throw);
 	}
 
-	/**
-	 * Get call tree data for a specific file
-	 * @fileIndex The file index
-	 * @return Struct of call tree entries for this file
-	 */
-	public struct function getCallTreeForFile(required numeric fileIndex) {
-		var fileCallTree = {};
-
-		if (!structKeyExists(variables, "callTree") || !isStruct(variables.callTree)) {
-			return fileCallTree;
-		}
-
-		// Filter call tree entries for this file
-		for (var blockKey in variables.callTree) {
-			var block = variables.callTree[blockKey];
-			if (structKeyExists(block, "fileIdx") && block.fileIdx == arguments.fileIndex) {
-				fileCallTree[blockKey] = block;
-			}
-		}
-
-		return fileCallTree;
-	}
 }

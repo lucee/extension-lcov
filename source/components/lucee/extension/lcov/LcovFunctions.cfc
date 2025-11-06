@@ -209,10 +209,24 @@ component {
 			displayUnit: "milli",
 			allowList: [],
 			blocklist: [],
-			separateFiles: false
+			separateFiles: false,
+			markdown: {
+				enabled: true,
+				blockBased: false,
+				sortBy: "time-desc",
+				contextLines: 2,
+				minTime: 0,
+				minAvg: 0,
+				minHitCount: 0
+			}
 		};
 		var _options = structCopy( defaultOptions );
-		structAppend( _options, arguments.options );
+		structAppend( _options, arguments.options, true );
+
+		// Merge markdown options specifically (deep merge)
+		if (structKeyExists(arguments.options, "markdown")) {
+			structAppend( _options.markdown, arguments.options.markdown, true );
+		}
 
 		var logger = new lucee.extension.lcov.Logger( level=_options.logLevel );
 		var generator = new generator.HtmlReportGenerator( logger=logger );
@@ -234,6 +248,7 @@ component {
 		// Phase generateReports: Generate HTML reports
 		var htmlReporter = generator.createHtmlReporter( logger, _options.displayUnit );
 		htmlReporter.setOutputDir( arguments.outputDir );
+		htmlReporter.setMarkdownOptions( _options.markdown );
 		var htmlIndex = "";
 
 		if (_options.separateFiles) {
@@ -249,8 +264,6 @@ component {
 				true  // buildWithCallTree=true for HTML reports
 			);
 
-			// Hydrate source code for HTML generation
-			generator.hydrateSourceCodeForMergedResults( resultsWithCoverage, logger );
 
 			// Write JSON files (file-*.json) alongside HTML files
 			generator.writeJsonFilesFromResults( resultsWithCoverage, arguments.outputDir, logger );
